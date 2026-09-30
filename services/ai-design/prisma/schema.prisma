@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AiDesignJobStatus {
+  QUEUED
+  PROCESSING
+  PROPOSED
+  FAILED
+  CANCELLED
+}
+
+model AiDesignJob {
+  id              String            @id @default(uuid()) @db.Uuid
+  ownerSubject    String            @map("owner_subject") @db.VarChar(255)
+  eventId         String            @map("event_id") @db.Uuid
+  designId        String            @map("design_id") @db.Uuid
+  baseVersion     Int               @map("base_version")
+  prompt          String            @db.VarChar(2000)
+  sourceDocument  Json              @map("source_document")
+  proposal        Json?
+  previewObjectKey String?           @map("preview_object_key") @db.VarChar(500)
+  summary         String?           @db.VarChar(1000)
+  provider        String?           @db.VarChar(60)
+  status          AiDesignJobStatus @default(QUEUED)
+  attempt         Int               @default(0)
+  deliveryAfter   DateTime          @default(now()) @map("delivery_after") @db.Timestamptz(3)
+  startedAt       DateTime?         @map("started_at") @db.Timestamptz(3)
+  completedAt     DateTime?         @map("completed_at") @db.Timestamptz(3)
+  errorCode       String?           @map("error_code") @db.VarChar(80)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([ownerSubject, eventId, designId, createdAt(sort: Desc)], map: "ai_design_jobs_owner_design_created_idx")
+  @@index([status, deliveryAfter], map: "ai_design_jobs_delivery_idx")
+  @@map("ai_design_jobs")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  eventType   String    @map("event_type") @db.VarChar(100)
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+
+  @@index([publishedAt, createdAt], map: "ai_design_outbox_pending_idx")
+  @@map("outbox_messages")
+}

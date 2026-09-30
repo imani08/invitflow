@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GuestStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ImportStatus {
+  ANALYZED
+  MAPPED
+  COMPLETED
+  FAILED
+}
+
+model Guest {
+  id          String       @id @default(uuid()) @db.Uuid
+  ownerSubject String      @map("owner_subject") @db.VarChar(255)
+  eventId     String       @map("event_id") @db.Uuid
+  groupId     String?      @map("group_id") @db.Uuid
+  fullName    String       @map("full_name") @db.VarChar(160)
+  email       String?      @db.VarChar(320)
+  phone       String?      @db.VarChar(40)
+  notes       String?      @db.VarChar(2000)
+  status      GuestStatus  @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?    @map("deleted_at") @db.Timestamptz(3)
+  group       GuestGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  access      GuestCeremonyAccess[]
+  companions  Companion[]
+
+  @@index([ownerSubject, eventId, createdAt(sort: Desc), id(sort: Desc)], map: "guests_owner_event_created_idx")
+  @@unique([eventId, email], map: "guests_event_email_key")
+  @@map("guests")
+}
+
+model GuestGroup {
+  id          String   @id @default(uuid()) @db.Uuid
+  ownerSubject String  @map("owner_subject") @db.VarChar(255)
+  eventId     String   @map("event_id") @db.Uuid
+  name        String   @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  guests      Guest[]
+
+  @@unique([eventId, name], map: "guest_groups_event_name_key")
+  @@index([ownerSubject, eventId], map: "guest_groups_owner_event_idx")
+  @@map("guest_groups")
+}
+
+model GuestCeremonyAccess {
+  id                String   @id @default(uuid()) @db.Uuid
+  guestId           String   @map("guest_id") @db.Uuid
+  ceremonyId        String   @map("ceremony_id") @db.Uuid
+  isInvited         Boolean  @default(true) @map("is_invited")
+  allowedCompanions Int      @default(0) @map("allowed_companions")
+  tableReference    String?  @map("table_reference") @db.VarChar(120)
+  zoneReference     String?  @map("zone_reference") @db.VarChar(120)
+  seatNumber        String?  @map("seat_number") @db.VarChar(40)
+  category          String?  @db.VarChar(80)
+  notes             String?  @db.VarChar(1000)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  guest             Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@unique([guestId, ceremonyId], map: "guest_ceremony_access_guest_ceremony_key")
+  @@index([ceremonyId, guestId], map: "guest_ceremony_access_ceremony_idx")
+  @@map("guest_ceremony_access")
+}
+
+model Companion {
+  id           String   @id @default(uuid()) @db.Uuid
+  guestId      String   @map("guest_id") @db.Uuid
+  fullName     String   @map("full_name") @db.VarChar(160)
+  relationship String?  @db.VarChar(80)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  guest        Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+
+  @@index([guestId], map: "companions_guest_idx")
+  @@map("companions")
+}
+
+model ImportJob {
+  id             String       @id @default(uuid()) @db.Uuid
+  ownerSubject   String       @map("owner_subject") @db.VarChar(255)
+  eventId        String       @map("event_id") @db.Uuid
+  originalName   String       @map("original_name") @db.VarChar(255)
+  fileType       String       @map("file_type") @db.VarChar(10)
+  status         ImportStatus @default(ANALYZED)
+  columns        Json
+  sourceRows     Json         @map("source_rows")
+  mapping        Json?
+  ceremonyIds    Json?        @map("ceremony_ids")
+  preview        Json?
+  resultSummary  Json?        @map("result_summary")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([ownerSubject, eventId, createdAt(sort: Desc)], map: "import_jobs_owner_event_created_idx")
+  @@map("import_jobs")
+}
+
+model OutboxMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(100)
+  aggregateId String   @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int      @default(0)
+
+  @@index([publishedAt, createdAt], map: "guest_outbox_pending_idx")
+  @@map("outbox_messages")
+}

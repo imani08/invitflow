@@ -1,0 +1,16 @@
+# Never send local or production environment files to a Docker build context.
+**/.env
+**/.env.*
+!.env.example
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/.turbo
+**/.pnpm-store
+**/generated
+.git
+.codex
+.agents
+tmp
+data

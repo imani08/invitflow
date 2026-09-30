@@ -1,0 +1,70 @@
+{
+  "realm": "invitaflow-dev",
+  "enabled": true,
+  "displayName": "InvitaFlow Development",
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "emailRequired": true,
+  "rememberMe": false,
+  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
+  "defaultRoles": ["CUSTOMER"],
+  "roles": {
+    "realm": [
+      {"name":"CUSTOMER","description":"Compte client standard"},
+      {"name":"EVENT_MANAGER","description":"Gestionnaire d’événements"},
+      {"name":"CHECKIN_AGENT","description":"Agent de contrôle d’accès"},
+      {"name":"SUPPORT_ADMIN","description":"Support client"},
+      {"name":"FINANCE_ADMIN","description":"Administration financière"},
+      {"name":"SUPER_ADMIN","description":"Administration complète"}
+    ]
+  },
+  "requiredActions": [
+    {"alias":"VERIFY_EMAIL","name":"Verify Email","providerId":"VERIFY_EMAIL","enabled":true,"defaultAction":true,"priority":10,"config":{}},
+    {"alias":"UPDATE_PASSWORD","name":"Update Password","providerId":"UPDATE_PASSWORD","enabled":true,"defaultAction":false,"priority":30,"config":{}},
+    {"alias":"CONFIGURE_TOTP","name":"Configure OTP","providerId":"CONFIGURE_TOTP","enabled":true,"defaultAction":false,"priority":20,"config":{}}
+  ],
+  "internationalizationEnabled": true,
+  "supportedLocales": ["fr", "en"],
+  "defaultLocale": "fr",
+  "otpPolicyType": "totp",
+  "otpPolicyAlgorithm": "HmacSHA1",
+  "otpPolicyDigits": 6,
+  "otpPolicyPeriod": 30,
+  "otpPolicyLookAheadWindow": 1,
+  "smtpServer": {"host":"mailpit","port":"1025","from":"no-reply@invitaflow.local","fromDisplayName":"InvitaFlow","auth":"false","ssl":"false","starttls":"false"},
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {"clientId": "invitaflow-web", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "directAccessGrantsEnabled": false, "redirectUris": ["http://localhost:3000/api/auth/callback"], "webOrigins": ["http://localhost:3000"], "attributes": {"pkce.code.challenge.method":"S256"}, "defaultClientScopes": ["profile", "email", "roles", "web-origins", "profile-api", "events-api", "guests-api", "seating-api", "designs-api", "ai-design-api", "wallet-api", "billing-api", "payments-api", "notifications-api", "invitations-api", "admin-api"]},
+    {"clientId": "invitaflow-admin", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "directAccessGrantsEnabled": false, "redirectUris": ["http://localhost:3001/*"], "webOrigins": ["http://localhost:3001"], "defaultClientScopes": ["profile", "email", "roles", "admin-api"]},
+    {"clientId": "invitaflow-gateway", "enabled": true, "publicClient": false, "serviceAccountsEnabled": true, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "profile-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "events-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "guests-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "seating-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "designs-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "ai-design-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "wallet-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "billing-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "payments-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "notifications-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false},
+    {"clientId": "admin-api", "enabled": true, "publicClient": false, "standardFlowEnabled": false, "directAccessGrantsEnabled": false}
+  ],
+  "clientScopes": [
+    {"name":"profile-api","description":"Audience for the InvitaFlow Profile Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"profile-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"profile-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"events-api","description":"Audience for the InvitaFlow Events Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"events-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"events-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"guests-api","description":"Audience for the InvitaFlow Guests Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"guests-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"guests-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"seating-api","description":"Audience for the InvitaFlow Seating Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"seating-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"seating-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"designs-api","description":"Audience for the InvitaFlow Designs Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"designs-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"designs-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"ai-design-api","description":"Audience for the InvitaFlow AI Design Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"ai-design-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"ai-design-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"wallet-api","description":"Audience for the InvitaFlow Wallet Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"wallet-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"wallet-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"billing-api","description":"Audience for the InvitaFlow Billing Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"billing-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"billing-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"payments-api","description":"Audience for the InvitaFlow Payments Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"payments-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"payments-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"notifications-api","description":"Audience for the InvitaFlow Notifications Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"notifications-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"notifications-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"invitations-api","description":"Audience for the InvitaFlow Invitations Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"invitations-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"invitations-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
+    {"name":"admin-api","description":"Audience for InvitaFlow support and administration APIs","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"admin-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"admin-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]}
+  ]
+}

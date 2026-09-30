@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Profile {
+  id              String   @id @default(uuid()) @db.Uuid
+  identitySubject String   @unique(map: "profiles_identity_subject_key") @map("identity_subject") @db.VarChar(255)
+  email           String?  @db.VarChar(320)
+  displayName     String?  @map("display_name") @db.VarChar(100)
+  locale          String   @default("fr") @db.VarChar(5)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([email], map: "profiles_email_idx")
+  @@map("profiles")
+}

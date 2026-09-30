@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AuditEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  sourceEventId  String   @unique @map("source_event_id") @db.VarChar(64)
+  eventType      String   @map("event_type") @db.VarChar(120)
+  actorSubject   String?  @map("actor_subject") @db.VarChar(255)
+  resourceId     String?  @map("resource_id") @db.VarChar(255)
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz(3)
+  receivedAt     DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+  metadata       Json
+
+  @@index([receivedAt(sort: Desc), id(sort: Desc)], map: "audit_events_received_idx")
+  @@index([eventType, receivedAt(sort: Desc)], map: "audit_events_type_received_idx")
+  @@index([actorSubject, receivedAt(sort: Desc)], map: "audit_events_actor_received_idx")
+  @@map("audit_events")
+}
+
+enum ModerationStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model ModerationReport {
+  id                String           @id @default(uuid()) @db.Uuid
+  reporterSubject   String           @map("reporter_subject") @db.VarChar(255)
+  idempotencyKey    String           @map("idempotency_key") @db.VarChar(200)
+  resourceType      String           @map("resource_type") @db.VarChar(20)
+  resourceId        String           @map("resource_id") @db.Uuid
+  reasonCode        String           @map("reason_code") @db.VarChar(40)
+  description       String           @db.VarChar(1000)
+  status            ModerationStatus @default(OPEN)
+  reviewedBy        String?          @map("reviewed_by") @db.VarChar(255)
+  resolutionNote    String?          @map("resolution_note") @db.VarChar(500)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([reporterSubject, idempotencyKey])
+  @@index([status, createdAt(sort: Desc)], map: "moderation_reports_status_created_idx")
+  @@index([resourceType, resourceId, createdAt(sort: Desc)], map: "moderation_reports_resource_idx")
+  @@map("moderation_reports")
+}

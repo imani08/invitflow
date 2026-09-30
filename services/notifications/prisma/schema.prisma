@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Notification {
+  id             String   @id @default(uuid()) @db.Uuid
+  ownerSubject   String   @map("owner_subject") @db.VarChar(255)
+  sourceEventId  String   @unique @map("source_event_id") @db.VarChar(64)
+  eventType      String   @map("event_type") @db.VarChar(100)
+  category       String   @db.VarChar(40)
+  title          String   @db.VarChar(160)
+  message        String   @db.VarChar(500)
+  data           Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  readAt         DateTime? @map("read_at") @db.Timestamptz(3)
+
+  @@index([ownerSubject, createdAt(sort: Desc), id(sort: Desc)], map: "notifications_owner_created_idx")
+  @@index([ownerSubject, readAt, createdAt(sort: Desc)], map: "notifications_owner_unread_idx")
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  ownerSubject String   @id @map("owner_subject") @db.VarChar(255)
+  enabled      Boolean  @default(true)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("notification_preferences")
+}

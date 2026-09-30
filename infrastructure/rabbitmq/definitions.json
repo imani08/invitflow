@@ -1,0 +1,52 @@
+{
+  "vhosts": [{"name": "/"}],
+  "exchanges": [
+    {"name": "invitaflow.events", "vhost": "/", "type": "topic", "durable": true, "auto_delete": false, "internal": false, "arguments": {}},
+    {"name": "invitaflow.dlx", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {}},
+    {"name": "invitaflow.ai.jobs", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {}},
+    {"name": "invitaflow.render.jobs", "vhost": "/", "type": "direct", "durable": true, "auto_delete": false, "internal": false, "arguments": {}}
+  ],
+  "queues": [
+    {"name":"ai-design.jobs","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"ai-design.jobs.dead"}},
+    {"name":"ai-design.jobs.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"wallet.events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"wallet.events.dead"}},
+    {"name":"wallet.events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"wallet.payment-events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"wallet.payment-events.dead"}},
+    {"name":"wallet.payment-events.retry","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-message-ttl":30000,"x-dead-letter-exchange":"invitaflow.events","x-dead-letter-routing-key":"payment.succeeded.v1"}},
+    {"name":"wallet.payment-refunds.retry","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-message-ttl":30000,"x-dead-letter-exchange":"invitaflow.events","x-dead-letter-routing-key":"payment.refunded.v1"}},
+    {"name":"wallet.payment-events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"notifications.events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"notifications.events.dead"}},
+    {"name":"notifications.events.retry","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-message-ttl":30000,"x-dead-letter-exchange":"invitaflow.events","x-dead-letter-routing-key":"notifications.retry"}},
+    {"name":"notifications.events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"billing.events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"billing.events.dead"}},
+    {"name":"billing.events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"payments.events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"payments.events.dead"}},
+    {"name":"payments.events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"invitation.render.jobs","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"invitation.render.jobs.dead"}},
+    {"name":"invitation.render.jobs.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}},
+    {"name":"audit.events","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-dead-letter-exchange":"invitaflow.dlx","x-dead-letter-routing-key":"audit.events.dead"}},
+    {"name":"audit.events.retry","vhost":"/","durable":true,"auto_delete":false,"arguments":{"x-message-ttl":30000,"x-dead-letter-exchange":"invitaflow.events","x-dead-letter-routing-key":"audit.retry"}},
+    {"name":"audit.events.dead","vhost":"/","durable":true,"auto_delete":false,"arguments":{}}
+  ],
+  "bindings": [
+    {"source":"invitaflow.ai.jobs","vhost":"/","destination":"ai-design.jobs","destination_type":"queue","routing_key":"design.requested","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"ai-design.jobs.dead","destination_type":"queue","routing_key":"ai-design.jobs.dead","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"wallet.events","destination_type":"queue","routing_key":"wallet.#","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"wallet.payment-events","destination_type":"queue","routing_key":"payment.succeeded.v1","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"wallet.payment-events","destination_type":"queue","routing_key":"payment.refunded.v1","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"notifications.events","destination_type":"queue","routing_key":"#","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"notifications.events","destination_type":"queue","routing_key":"notifications.retry","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"wallet.payment-events.dead","destination_type":"queue","routing_key":"wallet.payment-events.dead","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"notifications.events.dead","destination_type":"queue","routing_key":"notifications.events.dead","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"wallet.events.dead","destination_type":"queue","routing_key":"wallet.events.dead","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"billing.events","destination_type":"queue","routing_key":"billing.#","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"billing.events.dead","destination_type":"queue","routing_key":"billing.events.dead","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"payments.events","destination_type":"queue","routing_key":"payment.#","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"payments.events.dead","destination_type":"queue","routing_key":"payments.events.dead","arguments":{}},
+    {"source":"invitaflow.render.jobs","vhost":"/","destination":"invitation.render.jobs","destination_type":"queue","routing_key":"render.requested","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"invitation.render.jobs.dead","destination_type":"queue","routing_key":"invitation.render.jobs.dead","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"audit.events","destination_type":"queue","routing_key":"#","arguments":{}},
+    {"source":"invitaflow.events","vhost":"/","destination":"audit.events","destination_type":"queue","routing_key":"audit.retry","arguments":{}},
+    {"source":"invitaflow.dlx","vhost":"/","destination":"audit.events.dead","destination_type":"queue","routing_key":"audit.events.dead","arguments":{}}
+  ]
+}

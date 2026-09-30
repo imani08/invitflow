@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WalletEntryType {
+  PURCHASE
+  PROMO
+  ADMIN_ADJUSTMENT
+  RESERVATION
+  CONSUMPTION
+  RELEASE
+  REVERSAL
+  SETTLEMENT
+}
+
+enum ReservationStatus {
+  RESERVED
+  CONSUMED
+  RELEASED
+}
+
+model Wallet {
+  id               String        @id @default(uuid()) @db.Uuid
+  ownerSubject     String        @unique @map("owner_subject") @db.VarChar(255)
+  availableCredits Int           @default(0) @map("available_credits")
+  reservedCredits  Int           @default(0) @map("reserved_credits")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  entries          WalletEntry[]
+  reservations     WalletReservation[]
+
+  @@map("wallets")
+}
+
+model WalletEntry {
+  id                String          @id @default(uuid()) @db.Uuid
+  walletId          String          @map("wallet_id") @db.Uuid
+  type              WalletEntryType
+  availableDelta    Int             @map("available_delta")
+  reservedDelta     Int             @map("reserved_delta")
+  referenceType     String?         @map("reference_type") @db.VarChar(80)
+  referenceId       String?         @map("reference_id") @db.VarChar(255)
+  idempotencyKey    String          @unique @map("idempotency_key") @db.VarChar(255)
+  reversalOfEntryId String?         @unique @map("reversal_of_entry_id") @db.Uuid
+  metadata          Json?
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  wallet            Wallet          @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  reversalOf        WalletEntry?     @relation("WalletEntryReversal", fields: [reversalOfEntryId], references: [id], onDelete: Restrict)
+  reversals         WalletEntry[]    @relation("WalletEntryReversal")
+
+  @@index([walletId, createdAt(sort: Desc)], map: "wallet_entries_wallet_created_idx")
+  @@index([referenceType, referenceId], map: "wallet_entries_reference_idx")
+  @@map("wallet_entries")
+}
+
+model WalletReservation {
+  id             String            @id @default(uuid()) @db.Uuid
+  walletId       String            @map("wallet_id") @db.Uuid
+  referenceId    String            @map("reference_id") @db.VarChar(255)
+  credits        Int
+  status         ReservationStatus @default(RESERVED)
+  idempotencyKey String            @unique @map("idempotency_key") @db.VarChar(255)
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  completedAt    DateTime?         @map("completed_at") @db.Timestamptz(3)
+  wallet         Wallet            @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  @@unique([walletId, referenceId], map: "wallet_reservations_wallet_reference_key")
+  @@map("wallet_reservations")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  eventType   String    @map("event_type") @db.VarChar(100)
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+
+  @@index([publishedAt, createdAt], map: "wallet_outbox_pending_idx")
+  @@map("outbox_messages")
+}

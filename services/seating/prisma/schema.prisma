@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SeatingMode {
+  NO_SEATING
+  TABLE
+  ZONE
+}
+
+enum SeatingImportStatus {
+  ANALYZED
+  COMPLETED
+}
+
+model SeatingPlan {
+  id          String       @id @default(uuid()) @db.Uuid
+  ownerSubject String      @map("owner_subject") @db.VarChar(255)
+  eventId     String       @map("event_id") @db.Uuid
+  ceremonyId  String       @unique @map("ceremony_id") @db.Uuid
+  mode        SeatingMode  @default(NO_SEATING)
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  tables      SeatingTable[]
+  zones       SeatingZone[]
+  assignments SeatingAssignment[]
+
+  @@index([ownerSubject, eventId], map: "seating_plans_owner_event_idx")
+  @@map("seating_plans")
+}
+
+model SeatingTable {
+  id          String              @id @default(uuid()) @db.Uuid
+  ownerSubject String             @map("owner_subject") @db.VarChar(255)
+  eventId     String              @map("event_id") @db.Uuid
+  ceremonyId  String              @map("ceremony_id") @db.Uuid
+  name        String              @db.VarChar(100)
+  number      Int?
+  capacity    Int                 @db.SmallInt
+  category    String?             @db.VarChar(80)
+  notes       String?             @db.VarChar(1000)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  plan        SeatingPlan         @relation(fields: [ceremonyId], references: [ceremonyId], onDelete: Cascade)
+  assignments SeatingAssignment[]
+
+  @@unique([ceremonyId, name], map: "seating_tables_ceremony_name_key")
+  @@unique([ceremonyId, number], map: "seating_tables_ceremony_number_key")
+  @@index([ownerSubject, eventId, ceremonyId], map: "seating_tables_owner_event_ceremony_idx")
+  @@map("seating_tables")
+}
+
+model SeatingZone {
+  id          String              @id @default(uuid()) @db.Uuid
+  ownerSubject String             @map("owner_subject") @db.VarChar(255)
+  eventId     String              @map("event_id") @db.Uuid
+  ceremonyId  String              @map("ceremony_id") @db.Uuid
+  name        String              @db.VarChar(100)
+  capacity    Int?                @db.SmallInt
+  category    String?             @db.VarChar(80)
+  notes       String?             @db.VarChar(1000)
+  createdAt   DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  plan        SeatingPlan         @relation(fields: [ceremonyId], references: [ceremonyId], onDelete: Cascade)
+  assignments SeatingAssignment[]
+
+  @@unique([ceremonyId, name], map: "seating_zones_ceremony_name_key")
+  @@index([ownerSubject, eventId, ceremonyId], map: "seating_zones_owner_event_ceremony_idx")
+  @@map("seating_zones")
+}
+
+model SeatingAssignment {
+  id          String       @id @default(uuid()) @db.Uuid
+  ownerSubject String      @map("owner_subject") @db.VarChar(255)
+  eventId     String       @map("event_id") @db.Uuid
+  ceremonyId  String       @map("ceremony_id") @db.Uuid
+  guestId     String       @map("guest_id") @db.Uuid
+  tableId     String?      @map("table_id") @db.Uuid
+  zoneId      String?      @map("zone_id") @db.Uuid
+  seatsReserved Int        @default(1) @map("seats_reserved") @db.SmallInt
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  plan        SeatingPlan  @relation(fields: [ceremonyId], references: [ceremonyId], onDelete: Cascade)
+  table       SeatingTable? @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  zone        SeatingZone?  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([ceremonyId, guestId], map: "seating_assignments_ceremony_guest_key")
+  @@index([ownerSubject, eventId, ceremonyId], map: "seating_assignments_owner_event_ceremony_idx")
+  @@index([tableId], map: "seating_assignments_table_idx")
+  @@index([zoneId], map: "seating_assignments_zone_idx")
+  @@map("seating_assignments")
+}
+
+model SeatingImportJob {
+  id             String              @id @default(uuid()) @db.Uuid
+  ownerSubject   String              @map("owner_subject") @db.VarChar(255)
+  eventId        String              @map("event_id") @db.Uuid
+  ceremonyId     String              @map("ceremony_id") @db.Uuid
+  originalName   String              @map("original_name") @db.VarChar(255)
+  status         SeatingImportStatus @default(ANALYZED)
+  sourceRows     Json                @map("source_rows")
+  preview        Json
+  resultSummary  Json?               @map("result_summary")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([ownerSubject, eventId, ceremonyId, createdAt(sort: Desc)], map: "seating_import_owner_ceremony_created_idx")
+  @@map("seating_import_jobs")
+}
+
+model OutboxMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(100)
+  aggregateId String   @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int      @default(0)
+
+  @@index([publishedAt, createdAt], map: "seating_outbox_pending_idx")
+  @@map("outbox_messages")
+}

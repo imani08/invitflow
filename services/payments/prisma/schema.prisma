@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum OrderStatus {
+  CREATED
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+model PaymentOrder {
+  id                String        @id @default(uuid()) @db.Uuid
+  ownerSubject      String        @map("owner_subject") @db.VarChar(255)
+  packId            String        @map("pack_id") @db.Uuid
+  packKey           String        @map("pack_key") @db.VarChar(60)
+  packName          String        @map("pack_name") @db.VarChar(100)
+  credits           Int
+  amountMinor       Int           @map("amount_minor")
+  currency          String        @db.Char(3)
+  priceScheduleId   String        @map("price_schedule_id") @db.Uuid
+  priceScheduleVersion Int        @map("price_schedule_version")
+  idempotencyKey    String        @map("idempotency_key") @db.VarChar(255)
+  status            OrderStatus  @default(CREATED)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  payment           Payment?
+
+  @@unique([ownerSubject, idempotencyKey], map: "payment_orders_owner_idempotency_key")
+  @@index([ownerSubject, createdAt(sort: Desc)], map: "payment_orders_owner_created_idx")
+  @@map("payment_orders")
+}
+
+model Payment {
+  id                    String        @id @default(uuid()) @db.Uuid
+  orderId               String        @unique @map("order_id") @db.Uuid
+  provider              String        @db.VarChar(40)
+  status                PaymentStatus @default(CREATED)
+  checkoutUrl           String?       @map("checkout_url") @db.VarChar(2048)
+  providerTransactionId String?       @unique @map("provider_transaction_id") @db.VarChar(255)
+  providerReference     String?       @map("provider_reference") @db.VarChar(255)
+  providerRefundId      String?       @map("provider_refund_id") @db.VarChar(255)
+  failureCode           String?       @map("failure_code") @db.VarChar(100)
+  paidAt                DateTime?     @map("paid_at") @db.Timestamptz(3)
+  reconciliationAttemptAt DateTime?   @map("reconciliation_attempt_at") @db.Timestamptz(3)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  order                 PaymentOrder  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  reconciliationIssues  PaymentReconciliationIssue[]
+
+  @@index([status, reconciliationAttemptAt], map: "payments_status_reconciled_idx")
+  @@map("payments")
+}
+
+model WebhookReceipt {
+  id          String   @id @default(uuid()) @db.Uuid
+  provider    String   @db.VarChar(40)
+  eventHash   String   @map("event_hash") @db.Char(64)
+  receivedAt  DateTime @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  @@unique([provider, eventHash], map: "payment_webhook_receipts_provider_hash_key")
+  @@index([receivedAt], map: "payment_webhook_receipts_received_idx")
+  @@map("payment_webhook_receipts")
+}
+
+model PaymentReconciliationIssue {
+  id               String    @id @default(uuid()) @db.Uuid
+  paymentId        String    @map("payment_id") @db.Uuid
+  fingerprint      String    @unique @db.Char(64)
+  internalStatus   String    @map("internal_status") @db.VarChar(40)
+  providerStatus   String    @map("provider_status") @db.VarChar(80)
+  firstSeenAt      DateTime  @default(now()) @map("first_seen_at") @db.Timestamptz(3)
+  lastSeenAt       DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  occurrences      Int       @default(1)
+  resolvedAt       DateTime? @map("resolved_at") @db.Timestamptz(3)
+  payment          Payment   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([resolvedAt, lastSeenAt(sort: Desc)], map: "payment_reconciliation_open_idx")
+  @@index([paymentId, resolvedAt], map: "payment_reconciliation_payment_idx")
+  @@map("payment_reconciliation_issues")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  eventType   String    @map("event_type") @db.VarChar(100)
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+
+  @@index([publishedAt, createdAt], map: "payment_outbox_pending_idx")
+  @@map("outbox_messages")
+}

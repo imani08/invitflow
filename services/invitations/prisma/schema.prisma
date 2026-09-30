@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+enum InvitationStatus {
+  DRAFT
+  READY
+  GENERATION_PENDING
+  GENERATING
+  GENERATED
+  FAILED
+  REVOKED
+}
+enum BatchStatus {
+  RESERVING
+  QUEUED
+  GENERATING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+enum BatchItemStatus {
+  QUEUED
+  GENERATING
+  GENERATED
+  FAILED
+  CANCELLED
+}
+enum RsvpStatus {
+  ACCEPTED
+  DECLINED
+}
+
+model Invitation {
+  id String @id @default(uuid()) @db.Uuid
+  ownerSubject String @map("owner_subject") @db.VarChar(255)
+  eventId String @map("event_id") @db.Uuid
+  guestId String @map("guest_id") @db.Uuid
+  status InvitationStatus @default(DRAFT)
+  currentVersionId String? @map("current_version_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  versions InvitationVersion[]
+  items BatchItem[]
+  rsvps InvitationRsvp[]
+  checkIns InvitationCheckIn[]
+  @@unique([eventId, guestId])
+  @@index([ownerSubject, eventId])
+  @@map("invitations")
+}
+model InvitationVersion {
+  id String @id @default(uuid()) @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  version Int
+  designId String @map("design_id") @db.Uuid
+  designVersion Int @map("design_version")
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  @@unique([invitationId, version])
+  @@map("invitation_versions")
+}
+model InvitationBatch {
+  id String @id @default(uuid()) @db.Uuid
+  ownerSubject String @map("owner_subject") @db.VarChar(255)
+  eventId String @map("event_id") @db.Uuid
+  designId String @map("design_id") @db.Uuid
+  designVersion Int @map("design_version")
+  status BatchStatus @default(RESERVING)
+  idempotencyKey String @map("idempotency_key") @db.VarChar(255)
+  reservationReference String @unique @map("reservation_reference") @db.VarChar(255)
+  totalItems Int @map("total_items")
+  completedItems Int @default(0) @map("completed_items")
+  failedItems Int @default(0) @map("failed_items")
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  items BatchItem[]
+  @@unique([ownerSubject, idempotencyKey])
+  @@index([ownerSubject, createdAt(sort: Desc)])
+  @@map("invitation_batches")
+}
+model BatchItem {
+  id String @id @default(uuid()) @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  guestId String @map("guest_id") @db.Uuid
+  snapshot Json
+  status BatchItemStatus @default(QUEUED)
+  objectKey String? @map("object_key") @db.VarChar(512)
+  errorCode String? @map("error_code") @db.VarChar(80)
+  attempts Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  batch InvitationBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  @@unique([batchId, guestId])
+  @@index([batchId, status])
+  @@map("invitation_batch_items")
+}
+
+model OutboxMessage {
+  id String @id @default(uuid()) @db.Uuid
+  eventType String @map("event_type") @db.VarChar(100)
+  aggregateId String @map("aggregate_id") @db.Uuid
+  payload Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts Int @default(0)
+  @@index([publishedAt, createdAt], map: "invitation_outbox_pending_idx")
+  @@map("outbox_messages")
+}
+
+model InvitationRsvp {
+  id String @id @default(uuid()) @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  ceremonyId String @map("ceremony_id") @db.Uuid
+  status RsvpStatus
+  attendingCompanions Int @default(0) @map("attending_companions")
+  respondedAt DateTime @default(now()) @map("responded_at") @db.Timestamptz(3)
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  @@unique([invitationId, ceremonyId])
+  @@map("invitation_rsvps")
+}
+
+model InvitationCheckIn {
+  id String @id @default(uuid()) @db.Uuid
+  invitationId String @map("invitation_id") @db.Uuid
+  ceremonyId String @map("ceremony_id") @db.Uuid
+  checkedBy String @map("checked_by") @db.VarChar(255)
+  companionCount Int @default(0) @map("companion_count")
+  checkedAt DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  @@unique([invitationId, ceremonyId])
+  @@index([ceremonyId, checkedAt(sort: Desc)])
+  @@map("invitation_check_ins")
+}
