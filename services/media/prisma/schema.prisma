@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MediaAssetPurpose {
+  PHOTO
+  LOGO
+  BACKGROUND
+  GENERATED
+  THUMBNAIL
+}
+
+enum MediaAssetStatus {
+  UPLOADING
+  PROCESSING
+  QUARANTINED
+  READY
+  REJECTED
+  DELETED
+}
+
+model MediaAsset {
+  id                  String            @id @default(uuid()) @db.Uuid
+  ownerSubject        String            @map("owner_subject") @db.VarChar(255)
+  purpose             MediaAssetPurpose
+  status              MediaAssetStatus  @default(UPLOADING)
+  originalName        String            @map("original_name") @db.VarChar(255)
+  declaredMimeType    String            @map("declared_mime_type") @db.VarChar(100)
+  detectedMimeType    String?           @map("detected_mime_type") @db.VarChar(100)
+  sizeBytes           Int               @map("size_bytes")
+  width               Int?
+  height              Int?
+  sha256              String?           @db.Char(64)
+  uploadKey           String?           @unique @map("upload_key") @db.VarChar(500)
+  quarantineKey       String            @unique @map("quarantine_key") @db.VarChar(500)
+  objectKey           String?           @unique @map("object_key") @db.VarChar(500)
+  intentExpiresAt     DateTime          @map("intent_expires_at") @db.Timestamptz(3)
+  uploadExpiresAt     DateTime          @map("upload_expires_at") @db.Timestamptz(3)
+  quarantineExpiresAt DateTime?         @map("quarantine_expires_at") @db.Timestamptz(3)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt           DateTime?         @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([ownerSubject, status, createdAt(sort: Desc)], map: "media_assets_owner_status_created_idx")
+  @@index([status, uploadExpiresAt], map: "media_assets_status_expiry_idx")
+  @@index([status, intentExpiresAt], map: "media_assets_intent_expiry_idx")
+  @@map("media_assets")
+}

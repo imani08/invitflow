@@ -4,7 +4,15 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from './env.js';
 
 export type VerifiedIdentity = { subject: string; email: string };
-export type AuthenticatedRequest = FastifyRequest & { identity?: VerifiedIdentity };
+export type AuthenticatedRequest = FastifyRequest & {
+  identity?: VerifiedIdentity;
+  file(options?: { limits?: { files?: number; fileSize?: number; fields?: number; parts?: number } }): Promise<{
+    toBuffer(): Promise<Buffer>;
+    file: { truncated: boolean };
+    filename: string;
+    mimetype: string;
+  } | undefined>;
+};
 
 @Injectable()
 export class IdentityGuard implements CanActivate {

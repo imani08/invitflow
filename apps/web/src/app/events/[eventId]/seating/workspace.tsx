@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { SeatingMap } from './seating-map';
 
 type Ceremony = { id: string; name: string; ceremonyType: string; startAt: string; timezone: string; status: string };
 type Event = { id: string; name: string; status: string; timezone: string; ceremonies: Ceremony[] };
@@ -23,6 +24,8 @@ export function SeatingWorkspace({ event }: { event: Event }) {
   const [ceremonyId, setCeremonyId] = useState(event.ceremonies[0]?.id ?? '');
   const [plan, setPlan] = useState<Plan | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [searchResults, setSearchResults] = useState<Guest[] | null>(null);
+  const [searchingGuests, setSearchingGuests] = useState(false);
   const [modeChoice, setModeChoice] = useState<SeatingMode>('NO_SEATING');
   const [guestSearch, setGuestSearch] = useState('');
   const [editingPlaceId, setEditingPlaceId] = useState<string | null>(null);
@@ -54,9 +57,47 @@ export function SeatingWorkspace({ event }: { event: Event }) {
   }, [event.id, ceremonyId]);
 
   useEffect(() => { setTableImport(null); setTableFile(null); setEditingPlaceId(null); void refresh(); }, [refresh]);
-  const ceremonyAccess = useMemo(() => new Map(guests.map((guest) => [guest.id, guest.access.find((access) => access.ceremonyId === ceremonyId)])), [guests, ceremonyId]);
-  const eligibleGuests = useMemo(() => guests.filter((guest) => ceremonyAccess.get(guest.id)?.isInvited && (!guestSearch.trim() || guest.fullName.toLocaleLowerCase('fr').includes(guestSearch.trim().toLocaleLowerCase('fr')))), [guests, ceremonyAccess, guestSearch]);
-  const guestNames = useMemo(() => new Map(guests.map((guest) => [guest.id, guest.fullName])), [guests]);
+  useEffect(() => {
+    const query = guestSearch.trim();
+    if (query.length < 2) {
+      setSearchResults(null);
+      setSearchingGuests(false);
+      return;
+    }
+    let cancelled = false;
+    setSearchResults(null);
+    setSearchingGuests(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const firstPage = await api<{ items: Guest[]; nextCursor: string | null }>(`${event.id}/guests?limit=100&q=${encodeURIComponent(query)}&ceremonyId=${encodeURIComponent(ceremonyId)}`);
+          const matches = [...firstPage.items];
+          let cursor = firstPage.nextCursor;
+          let pageCount = 1;
+          while (cursor && pageCount < 20) {
+            const page = await api<{ items: Guest[]; nextCursor: string | null }>(`${event.id}/guests?limit=100&q=${encodeURIComponent(query)}&ceremonyId=${encodeURIComponent(ceremonyId)}&cursor=${encodeURIComponent(cursor)}`);
+            matches.push(...page.items);
+            cursor = page.nextCursor;
+            pageCount++;
+          }
+          if (!cancelled) {
+            setSearchResults(matches);
+            if (cursor) setMessage(`Plus de 2 000 résultats. Affinez la recherche pour continuer.`);
+          }
+        } catch (error) {
+          if (!cancelled) setMessage(error instanceof Error ? error.message : 'Recherche des invités impossible.');
+        } finally {
+          if (!cancelled) setSearchingGuests(false);
+        }
+      })();
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [event.id, ceremonyId, guestSearch]);
+
+  const visibleGuests = searchResults ?? guests;
+  const ceremonyAccess = useMemo(() => new Map(visibleGuests.map((guest) => [guest.id, guest.access.find((access) => access.ceremonyId === ceremonyId)])), [visibleGuests, ceremonyId]);
+  const eligibleGuests = useMemo(() => visibleGuests.filter((guest) => ceremonyAccess.get(guest.id)?.isInvited && (searchResults !== null || !guestSearch.trim() || guest.fullName.toLocaleLowerCase('fr').includes(guestSearch.trim().toLocaleLowerCase('fr')))), [visibleGuests, ceremonyAccess, guestSearch, searchResults]);
+  const guestNames = useMemo(() => new Map([...guests, ...(searchResults ?? [])].map((guest) => [guest.id, guest.fullName])), [guests, searchResults]);
 
   async function saveMode(eventForm: FormEvent) {
     eventForm.preventDefault(); if (!ceremonyId) return;
@@ -96,17 +137,21 @@ export function SeatingWorkspace({ event }: { event: Event }) {
     finally { setBusy(false); }
   }
 
-  async function assign(formEvent: FormEvent<HTMLFormElement>) {
-    formEvent.preventDefault(); const formElement = formEvent.currentTarget; const form = new FormData(formElement); const guestId = String(form.get('guestId') ?? ''); const targetId = String(form.get('targetId') ?? '');
-    if (!guestId || !targetId || !plan) return;
+  async function assignToTarget(guestId: string, targetId: string): Promise<boolean> {
+    if (busy || !plan || plan.mode === 'NO_SEATING') return false;
     setBusy(true); setMessage('');
     try {
       const field = plan.mode === 'TABLE' ? 'tableId' : 'zoneId';
       const result = await api<Assignment & { overCapacity: boolean }>(`${event.id}/ceremonies/${ceremonyId}/seating/assignments`, 'POST', { guestId, [field]: targetId });
       await refresh(); setMessage(result.overCapacity ? 'Affectation enregistrée, mais la capacité est dépassée.' : 'Invité placé.');
-      formElement.reset();
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Affectation impossible.'); }
+      return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Affectation impossible.'); return false; }
     finally { setBusy(false); }
+  }
+
+  async function assign(formEvent: FormEvent<HTMLFormElement>) {
+    formEvent.preventDefault(); const formElement = formEvent.currentTarget; const form = new FormData(formElement); const guestId = String(form.get('guestId') ?? ''); const targetId = String(form.get('targetId') ?? '');
+    if (guestId && targetId && await assignToTarget(guestId, targetId)) formElement.reset();
   }
 
   async function unassign(guestId: string) {
@@ -145,11 +190,12 @@ export function SeatingWorkspace({ event }: { event: Event }) {
   if (event.ceremonies.length === 0) return <section className="seating-empty"><h2>Aucune cérémonie à organiser</h2><p>Ajoutez d’abord une cérémonie à votre événement.</p><a href="/events">Retour aux événements</a></section>;
 
   return <section className="seating-workspace">
-    <div className="seating-toolbar"><label>Cérémonie<select value={ceremonyId} onChange={(change) => setCeremonyId(change.target.value)}>{event.ceremonies.map((ceremony) => <option key={ceremony.id} value={ceremony.id}>{ceremony.name}</option>)}</select></label><span>{guests.length} invité(s) chargé(s){loading ? ' · actualisation…' : ''}</span></div>
+    <div className="seating-toolbar"><label>Cérémonie<select value={ceremonyId} onChange={(change) => setCeremonyId(change.target.value)}>{event.ceremonies.map((ceremony) => <option key={ceremony.id} value={ceremony.id}>{ceremony.name}</option>)}</select></label><span aria-live="polite">{searchingGuests ? 'Recherche des invités…' : searchResults ? `${eligibleGuests.length} résultat(s)` : guestSearch.trim().length === 1 ? 'Saisissez 2 caractères pour rechercher tous les invités.' : `${guests.length} invité(s) chargé(s)`}{loading ? ' · actualisation…' : ''}</span></div>
     {message && <p className="seating-message" role="status">{message}</p>}
     {plan && <>
       <form className="seating-mode-card" onSubmit={(form) => void saveMode(form)}><div><p className="eyebrow">ORGANISATION</p><h2>Choisissez le plan de salle</h2><p>Les places incluent l’invité et les accompagnants autorisés pour cette cérémonie.</p></div><div className="seating-mode-controls"><select value={modeChoice} onChange={(change) => setModeChoice(change.target.value as SeatingMode)}><option value="NO_SEATING">Sans placement</option><option value="TABLE">Par table</option><option value="ZONE">Par zone</option></select><button disabled={busy || modeChoice === plan.mode}>Enregistrer</button></div></form>
       {plan.mode !== 'NO_SEATING' && <>
+        <SeatingMap mode={plan.mode} places={places} assignments={plan.assignments} guests={eligibleGuests} guestNames={guestNames} onAssign={assignToTarget} />
         <div className="seating-columns"><section className="seating-panel"><div className="seating-panel-head"><div><p className="eyebrow">{plan.mode === 'TABLE' ? 'TABLES' : 'ZONES'}</p><h2>{plan.mode === 'TABLE' ? 'Capacités' : 'Espaces'}</h2></div><span>{places.length}</span></div>
           {plan.mode === 'TABLE' && <form className="seating-import-form" onSubmit={(form) => void uploadTables(form)}><label>Importer les tables (.csv ou .xlsx)<input type="file" accept=".csv,.xlsx" onChange={(change) => setTableFile(change.target.files?.[0] ?? null)} /></label><button disabled={busy || !tableFile}>Analyser</button></form>}
           {tableImport && <div className="seating-import-preview"><strong>{tableImport.originalName} · {tableImport.validCount}/{tableImport.rowCount} lignes valides</strong><div>{tableImport.preview.map((row) => <p key={row.rowNumber}>Ligne {row.rowNumber} · {row.name || 'Sans nom'} · {row.capacity ?? '—'} places{row.errors.length ? ` · ${row.errors.join(', ')}` : ''}</p>)}</div><button disabled={busy || tableImport.invalidCount > 0} onClick={() => void commitTables()}>Confirmer l’import</button><button type="button" onClick={() => setTableImport(null)}>Annuler</button></div>}

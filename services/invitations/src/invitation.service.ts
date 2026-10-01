@@ -1,6 +1,19 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { BatchItemStatus, BatchStatus, InvitationStatus, Prisma } from '../generated/prisma/client.js';
+import {
+  BatchItemStatus,
+  BatchStatus,
+  InvitationStatus,
+  Prisma,
+  RsvpStatus,
+} from '../generated/prisma/client.js';
 import { spawn } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -8,233 +21,1073 @@ import { join } from 'node:path';
 import { PrismaService } from './prisma.service.js';
 import { InvitationStorage } from './invitation-storage.js';
 import { requiredEnv } from './env.js';
-import { invitationIdFromToken, invitationToken } from './invitation-token.js';
+import { invitationIdFromToken, invitationToken } from './invitation-token.mjs';
 
 type Obj = Record<string, unknown>;
-const object = (v: unknown): Obj => v && typeof v === 'object' && !Array.isArray(v) ? v as Obj : {};
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]!));
+const object = (v: unknown): Obj =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Obj) : {};
+const esc = (s: unknown) =>
+  String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  );
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class InvitationService implements OnModuleInit {
   private busy = false;
-  constructor(private readonly prisma: PrismaService, private readonly storage: InvitationStorage) {}
-  onModuleInit() { if (process.env['RENDER_WORKER_ENABLED'] !== 'true') return; const timer = setInterval(() => { void this.work().catch(() => undefined); }, 1200); timer.unref(); }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: InvitationStorage,
+  ) {}
+  onModuleInit() {
+    if (process.env['RENDER_WORKER_ENABLED'] !== 'true') return;
+    const timer = setInterval(() => {
+      void this.work().catch(() => undefined);
+    }, 1200);
+    timer.unref();
+  }
 
   private async upstream(url: string, authorization: string) {
-    const response = await fetch(url, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(12000) });
+    const response = await fetch(url, {
+      headers: { authorization },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12000),
+    });
     const body = await response.json().catch(() => null);
-    if (!response.ok) throw new BadRequestException(body?.message ?? `Snapshot source returned ${response.status}`);
+    if (!response.ok)
+      throw new BadRequestException(body?.message ?? `Snapshot source returned ${response.status}`);
     return body;
   }
-  private async snapshots(eventId: string, designId: string, guestIds: string[], authorization: string) {
-    const events = requiredEnv('EVENTS_SERVICE_URL'); const designs = requiredEnv('DESIGNS_SERVICE_URL'); const guests = requiredEnv('GUESTS_SERVICE_URL'); const seating = requiredEnv('SEATING_SERVICE_URL');
-    const [event, design] = await Promise.all([this.upstream(`${events}/v1/events/${eventId}`, authorization), this.upstream(`${designs}/v1/events/${eventId}/designs/${designId}`, authorization)]);
-    const allGuests: Obj[] = []; let cursor = '';
-    do { const page = await this.upstream(`${guests}/v1/events/${eventId}/guests?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, authorization); allGuests.push(...(Array.isArray(page?.items) ? page.items : [])); cursor = typeof page?.nextCursor === 'string' ? page.nextCursor : ''; if (allGuests.length > 5000) throw new BadRequestException('Un lot ne peut pas dépasser 5 000 invités.'); } while (cursor);
-    const selected = guestIds.length ? allGuests.filter(g => typeof g.id === 'string' && guestIds.includes(g.id)) : allGuests;
-    if (!selected.length || selected.length > 5000) throw new BadRequestException('Le lot doit contenir entre 1 et 5 000 invités.');
-    if (guestIds.length && selected.length !== new Set(guestIds).size) throw new BadRequestException('Un ou plusieurs invités sont introuvables dans cet événement.');
-    const ceremonySnapshots = await Promise.all((Array.isArray(event?.ceremonies) ? event.ceremonies : []).map(async (ceremony: Obj) => {
-      try { const [plan, assignments] = await Promise.all([this.upstream(`${seating}/v1/events/${eventId}/ceremonies/${ceremony.id}/seating`, authorization), this.upstream(`${seating}/v1/events/${eventId}/ceremonies/${ceremony.id}/seating/assignments`, authorization)]); return { ceremony, plan, assignments }; } catch { return { ceremony, plan: null, assignments: null }; }
-    }));
-    const seatingFor = (guestId: string) => ceremonySnapshots.map((entry: Obj) => {
-      const source = object(entry.assignments); const rows = Array.isArray(entry.assignments) ? entry.assignments : Array.isArray(source.items) ? source.items : [];
-      return { ceremonyId: object(entry.ceremony).id, plan: entry.plan, assignment: rows.find((row: Obj) => row.guestId === guestId) ?? null };
-    });
-    const doc = object(design?.document); const version = Number.isInteger(design?.version) ? design.version : 1;
-    return { event, design: { id: design.id, version, name: design.name, document: doc }, ceremonySnapshots, guests: selected, seatingFor };
+  private async snapshots(
+    eventId: string,
+    designId: string,
+    guestIds: string[],
+    authorization: string,
+  ) {
+    const events = requiredEnv('EVENTS_SERVICE_URL');
+    const designs = requiredEnv('DESIGNS_SERVICE_URL');
+    const guests = requiredEnv('GUESTS_SERVICE_URL');
+    const seating = requiredEnv('SEATING_SERVICE_URL');
+    const [event, design] = await Promise.all([
+      this.upstream(`${events}/v1/events/${eventId}`, authorization),
+      this.upstream(`${designs}/v1/events/${eventId}/designs/${designId}`, authorization),
+    ]);
+    const allGuests: Obj[] = [];
+    let cursor = '';
+    do {
+      const page = await this.upstream(
+        `${guests}/v1/events/${eventId}/guests?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+        authorization,
+      );
+      allGuests.push(...(Array.isArray(page?.items) ? page.items : []));
+      cursor = typeof page?.nextCursor === 'string' ? page.nextCursor : '';
+      if (allGuests.length > 5000)
+        throw new BadRequestException('Un lot ne peut pas dépasser 5 000 invités.');
+    } while (cursor);
+    const selected = guestIds.length
+      ? allGuests.filter((g) => typeof g.id === 'string' && guestIds.includes(g.id))
+      : allGuests;
+    if (!selected.length || selected.length > 5000)
+      throw new BadRequestException('Le lot doit contenir entre 1 et 5 000 invités.');
+    if (guestIds.length && selected.length !== new Set(guestIds).size)
+      throw new BadRequestException(
+        'Un ou plusieurs invités sont introuvables dans cet événement.',
+      );
+    const ceremonySnapshots = await Promise.all(
+      (Array.isArray(event?.ceremonies) ? event.ceremonies : []).map(async (ceremony: Obj) => {
+        try {
+          const [plan, assignments] = await Promise.all([
+            this.upstream(
+              `${seating}/v1/events/${eventId}/ceremonies/${ceremony.id}/seating`,
+              authorization,
+            ),
+            this.upstream(
+              `${seating}/v1/events/${eventId}/ceremonies/${ceremony.id}/seating/assignments`,
+              authorization,
+            ),
+          ]);
+          return { ceremony, plan, assignments };
+        } catch {
+          return { ceremony, plan: null, assignments: null };
+        }
+      }),
+    );
+    const seatingFor = (guestId: string) =>
+      ceremonySnapshots.map((entry: Obj) => {
+        const source = object(entry.assignments);
+        const rows = Array.isArray(entry.assignments)
+          ? entry.assignments
+          : Array.isArray(source.items)
+            ? source.items
+            : [];
+        return {
+          ceremonyId: object(entry.ceremony).id,
+          plan: entry.plan,
+          assignment: rows.find((row: Obj) => row.guestId === guestId) ?? null,
+        };
+      });
+    const doc = object(design?.document);
+    const version = Number.isInteger(design?.version) ? design.version : 1;
+    return {
+      event,
+      design: { id: design.id, version, name: design.name, document: doc },
+      ceremonySnapshots,
+      guests: selected,
+      seatingFor,
+    };
   }
-  async createBatch(owner: string, eventId: string, authorization: string, idempotencyKey: string, raw: unknown) {
+  async createBatch(
+    owner: string,
+    eventId: string,
+    authorization: string,
+    idempotencyKey: string,
+    raw: unknown,
+  ) {
     if (!uuid.test(eventId)) throw new BadRequestException('eventId invalide.');
-    if (!/^[A-Za-z0-9._:@/-]{1,200}$/.test(idempotencyKey ?? '')) throw new BadRequestException('Idempotency-Key obligatoire et invalide.');
-    const input = object(raw); const designId = input.designId; if (Object.keys(input).some(k => !['designId','guestIds'].includes(k)) || typeof designId !== 'string' || !uuid.test(designId)) throw new BadRequestException('designId invalide.');
+    if (!/^[A-Za-z0-9._:@/-]{1,200}$/.test(idempotencyKey ?? ''))
+      throw new BadRequestException('Idempotency-Key obligatoire et invalide.');
+    const input = object(raw);
+    const designId = input.designId;
+    if (
+      Object.keys(input).some((k) => !['designId', 'guestIds'].includes(k)) ||
+      typeof designId !== 'string' ||
+      !uuid.test(designId)
+    )
+      throw new BadRequestException('designId invalide.');
     const guestIdsInput = input.guestIds;
     const guestIds = guestIdsInput === undefined ? [] : guestIdsInput;
-    if (!Array.isArray(guestIds) || guestIds.length > 5000 || guestIds.some((id: unknown) => typeof id !== 'string' || !uuid.test(id))) throw new BadRequestException('guestIds doit être une liste d’UUID.');
+    if (
+      !Array.isArray(guestIds) ||
+      guestIds.length > 5000 ||
+      guestIds.some((id: unknown) => typeof id !== 'string' || !uuid.test(id))
+    )
+      throw new BadRequestException('guestIds doit être une liste d’UUID.');
     const validatedGuestIds = guestIds as string[];
-    const prior = await this.prisma.invitationBatch.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject: owner, idempotencyKey } }, include: { items: true } }); if (prior) return prior;
-    const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization); const batchId = randomUUID(); const ref = `invitation-batch/${batchId}`;
-    await this.prisma.$transaction(async tx => {
-      const created = await tx.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId, designId, designVersion: snapshot.design.version, idempotencyKey, reservationReference: ref, totalItems: snapshot.guests.length } });
+    const prior = await this.prisma.invitationBatch.findUnique({
+      where: { ownerSubject_idempotencyKey: { ownerSubject: owner, idempotencyKey } },
+      include: { items: true },
+    });
+    if (prior) return prior;
+    const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization);
+    const batchId = randomUUID();
+    const ref = `invitation-batch/${batchId}`;
+    await this.prisma.$transaction(async (tx) => {
+      const created = await tx.invitationBatch.create({
+        data: {
+          id: batchId,
+          ownerSubject: owner,
+          eventId,
+          designId,
+          designVersion: snapshot.design.version,
+          idempotencyKey,
+          reservationReference: ref,
+          totalItems: snapshot.guests.length,
+        },
+      });
       for (const guest of snapshot.guests) {
-        if (typeof guest.id !== 'string' || !uuid.test(guest.id)) throw new BadRequestException('Un invité source possède un identifiant invalide.');
-        const invitation = await tx.invitation.upsert({ where: { eventId_guestId: { eventId, guestId: guest.id } }, create: { ownerSubject: owner, eventId, guestId: guest.id, status: InvitationStatus.GENERATION_PENDING }, update: { status: InvitationStatus.GENERATION_PENDING } });
-        const old = await tx.invitationVersion.findFirst({ where: { invitationId: invitation.id }, orderBy: { version: 'desc' }, select: { version: true } });
-        const renderSnapshot = { jobId: batchId, invitationId: invitation.id, designSnapshot: snapshot.design, guestSnapshot: guest, eventSnapshot: snapshot.event, ceremonySnapshots: snapshot.ceremonySnapshots, seatingSnapshot: snapshot.seatingFor(guest.id) };
-        const version = await tx.invitationVersion.create({ data: { invitationId: invitation.id, version: (old?.version ?? 0) + 1, designId, designVersion: snapshot.design.version, snapshot: renderSnapshot as Prisma.InputJsonValue } });
-        await tx.invitation.update({ where: { id: invitation.id }, data: { currentVersionId: version.id } });
-        await tx.batchItem.create({ data: { batchId, invitationId: invitation.id, guestId: guest.id, snapshot: renderSnapshot as Prisma.InputJsonValue } });
+        if (typeof guest.id !== 'string' || !uuid.test(guest.id))
+          throw new BadRequestException('Un invité source possède un identifiant invalide.');
+        const invitation = await tx.invitation.upsert({
+          where: { eventId_guestId: { eventId, guestId: guest.id } },
+          create: {
+            ownerSubject: owner,
+            eventId,
+            guestId: guest.id,
+            status: InvitationStatus.GENERATION_PENDING,
+          },
+          update: { status: InvitationStatus.GENERATION_PENDING },
+        });
+        const old = await tx.invitationVersion.findFirst({
+          where: { invitationId: invitation.id },
+          orderBy: { version: 'desc' },
+          select: { version: true },
+        });
+        const renderSnapshot = {
+          jobId: batchId,
+          invitationId: invitation.id,
+          designSnapshot: snapshot.design,
+          guestSnapshot: guest,
+          eventSnapshot: snapshot.event,
+          ceremonySnapshots: snapshot.ceremonySnapshots,
+          seatingSnapshot: snapshot.seatingFor(guest.id),
+        };
+        const version = await tx.invitationVersion.create({
+          data: {
+            invitationId: invitation.id,
+            version: (old?.version ?? 0) + 1,
+            designId,
+            designVersion: snapshot.design.version,
+            snapshot: renderSnapshot as Prisma.InputJsonValue,
+          },
+        });
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { currentVersionId: version.id },
+        });
+        await tx.batchItem.create({
+          data: {
+            batchId,
+            invitationId: invitation.id,
+            guestId: guest.id,
+            snapshot: renderSnapshot as Prisma.InputJsonValue,
+          },
+        });
       }
       return created;
     });
     try {
-      const response = await fetch(`${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'idempotency-key': `reserve-${batchId}` }, body: JSON.stringify({ credits: snapshot.guests.length, referenceId: ref }), signal: AbortSignal.timeout(10000) });
+      const response = await fetch(
+        `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
+            'idempotency-key': `reserve-${batchId}`,
+          },
+          body: JSON.stringify({ credits: snapshot.guests.length, referenceId: ref }),
+          signal: AbortSignal.timeout(10000),
+        },
+      );
       if (!response.ok) throw new Error(`wallet reservation failed ${response.status}`);
-      await this.prisma.$transaction(async tx => {
-        await tx.invitationBatch.update({ where: { id: batchId }, data: { status: BatchStatus.QUEUED } });
-        await tx.outboxMessage.create({ data: { eventType: 'invitation.render.requested.v1', aggregateId: batchId, payload: { batchId, itemCount: snapshot.guests.length, ownerSubject: owner } } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.invitationBatch.update({
+          where: { id: batchId },
+          data: { status: BatchStatus.QUEUED },
+        });
+        await tx.outboxMessage.create({
+          data: {
+            eventType: 'invitation.render.requested.v1',
+            aggregateId: batchId,
+            payload: { batchId, itemCount: snapshot.guests.length, ownerSubject: owner },
+          },
+        });
       });
     } catch {
-      await fetch(`${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations/${encodeURIComponent(ref)}/release`, { method: 'POST', headers: { 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'idempotency-key': `release-${ref}` }, signal: AbortSignal.timeout(10000) }).catch(() => undefined);
-      await this.prisma.$transaction([this.prisma.invitationBatch.update({ where: { id: batchId }, data: { status: BatchStatus.FAILED } }), this.prisma.batchItem.updateMany({ where: { batchId }, data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' } })]);
+      await fetch(
+        `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations/${encodeURIComponent(ref)}/release`,
+        {
+          method: 'POST',
+          headers: {
+            'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
+            'idempotency-key': `release-${ref}`,
+          },
+          signal: AbortSignal.timeout(10000),
+        },
+      ).catch(() => undefined);
+      await this.prisma.$transaction([
+        this.prisma.invitationBatch.update({
+          where: { id: batchId },
+          data: { status: BatchStatus.FAILED },
+        }),
+        this.prisma.batchItem.updateMany({
+          where: { batchId },
+          data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' },
+        }),
+      ]);
       throw new ConflictException('Les crédits n’ont pas pu être réservés; le lot a été arrêté.');
     }
     return this.getBatch(owner, batchId);
   }
-  async list(owner: string, eventId?: string) { return this.prisma.invitationBatch.findMany({ where: { ownerSubject: owner, ...(eventId ? { eventId } : {}) }, orderBy: { createdAt: 'desc' }, take: 100, include: { _count: { select: { items: true } } } }); }
-  async getBatch(owner: string, id: string) { const batch = await this.prisma.invitationBatch.findFirst({ where: { id, ownerSubject: owner }, include: { items: { orderBy: { createdAt: 'asc' }, select: { id: true, guestId: true, status: true, objectKey: true, errorCode: true, updatedAt: true } } } }); if (!batch) throw new NotFoundException('Lot introuvable.'); return batch; }
+  async list(owner: string, eventId?: string, rawLimit?: string, cursor?: string) {
+    const where = { ownerSubject: owner, ...(eventId ? { eventId } : {}) };
+    const include = { _count: { select: { items: true } } } as const;
+    if (rawLimit === undefined && cursor === undefined)
+      return this.prisma.invitationBatch.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: 100,
+        include,
+      });
+    const limit = rawLimit === undefined ? 50 : Number(rawLimit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new BadRequestException('La limite doit être comprise entre 1 et 100.');
+    if (cursor !== undefined && !uuid.test(cursor))
+      throw new BadRequestException('Le curseur du lot est invalide.');
+    if (
+      cursor &&
+      !(await this.prisma.invitationBatch.findFirst({
+        where: { id: cursor, ...where },
+        select: { id: true },
+      }))
+    )
+      throw new BadRequestException('Le curseur ne correspond pas à un lot du compte.');
+    const rows = await this.prisma.invitationBatch.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include,
+    });
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit);
+    return { items, nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null };
+  }
+  async getBatch(owner: string, id: string) {
+    const batch = await this.prisma.invitationBatch.findFirst({
+      where: { id, ownerSubject: owner },
+      include: {
+        items: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            guestId: true,
+            status: true,
+            objectKey: true,
+            errorCode: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+    if (!batch) throw new NotFoundException('Lot introuvable.');
+    return batch;
+  }
   async cancel(owner: string, id: string) {
-    let batch = await this.prisma.invitationBatch.findFirst({ where: { id, ownerSubject: owner }, include: { items: true } }); if (!batch) throw new NotFoundException('Lot introuvable.');
-    if (batch.status === BatchStatus.COMPLETED || batch.status === BatchStatus.FAILED) return this.getBatch(owner, id);
-    if (batch.status === BatchStatus.RESERVING) throw new ConflictException('La réservation des crédits est en cours; réessayez dans quelques instants.');
-    await this.prisma.invitationBatch.updateMany({ where: { id, ownerSubject: owner, status: { in: [BatchStatus.RESERVING, BatchStatus.QUEUED, BatchStatus.GENERATING] } }, data: { status: BatchStatus.CANCELLED, cancelledAt: new Date() } });
-    batch = await this.prisma.invitationBatch.findFirstOrThrow({ where: { id, ownerSubject: owner }, include: { items: true } });
-    const generated = batch.items.filter(i => i.status === BatchItemStatus.GENERATED);
-    const failed = batch.items.filter(i => i.status === BatchItemStatus.FAILED).length;
+    let batch = await this.prisma.invitationBatch.findFirst({
+      where: { id, ownerSubject: owner },
+      include: { items: true },
+    });
+    if (!batch) throw new NotFoundException('Lot introuvable.');
+    if (batch.status === BatchStatus.COMPLETED || batch.status === BatchStatus.FAILED)
+      return this.getBatch(owner, id);
+    if (batch.status === BatchStatus.RESERVING)
+      throw new ConflictException(
+        'La réservation des crédits est en cours; réessayez dans quelques instants.',
+      );
+    await this.prisma.invitationBatch.updateMany({
+      where: {
+        id,
+        ownerSubject: owner,
+        status: { in: [BatchStatus.RESERVING, BatchStatus.QUEUED, BatchStatus.GENERATING] },
+      },
+      data: { status: BatchStatus.CANCELLED, cancelledAt: new Date() },
+    });
+    batch = await this.prisma.invitationBatch.findFirstOrThrow({
+      where: { id, ownerSubject: owner },
+      include: { items: true },
+    });
+    const generated = batch.items.filter((i) => i.status === BatchItemStatus.GENERATED);
+    const failed = batch.items.filter((i) => i.status === BatchItemStatus.FAILED).length;
     const consumed = generated.length;
     await this.settle(batch, consumed);
-    await this.prisma.$transaction(async tx => { await tx.invitationBatch.update({ where: { id }, data: { completedItems: consumed, failedItems: failed } }); await tx.batchItem.updateMany({ where: { batchId: id, status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] } }, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } }); });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.invitationBatch.update({
+        where: { id },
+        data: { completedItems: consumed, failedItems: failed },
+      });
+      await tx.batchItem.updateMany({
+        where: { batchId: id, status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] } },
+        data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
+      });
+    });
     return this.getBatch(owner, id);
   }
-  private async settle(batch: { ownerSubject: string; reservationReference: string }, consumedCredits: number) {
-    const response = await fetch(`${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(batch.ownerSubject)}/reservations/${encodeURIComponent(batch.reservationReference)}/settle`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'idempotency-key': `settle-${batch.reservationReference}` }, body: JSON.stringify({ consumedCredits }), signal: AbortSignal.timeout(10000) }); if (!response.ok) throw new Error('Wallet settlement failed');
+  private async settle(
+    batch: { ownerSubject: string; reservationReference: string },
+    consumedCredits: number,
+  ) {
+    const response = await fetch(
+      `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(batch.ownerSubject)}/reservations/${encodeURIComponent(batch.reservationReference)}/settle`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
+          'idempotency-key': `settle-${batch.reservationReference}`,
+        },
+        body: JSON.stringify({ consumedCredits }),
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+    if (!response.ok) throw new Error('Wallet settlement failed');
   }
   async download(owner: string, batchId: string, itemId?: string) {
-    const batch = await this.prisma.invitationBatch.findFirst({ where: { id: batchId, ownerSubject: owner }, include: { items: true } }); if (!batch) throw new NotFoundException('Lot introuvable.');
-    if (itemId) { const item = batch.items.find(i => i.id === itemId); if (!item?.objectKey || item.status !== BatchItemStatus.GENERATED) throw new NotFoundException('PDF introuvable.'); return { body: (await this.storage.stream(item.objectKey)).body!, type: 'application/pdf', name: `invitation-${item.guestId}.pdf` }; }
-    const key = `batches/${batchId}.zip`; if (batch.status !== BatchStatus.COMPLETED) throw new ConflictException('Le ZIP est disponible après le rendu complet du lot.'); return { body: (await this.storage.stream(key)).body!, type: 'application/zip', name: `invitations-${batchId}.zip` };
+    const batch = await this.prisma.invitationBatch.findFirst({
+      where: { id: batchId, ownerSubject: owner },
+      include: { items: true },
+    });
+    if (!batch) throw new NotFoundException('Lot introuvable.');
+    if (itemId) {
+      const item = batch.items.find((i) => i.id === itemId);
+      if (!item?.objectKey || item.status !== BatchItemStatus.GENERATED)
+        throw new NotFoundException('PDF introuvable.');
+      return {
+        body: (await this.storage.stream(item.objectKey)).body!,
+        type: 'application/pdf',
+        name: `invitation-${item.guestId}.pdf`,
+      };
+    }
+    const key = `batches/${batchId}.zip`;
+    if (batch.status !== BatchStatus.COMPLETED)
+      throw new ConflictException('Le ZIP est disponible après le rendu complet du lot.');
+    return {
+      body: (await this.storage.stream(key)).body!,
+      type: 'application/zip',
+      name: `invitations-${batchId}.zip`,
+    };
   }
 
   async publicInvitation(token: string) {
-    const invitationId = invitationIdFromToken(token); if (!invitationId) throw new NotFoundException('Invitation introuvable.');
-    const invitation = await this.prisma.invitation.findUnique({ where: { id: invitationId }, include: { versions: { orderBy: { version: 'desc' }, take: 1 }, rsvps: true } });
-    if (!invitation || invitation.status !== InvitationStatus.GENERATED || !invitation.versions[0]) throw new NotFoundException('Invitation introuvable.');
-    const snapshot = object(invitation.versions[0].snapshot); const guest = object(snapshot.guestSnapshot); const event = object(snapshot.eventSnapshot); const venue = object(event.venue);
-    const access = (Array.isArray(guest.access) ? guest.access : []).filter((item: unknown) => object(item).isInvited === true);
-    const ceremonies = (Array.isArray(event.ceremonies) ? event.ceremonies : []).filter((item: unknown) => access.some((allowed: Obj) => allowed.ceremonyId === object(item).id)).map((item: unknown) => { const ceremony = object(item); const allowed = access.find((entry: Obj) => entry.ceremonyId === ceremony.id); const rsvp = invitation.rsvps.find(row => row.ceremonyId === ceremony.id); return { id: ceremony.id, name: ceremony.name ?? ceremony.title ?? '', startAt: ceremony.startAt ?? null, allowedCompanions: Math.max(0, Number(allowed?.allowedCompanions) || 0), response: rsvp ? { status: rsvp.status, attendingCompanions: rsvp.attendingCompanions, respondedAt: rsvp.respondedAt } : null }; });
+    const invitationId = invitationIdFromToken(token);
+    if (!invitationId) throw new NotFoundException('Invitation introuvable.');
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      include: { versions: { orderBy: { version: 'desc' }, take: 1 }, rsvps: true },
+    });
+    if (!invitation || invitation.status !== InvitationStatus.GENERATED || !invitation.versions[0])
+      throw new NotFoundException('Invitation introuvable.');
+    const snapshot = object(invitation.versions[0].snapshot);
+    const guest = object(snapshot.guestSnapshot);
+    const event = object(snapshot.eventSnapshot);
+    const venue = object(event.venue);
+    const access = (Array.isArray(guest.access) ? guest.access : []).filter(
+      (item: unknown) => object(item).isInvited === true,
+    );
+    const ceremonies = (Array.isArray(event.ceremonies) ? event.ceremonies : [])
+      .filter((item: unknown) =>
+        access.some((allowed: Obj) => allowed.ceremonyId === object(item).id),
+      )
+      .map((item: unknown) => {
+        const ceremony = object(item);
+        const allowed = access.find((entry: Obj) => entry.ceremonyId === ceremony.id);
+        const rsvp = invitation.rsvps.find((row) => row.ceremonyId === ceremony.id);
+        return {
+          id: ceremony.id,
+          name: ceremony.name ?? ceremony.title ?? '',
+          startAt: ceremony.startAt ?? null,
+          allowedCompanions: Math.max(0, Number(allowed?.allowedCompanions) || 0),
+          response: rsvp
+            ? {
+                status: rsvp.status,
+                attendingCompanions: rsvp.attendingCompanions,
+                respondedAt: rsvp.respondedAt,
+              }
+            : null,
+        };
+      });
     if (!ceremonies.length) throw new NotFoundException('Invitation introuvable.');
-    return { guestName: guest.fullName ?? '', event: { name: event.name ?? '', startAt: event.startAt ?? event.date ?? null, location: venue.name ?? event.location ?? '' }, ceremonies };
+    return {
+      guestName: guest.fullName ?? '',
+      event: {
+        name: event.name ?? '',
+        startAt: event.startAt ?? event.date ?? null,
+        location: venue.name ?? event.location ?? '',
+      },
+      ceremonies,
+    };
   }
 
   async submitRsvp(token: string, raw: unknown) {
-    const invitationId = invitationIdFromToken(token); if (!invitationId) throw new NotFoundException('Invitation introuvable.');
-    const current = await this.publicInvitation(token); const invitation = await this.prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
-    const input = object(raw); const responses = input.responses;
-    if (Object.keys(input).some(key => key !== 'responses') || !Array.isArray(responses) || !responses.length || responses.length > 30) throw new BadRequestException('Fournissez au moins une réponse RSVP valide.');
-    const allowed = new Map(current.ceremonies.map((ceremony: Obj) => [ceremony.id, ceremony.allowedCompanions]));
-    const normalized = responses.map((entry: unknown) => { const response = object(entry); const ceremonyId = response.ceremonyId; const status = response.status; const companions = response.attendingCompanions; if (Object.keys(response).some(key => !['ceremonyId', 'status', 'attendingCompanions'].includes(key)) || typeof ceremonyId !== 'string' || !allowed.has(ceremonyId) || (status !== 'ACCEPTED' && status !== 'DECLINED') || typeof companions !== 'number' || !Number.isInteger(companions) || companions < 0 || companions > (allowed.get(ceremonyId) ?? 0) || (status === 'DECLINED' && companions !== 0)) throw new BadRequestException('Une réponse ne correspond pas aux autorisations de cette invitation.'); return { ceremonyId, status, attendingCompanions: companions }; });
-    if (new Set(normalized.map(entry => entry.ceremonyId)).size !== normalized.length) throw new BadRequestException('Une cérémonie apparaît plusieurs fois.');
-    const saved = await this.prisma.$transaction(async tx => {
+    const invitationId = invitationIdFromToken(token);
+    if (!invitationId) throw new NotFoundException('Invitation introuvable.');
+    const current = await this.publicInvitation(token);
+    const invitation = await this.prisma.invitation.findUniqueOrThrow({
+      where: { id: invitationId },
+    });
+    const input = object(raw);
+    const responses = input.responses;
+    if (
+      Object.keys(input).some((key) => key !== 'responses') ||
+      !Array.isArray(responses) ||
+      !responses.length ||
+      responses.length > 30
+    )
+      throw new BadRequestException('Fournissez au moins une réponse RSVP valide.');
+    const allowed = new Map(
+      current.ceremonies.map((ceremony: Obj) => [ceremony.id, ceremony.allowedCompanions]),
+    );
+    const normalized = responses.map((entry: unknown) => {
+      const response = object(entry);
+      const ceremonyId = response.ceremonyId;
+      const status = response.status;
+      const companions = response.attendingCompanions;
+      const maxValue = typeof ceremonyId === 'string' ? allowed.get(ceremonyId) : undefined;
+      const maxCompanions = typeof maxValue === 'number' ? maxValue : undefined;
+      if (
+        Object.keys(response).some(
+          (key) => !['ceremonyId', 'status', 'attendingCompanions'].includes(key),
+        ) ||
+        typeof ceremonyId !== 'string' ||
+        maxCompanions === undefined ||
+        (status !== 'ACCEPTED' && status !== 'DECLINED') ||
+        typeof companions !== 'number' ||
+        !Number.isInteger(companions) ||
+        companions < 0 ||
+        companions > maxCompanions ||
+        (status === 'DECLINED' && companions !== 0)
+      )
+        throw new BadRequestException(
+          'Une réponse ne correspond pas aux autorisations de cette invitation.',
+        );
+      return { ceremonyId, status: status as RsvpStatus, attendingCompanions: companions };
+    });
+    if (new Set(normalized.map((entry) => entry.ceremonyId)).size !== normalized.length)
+      throw new BadRequestException('Une cérémonie apparaît plusieurs fois.');
+    const saved = await this.prisma.$transaction(async (tx) => {
       const result = [];
-      for (const response of normalized) result.push(await tx.invitationRsvp.upsert({ where: { invitationId_ceremonyId: { invitationId, ceremonyId: response.ceremonyId } }, create: { invitationId, ...response }, update: { ...response, respondedAt: new Date() } }));
-      await tx.outboxMessage.create({ data: { eventType: 'invitation.rsvp.updated.v1', aggregateId: invitationId, payload: { invitationId, eventId: invitation.eventId, ownerSubject: invitation.ownerSubject, responseCount: normalized.length } } });
+      for (const response of normalized)
+        result.push(
+          await tx.invitationRsvp.upsert({
+            where: { invitationId_ceremonyId: { invitationId, ceremonyId: response.ceremonyId } },
+            create: { invitationId, ...response },
+            update: { ...response, respondedAt: new Date() },
+          }),
+        );
+      await tx.outboxMessage.create({
+        data: {
+          eventType: 'invitation.rsvp.updated.v1',
+          aggregateId: invitationId,
+          payload: {
+            invitationId,
+            eventId: invitation.eventId,
+            ownerSubject: invitation.ownerSubject,
+            responseCount: normalized.length,
+          },
+        },
+      });
       return result;
     });
-    return { responses: saved.map(row => ({ ceremonyId: row.ceremonyId, status: row.status, attendingCompanions: row.attendingCompanions, respondedAt: row.respondedAt })) };
+    return {
+      responses: saved.map((row) => ({
+        ceremonyId: row.ceremonyId,
+        status: row.status,
+        attendingCompanions: row.attendingCompanions,
+        respondedAt: row.respondedAt,
+      })),
+    };
   }
 
-  async checkIn(owner: string, eventId: string, ceremonyId: string, token: string, companionCount: number) {
-    if (!uuid.test(eventId) || !uuid.test(ceremonyId) || !Number.isInteger(companionCount) || companionCount < 0) throw new BadRequestException('Paramètres de pointage invalides.');
-    const invitationId = invitationIdFromToken(token); if (!invitationId) throw new NotFoundException('Invitation introuvable.');
-    const invitation = await this.prisma.invitation.findFirst({ where: { id: invitationId, eventId, ownerSubject: owner, status: InvitationStatus.GENERATED }, include: { versions: { orderBy: { version: 'desc' }, take: 1 } } });
-    if (!invitation || !invitation.versions[0]) throw new NotFoundException('Invitation introuvable pour cet événement.');
-    const snapshot = object(invitation.versions[0].snapshot); const guest = object(snapshot.guestSnapshot); const access = (Array.isArray(guest.access) ? guest.access : []).find((item: unknown) => object(item).ceremonyId === ceremonyId && object(item).isInvited === true);
-    if (!access) throw new ForbiddenException('Cet invité ne figure pas sur la liste de cette cérémonie.');
-    const maxCompanions = Math.max(0, Number(object(access).allowedCompanions) || 0); if (companionCount > maxCompanions) throw new BadRequestException('Le nombre d’accompagnants dépasse l’autorisation.');
-    const prior = await this.prisma.invitationCheckIn.findUnique({ where: { invitationId_ceremonyId: { invitationId, ceremonyId } } });
-    if (prior) return { alreadyCheckedIn: true, guestName: guest.fullName ?? '', checkedAt: prior.checkedAt, companionCount: prior.companionCount, allowedCompanions: maxCompanions };
-    try { const row = await this.prisma.invitationCheckIn.create({ data: { invitationId, ceremonyId, checkedBy: owner, companionCount } }); return { alreadyCheckedIn: false, guestName: guest.fullName ?? '', checkedAt: row.checkedAt, companionCount: row.companionCount, allowedCompanions: maxCompanions }; }
-    catch { const row = await this.prisma.invitationCheckIn.findUnique({ where: { invitationId_ceremonyId: { invitationId, ceremonyId } } }); if (!row) throw new ConflictException('Le pointage n’a pas pu être enregistré.'); return { alreadyCheckedIn: true, guestName: guest.fullName ?? '', checkedAt: row.checkedAt, companionCount: row.companionCount, allowedCompanions: maxCompanions }; }
+  async checkIn(
+    owner: string,
+    eventId: string,
+    ceremonyId: string,
+    token: string,
+    companionCount: number,
+    operatorSubject = owner,
+  ) {
+    if (
+      !uuid.test(eventId) ||
+      !uuid.test(ceremonyId) ||
+      !Number.isInteger(companionCount) ||
+      companionCount < 0
+    )
+      throw new BadRequestException('Paramètres de pointage invalides.');
+    const invitationId = invitationIdFromToken(token);
+    if (!invitationId) throw new NotFoundException('Invitation introuvable.');
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { id: invitationId, eventId, ownerSubject: owner, status: InvitationStatus.GENERATED },
+      include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
+    });
+    if (!invitation || !invitation.versions[0])
+      throw new NotFoundException('Invitation introuvable pour cet événement.');
+    const snapshot = object(invitation.versions[0].snapshot);
+    const guest = object(snapshot.guestSnapshot);
+    const access = (Array.isArray(guest.access) ? guest.access : []).find(
+      (item: unknown) => object(item).ceremonyId === ceremonyId && object(item).isInvited === true,
+    );
+    if (!access)
+      throw new ForbiddenException('Cet invité ne figure pas sur la liste de cette cérémonie.');
+    const maxCompanions = Math.max(0, Number(object(access).allowedCompanions) || 0);
+    if (companionCount > maxCompanions)
+      throw new BadRequestException('Le nombre d’accompagnants dépasse l’autorisation.');
+    const prior = await this.prisma.invitationCheckIn.findUnique({
+      where: { invitationId_ceremonyId: { invitationId, ceremonyId } },
+    });
+    if (prior)
+      return {
+        alreadyCheckedIn: true,
+        guestName: guest.fullName ?? '',
+        checkedAt: prior.checkedAt,
+        companionCount: prior.companionCount,
+        allowedCompanions: maxCompanions,
+      };
+    try {
+      const row = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.invitationCheckIn.create({
+          data: { invitationId, ceremonyId, checkedBy: operatorSubject, companionCount },
+        });
+        await tx.outboxMessage.create({
+          data: {
+            eventType: 'invitation.checkin.created.v1',
+            aggregateId: created.id,
+            payload: {
+              eventId,
+              ceremonyId,
+              ownerSubject: owner,
+              operatorSubject,
+              checkedAt: created.checkedAt.toISOString(),
+              schemaVersion: 1,
+            },
+          },
+        });
+        return created;
+      });
+      return {
+        alreadyCheckedIn: false,
+        guestName: guest.fullName ?? '',
+        checkedAt: row.checkedAt,
+        companionCount: row.companionCount,
+        allowedCompanions: maxCompanions,
+      };
+    } catch {
+      const row = await this.prisma.invitationCheckIn.findUnique({
+        where: { invitationId_ceremonyId: { invitationId, ceremonyId } },
+      });
+      if (!row) throw new ConflictException('Le pointage n’a pas pu être enregistré.');
+      return {
+        alreadyCheckedIn: true,
+        guestName: guest.fullName ?? '',
+        checkedAt: row.checkedAt,
+        companionCount: row.companionCount,
+        allowedCompanions: maxCompanions,
+      };
+    }
   }
 
   async checkInSummary(owner: string, eventId: string, ceremonyId: string) {
-    if (!uuid.test(eventId) || !uuid.test(ceremonyId)) throw new BadRequestException('Paramètres de cérémonie invalides.');
+    if (!uuid.test(eventId) || !uuid.test(ceremonyId))
+      throw new BadRequestException('Paramètres de cérémonie invalides.');
     const checkInWhere = { ceremonyId, invitation: { eventId, ownerSubject: owner } };
     const [checkedIn, checkIns, accepted] = await Promise.all([
       this.prisma.invitationCheckIn.count({ where: checkInWhere }),
-      this.prisma.invitationCheckIn.findMany({ where: checkInWhere, orderBy: { checkedAt: 'desc' }, take: 50, include: { invitation: { include: { versions: { orderBy: { version: 'desc' }, take: 1 } } } } }),
-      this.prisma.invitationRsvp.count({ where: { ceremonyId, status: 'ACCEPTED', invitation: { eventId, ownerSubject: owner } } }),
+      this.prisma.invitationCheckIn.findMany({
+        where: checkInWhere,
+        orderBy: { checkedAt: 'desc' },
+        take: 50,
+        include: {
+          invitation: { include: { versions: { orderBy: { version: 'desc' }, take: 1 } } },
+        },
+      }),
+      this.prisma.invitationRsvp.count({
+        where: { ceremonyId, status: 'ACCEPTED', invitation: { eventId, ownerSubject: owner } },
+      }),
     ]);
-    return { checkedIn, accepted, recent: checkIns.map(row => ({ guestName: object(object(row.invitation.versions[0]?.snapshot).guestSnapshot).fullName ?? '', checkedAt: row.checkedAt, companionCount: row.companionCount })) };
+    return {
+      checkedIn,
+      accepted,
+      recent: checkIns.map((row) => ({
+        guestName:
+          object(object(row.invitation.versions[0]?.snapshot).guestSnapshot).fullName ?? '',
+        checkedAt: row.checkedAt,
+        companionCount: row.companionCount,
+      })),
+    };
   }
 
   private async work() {
-    if (this.busy) return; this.busy = true;
+    if (this.busy) return;
+    this.busy = true;
     try {
       await this.consumeRenderQueue();
-      await this.prisma.batchItem.updateMany({ where: { status: BatchItemStatus.GENERATING, attempts: { lt: 3 }, updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) }, batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } } }, data: { status: BatchItemStatus.QUEUED, errorCode: 'REQUEUED_AFTER_WORKER_RESTART' } });
-      await this.prisma.batchItem.updateMany({ where: { status: BatchItemStatus.GENERATING, attempts: { gte: 3 }, updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) }, batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } } }, data: { status: BatchItemStatus.FAILED, errorCode: 'RENDER_FAILED' } });
-      const batches = await this.prisma.invitationBatch.findMany({ where: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } }, orderBy: { createdAt: 'asc' }, take: 2, include: { items: { where: { OR: [{ status: BatchItemStatus.QUEUED }, { status: BatchItemStatus.FAILED, attempts: { lt: 3 } }] }, take: 8, orderBy: { createdAt: 'asc' } } } });
+      await this.prisma.batchItem.updateMany({
+        where: {
+          status: BatchItemStatus.GENERATING,
+          attempts: { lt: 3 },
+          updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+          batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } },
+        },
+        data: { status: BatchItemStatus.QUEUED, errorCode: 'REQUEUED_AFTER_WORKER_RESTART' },
+      });
+      await this.prisma.batchItem.updateMany({
+        where: {
+          status: BatchItemStatus.GENERATING,
+          attempts: { gte: 3 },
+          updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
+          batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } },
+        },
+        data: { status: BatchItemStatus.FAILED, errorCode: 'RENDER_FAILED' },
+      });
+      const batches = await this.prisma.invitationBatch.findMany({
+        where: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
+        orderBy: { createdAt: 'asc' },
+        take: 2,
+        include: {
+          items: {
+            where: {
+              OR: [
+                { status: BatchItemStatus.QUEUED },
+                { status: BatchItemStatus.FAILED, attempts: { lt: 3 } },
+              ],
+            },
+            take: 8,
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
       for (const batch of batches) {
-        const active = await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } }, data: { status: BatchStatus.GENERATING } }); if (!active.count) continue;
-        await Promise.all(batch.items.map(async item => {
-          try {
-            const claim = await this.prisma.batchItem.updateMany({ where: { id: item.id, status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] }, attempts: { lt: 3 } }, data: { status: BatchItemStatus.GENERATING, attempts: { increment: 1 }, errorCode: null } });
-            if (!claim.count) return;
-            const latestBefore = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id: batch.id }, select: { status: true } });
-            if (latestBefore.status === BatchStatus.CANCELLED) { await this.prisma.batchItem.update({ where: { id: item.id }, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } }); return; }
-            const pdf = await this.render(object(item.snapshot)); const key = `pdf/${batch.id}/${item.guestId}.pdf`; await this.storage.put(key, pdf, 'application/pdf');
-            const committed = await this.prisma.$transaction(async tx => {
-              const activeBatch = await tx.invitationBatch.updateMany({ where: { id: batch.id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } }, data: { completedItems: { increment: 1 } } });
-              if (!activeBatch.count) { await tx.batchItem.update({ where: { id: item.id }, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } }); return false; }
-              await tx.batchItem.update({ where: { id: item.id }, data: { status: BatchItemStatus.GENERATED, objectKey: key } });
-              await tx.invitation.update({ where: { id: item.invitationId }, data: { status: InvitationStatus.GENERATED } }); return true;
-            });
-            if (!committed) await this.storage.delete(key);
-          } catch { const attempt = item.attempts + 1; await this.prisma.$transaction([this.prisma.batchItem.update({ where: { id: item.id }, data: { status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED, errorCode: attempt >= 3 ? 'RENDER_FAILED' : 'RETRYING' } }), ...(attempt >= 3 ? [this.prisma.invitationBatch.update({ where: { id: batch.id }, data: { failedItems: { increment: 1 } } })] : [])]); }
-        }));
+        const active = await this.prisma.invitationBatch.updateMany({
+          where: { id: batch.id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
+          data: { status: BatchStatus.GENERATING },
+        });
+        if (!active.count) continue;
+        await Promise.all(
+          batch.items.map(async (item) => {
+            try {
+              const claim = await this.prisma.batchItem.updateMany({
+                where: {
+                  id: item.id,
+                  status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] },
+                  attempts: { lt: 3 },
+                },
+                data: {
+                  status: BatchItemStatus.GENERATING,
+                  attempts: { increment: 1 },
+                  errorCode: null,
+                },
+              });
+              if (!claim.count) return;
+              const latestBefore = await this.prisma.invitationBatch.findUniqueOrThrow({
+                where: { id: batch.id },
+                select: { status: true },
+              });
+              if (latestBefore.status === BatchStatus.CANCELLED) {
+                await this.prisma.batchItem.update({
+                  where: { id: item.id },
+                  data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
+                });
+                return;
+              }
+              const pdf = await this.render(object(item.snapshot));
+              const key = `pdf/${batch.id}/${item.guestId}.pdf`;
+              await this.storage.put(key, pdf, 'application/pdf');
+              const committed = await this.prisma.$transaction(async (tx) => {
+                const activeBatch = await tx.invitationBatch.updateMany({
+                  where: {
+                    id: batch.id,
+                    status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] },
+                  },
+                  data: { completedItems: { increment: 1 } },
+                });
+                if (!activeBatch.count) {
+                  await tx.batchItem.update({
+                    where: { id: item.id },
+                    data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
+                  });
+                  return false;
+                }
+                await tx.batchItem.update({
+                  where: { id: item.id },
+                  data: { status: BatchItemStatus.GENERATED, objectKey: key },
+                });
+                await tx.invitation.update({
+                  where: { id: item.invitationId },
+                  data: { status: InvitationStatus.GENERATED },
+                });
+                return true;
+              });
+              if (!committed) await this.storage.delete(key);
+            } catch {
+              const attempt = item.attempts + 1;
+              await this.prisma.$transaction([
+                this.prisma.batchItem.update({
+                  where: { id: item.id },
+                  data: {
+                    status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED,
+                    errorCode: attempt >= 3 ? 'RENDER_FAILED' : 'RETRYING',
+                  },
+                }),
+                ...(attempt >= 3
+                  ? [
+                      this.prisma.invitationBatch.update({
+                        where: { id: batch.id },
+                        data: { failedItems: { increment: 1 } },
+                      }),
+                    ]
+                  : []),
+              ]);
+            }
+          }),
+        );
         await this.finishIfDone(batch.id);
       }
-    } finally { this.busy = false; }
+    } finally {
+      this.busy = false;
+    }
   }
   private async consumeRenderQueue() {
-    const api = process.env['RABBITMQ_MANAGEMENT_URL']; const user = process.env['RABBITMQ_USER']; const password = process.env['RABBITMQ_PASSWORD'];
+    const api = process.env['RABBITMQ_MANAGEMENT_URL'];
+    const user = process.env['RABBITMQ_USER'];
+    const password = process.env['RABBITMQ_PASSWORD'];
     if (!api || !user || !password) return;
-    const response = await fetch(`${api.replace(/\/$/, '')}/api/queues/%2F/invitation.render.jobs/get`, { method: 'POST', headers: { authorization: `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`, 'content-type': 'application/json' }, body: JSON.stringify({ count: 5, ackmode: 'ack_requeue_false', encoding: 'auto', truncate: 128_000 }), signal: AbortSignal.timeout(3000) });
+    const response = await fetch(
+      `${api.replace(/\/$/, '')}/api/queues/%2F/invitation.render.jobs/get`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          count: 5,
+          ackmode: 'ack_requeue_false',
+          encoding: 'auto',
+          truncate: 128_000,
+        }),
+        signal: AbortSignal.timeout(3000),
+      },
+    );
     if (!response.ok) return;
-    const messages: unknown = await response.json(); if (!Array.isArray(messages)) return;
+    const messages: unknown = await response.json();
+    if (!Array.isArray(messages)) return;
     // The durable database batch/item records are the recovery source if a worker exits after ack.
-    for (const message of messages) { const envelope = object(JSON.parse(typeof object(message).payload === 'string' ? object(message).payload as string : '{}')); if (envelope['eventType'] !== 'invitation.render.requested.v1') continue; }
+    for (const message of messages) {
+      const envelope = object(
+        JSON.parse(
+          typeof object(message).payload === 'string' ? (object(message).payload as string) : '{}',
+        ),
+      );
+      if (envelope['eventType'] !== 'invitation.render.requested.v1') continue;
+    }
   }
   private async finishIfDone(id: string) {
-    const items = await this.prisma.batchItem.findMany({ where: { batchId: id } }); if (items.some(i => i.status === BatchItemStatus.QUEUED || i.status === BatchItemStatus.GENERATING)) return;
-    const batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id } }); if (batch.status === BatchStatus.CANCELLED) return; const made = items.filter(i => i.status === BatchItemStatus.GENERATED); const failed = items.filter(i => i.status === BatchItemStatus.FAILED).length;
+    const items = await this.prisma.batchItem.findMany({ where: { batchId: id } });
+    if (
+      items.some(
+        (i) => i.status === BatchItemStatus.QUEUED || i.status === BatchItemStatus.GENERATING,
+      )
+    )
+      return;
+    const batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id } });
+    if (batch.status === BatchStatus.CANCELLED) return;
+    const made = items.filter((i) => i.status === BatchItemStatus.GENERATED);
+    const failed = items.filter((i) => i.status === BatchItemStatus.FAILED).length;
     try {
-      if (failed) await Promise.all(made.flatMap(i => i.objectKey ? [this.storage.delete(i.objectKey)] : []));
-      if (!failed && made.length) { const zip = createZip(await Promise.all(made.map(async i => ({ name: `${i.guestId}.pdf`, bytes: await this.storage.get(i.objectKey!) })))); await this.storage.put(`batches/${id}.zip`, zip, 'application/zip'); }
+      if (failed)
+        await Promise.all(
+          made.flatMap((i) => (i.objectKey ? [this.storage.delete(i.objectKey)] : [])),
+        );
+      if (!failed && made.length) {
+        const zip = createZip(
+          await Promise.all(
+            made.map(async (i) => ({
+              name: `${i.guestId}.pdf`,
+              bytes: await this.storage.get(i.objectKey!),
+            })),
+          ),
+        );
+        await this.storage.put(`batches/${id}.zip`, zip, 'application/zip');
+      }
       await this.settle(batch, failed ? 0 : made.length);
-      await this.prisma.invitationBatch.update({ where: { id }, data: { status: failed ? BatchStatus.FAILED : BatchStatus.COMPLETED, completedItems: failed ? 0 : made.length, failedItems: failed ? items.length : 0 } });
-      if (failed) await this.prisma.batchItem.updateMany({ where: { batchId: id, status: BatchItemStatus.GENERATED }, data: { status: BatchItemStatus.FAILED, objectKey: null, errorCode: 'BATCH_ROLLED_BACK' } });
-    } catch { /* Leave the batch generating; the next worker tick retries finalization idempotently. */ }
+      await this.prisma.$transaction(async (tx) => {
+        const changed = await tx.invitationBatch.updateMany({
+          where: { id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
+          data: {
+            status: failed ? BatchStatus.FAILED : BatchStatus.COMPLETED,
+            completedItems: failed ? 0 : made.length,
+            failedItems: failed ? items.length : 0,
+          },
+        });
+        if (changed.count)
+          await tx.outboxMessage.create({
+            data: {
+              eventType: failed ? 'invitation.batch.failed.v1' : 'invitation.batch.completed.v1',
+              aggregateId: id,
+              payload: {
+                batchId: id,
+                eventId: batch.eventId,
+                ownerSubject: batch.ownerSubject,
+                generatedCount: failed ? 0 : made.length,
+                failedCount: failed ? items.length : 0,
+                occurredAt: new Date().toISOString(),
+                schemaVersion: 1,
+              },
+            },
+          });
+      });
+      if (failed)
+        await this.prisma.batchItem.updateMany({
+          where: { batchId: id, status: BatchItemStatus.GENERATED },
+          data: { status: BatchItemStatus.FAILED, objectKey: null, errorCode: 'BATCH_ROLLED_BACK' },
+        });
+    } catch {
+      /* Leave the batch generating; the next worker tick retries finalization idempotently. */
+    }
   }
   private async render(snapshot: Obj): Promise<Buffer> {
-    const event = object(snapshot.eventSnapshot); const guest = object(snapshot.guestSnapshot); const design = object(snapshot.designSnapshot); const doc = object(design.document); const venue = object(event.venue);
-    const ceremonyText = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((v: unknown) => { const c = object(object(v).ceremony); return `<p>${esc(c.name ?? c.title ?? '')} ${esc(c.startAt ?? '')}</p>`; }).join('');
-    const guestName = String(guest.fullName ?? ''); const eventName = String(event.name ?? ''); const eventDate = String(event.startAt ?? event.date ?? ''); const eventLocation = String(venue.name ?? event.location ?? '');
-    const variables: Record<string, string> = { 'guest.name': guestName, 'guest.fullname': guestName, 'guest.email': String(guest.email ?? ''), 'event.name': eventName, 'event.date': eventDate, 'event.location': eventLocation, guest_name: guestName, guestname: guestName, guest_full_name: guestName, guest_email: String(guest.email ?? ''), event_name: eventName, eventname: eventName, event_date: eventDate, event_location: eventLocation };
-    for (const variable of Array.isArray(doc.variables) ? doc.variables : []) { const v = object(variable); if (typeof v.key === 'string' && typeof v.defaultValue === 'string') { const identity = `${v.key} ${typeof v.label === 'string' ? v.label : ''}`.toLocaleLowerCase('fr'); variables[v.key] = /guest|invite/.test(identity) && /name|nom/.test(identity) ? guestName : /event|evenement/.test(identity) && /name|nom/.test(identity) ? eventName : /event|evenement/.test(identity) && /date/.test(identity) ? eventDate : /event|evenement/.test(identity) && /location|lieu|adresse/.test(identity) ? eventLocation : v.defaultValue; } }
-    const substitute = (text: string) => text.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_, key: string) => variables[key.trim()] ?? variables[key.trim().toLowerCase()] ?? '');
-    const canvas = object(doc.canvas); const width = Number(canvas.width) || 1080; const height = Number(canvas.height) || 1530;
-    const layers = (Array.isArray(doc.elements) ? doc.elements : []).map((value: unknown) => {
-      const layer = object(value); const x = Number(layer.x) || 0; const y = Number(layer.y) || 0; const w = Number(layer.width) || 0; const h = Number(layer.height) || 0; const rotate = Number(layer.rotation) || 0; const transform = rotate ? ` transform="rotate(${rotate} ${x + w / 2} ${y + h / 2})"` : '';
-      if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE') return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(layer.fill === 'transparent' ? 'none' : layer.fill ?? 'none')}" stroke="${esc(layer.stroke ?? 'none')}" stroke-width="${Number(layer.strokeWidth) || 0}"${transform}/>`;
-      if (layer.type !== 'TEXT' || typeof layer.text !== 'string') return '';
-      const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle'; const tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2; const fontSize = Math.max(8, Math.min(180, Number(layer.fontSize) || 24)); const lines = substitute(layer.text).split('\n'); const firstY = y + h / 2 - (lines.length - 1) * fontSize * 0.6;
-      return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * 1.2 : 0}">${esc(line)}</tspan>`).join('')}</text>`;
-    }).join('');
+    const event = object(snapshot.eventSnapshot);
+    const guest = object(snapshot.guestSnapshot);
+    const design = object(snapshot.designSnapshot);
+    const doc = object(design.document);
+    const venue = object(event.venue);
+    const ceremonyText = (
+      Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []
+    )
+      .map((v: unknown) => {
+        const c = object(object(v).ceremony);
+        return `<p>${esc(c.name ?? c.title ?? '')} ${esc(c.startAt ?? '')}</p>`;
+      })
+      .join('');
+    const guestName = String(guest.fullName ?? '');
+    const eventName = String(event.name ?? '');
+    const eventDate = String(event.startAt ?? event.date ?? '');
+    const eventLocation = String(venue.name ?? event.location ?? '');
+    const variables: Record<string, string> = {
+      'guest.name': guestName,
+      'guest.fullname': guestName,
+      'guest.email': String(guest.email ?? ''),
+      'event.name': eventName,
+      'event.date': eventDate,
+      'event.location': eventLocation,
+      guest_name: guestName,
+      guestname: guestName,
+      guest_full_name: guestName,
+      guest_email: String(guest.email ?? ''),
+      event_name: eventName,
+      eventname: eventName,
+      event_date: eventDate,
+      event_location: eventLocation,
+    };
+    for (const variable of Array.isArray(doc.variables) ? doc.variables : []) {
+      const v = object(variable);
+      if (typeof v.key === 'string' && typeof v.defaultValue === 'string') {
+        const identity = `${v.key} ${typeof v.label === 'string' ? v.label : ''}`.toLocaleLowerCase(
+          'fr',
+        );
+        variables[v.key] =
+          /guest|invite/.test(identity) && /name|nom/.test(identity)
+            ? guestName
+            : /event|evenement/.test(identity) && /name|nom/.test(identity)
+              ? eventName
+              : /event|evenement/.test(identity) && /date/.test(identity)
+                ? eventDate
+                : /event|evenement/.test(identity) && /location|lieu|adresse/.test(identity)
+                  ? eventLocation
+                  : v.defaultValue;
+      }
+    }
+    const substitute = (text: string) =>
+      text.replace(
+        /\{\{\s*([^}]+)\s*\}\}/g,
+        (_, key: string) => variables[key.trim()] ?? variables[key.trim().toLowerCase()] ?? '',
+      );
+    const canvas = object(doc.canvas);
+    const width = Number(canvas.width) || 1080;
+    const height = Number(canvas.height) || 1530;
+    const layers = (Array.isArray(doc.elements) ? doc.elements : [])
+      .map((value: unknown) => {
+        const layer = object(value);
+        const x = Number(layer.x) || 0;
+        const y = Number(layer.y) || 0;
+        const w = Number(layer.width) || 0;
+        const h = Number(layer.height) || 0;
+        const rotate = Number(layer.rotation) || 0;
+        const transform = rotate ? ` transform="rotate(${rotate} ${x + w / 2} ${y + h / 2})"` : '';
+        if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE')
+          return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(layer.fill === 'transparent' ? 'none' : (layer.fill ?? 'none'))}" stroke="${esc(layer.stroke ?? 'none')}" stroke-width="${Number(layer.strokeWidth) || 0}"${transform}/>`;
+        if (layer.type !== 'TEXT' || typeof layer.text !== 'string') return '';
+        const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle';
+        const tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
+        const fontSize = Math.max(8, Math.min(180, Number(layer.fontSize) || 24));
+        const lines = substitute(layer.text).split('\n');
+        const firstY = y + h / 2 - (lines.length - 1) * fontSize * 0.6;
+        return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * 1.2 : 0}">${esc(line)}</tspan>`).join('')}</text>`;
+      })
+      .join('');
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
-    const token = invitationToken(String(snapshot.invitationId ?? '')); const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
+    const token = invitationToken(String(snapshot.invitationId ?? ''));
+    const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
     const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img">${layers}</svg>` : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`;
-    const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-')); const input = join(dir, 'invitation.html'); const output = join(dir, 'invitation.pdf');
-    try { const qr = join(dir, 'invitation-qr.svg'); await (await import('node:fs/promises')).writeFile(input, html.replace('QR_FILE', qr), 'utf8'); await new Promise<void>((resolve, reject) => { const child = spawn(process.env['QR_ENCODE_PATH'] ?? '/usr/bin/qrencode', ['-t', 'SVG', '-o', qr, qrTarget], { stdio: 'ignore' }); child.once('error', reject); child.once('exit', code => { if (code === 0) resolve(); else reject(new Error('QR generation failed')); }); }); const executable = process.env['CHROMIUM_PATH'] ?? '/usr/bin/chromium-browser'; await new Promise<void>((resolve, reject) => { const child = spawn(executable, ['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',`--print-to-pdf=${output}`,`file://${input}`], { stdio: 'ignore' }); const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Render timeout')); }, 30000); child.once('error', e => { clearTimeout(timer); reject(e); }); child.once('exit', code => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error('Chromium render failed')); }); }); return await readFile(output); } finally { await rm(dir, { recursive: true, force: true }); }
+    const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
+    const input = join(dir, 'invitation.html');
+    const output = join(dir, 'invitation.pdf');
+    try {
+      const qr = join(dir, 'invitation-qr.svg');
+      await (
+        await import('node:fs/promises')
+      ).writeFile(input, html.replace('QR_FILE', qr), 'utf8');
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          process.env['QR_ENCODE_PATH'] ?? '/usr/bin/qrencode',
+          ['-t', 'SVG', '-o', qr, qrTarget],
+          { stdio: 'ignore' },
+        );
+        child.once('error', reject);
+        child.once('exit', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error('QR generation failed'));
+        });
+      });
+      const executable = process.env['CHROMIUM_PATH'] ?? '/usr/bin/chromium-browser';
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          executable,
+          [
+            '--headless',
+            '--no-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            `--print-to-pdf=${output}`,
+            `file://${input}`,
+          ],
+          { stdio: 'ignore' },
+        );
+        const timer = setTimeout(() => {
+          child.kill('SIGKILL');
+          reject(new Error('Render timeout'));
+        }, 30000);
+        child.once('error', (e) => {
+          clearTimeout(timer);
+          reject(e);
+        });
+        child.once('exit', (code) => {
+          clearTimeout(timer);
+          if (code === 0) resolve();
+          else reject(new Error('Chromium render failed'));
+        });
+      });
+      return await readFile(output);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   }
 }
 
-function createZip(files: {name:string;bytes:Buffer}[]) {
-  const crcTable = new Uint32Array(256); for (let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;crcTable[n]=c>>>0;}
-  const crc = (b:Buffer) => { let c=0xffffffff; for(const x of b)c=crcTable[(c^x)&255]^(c>>>8); return (c^0xffffffff)>>>0; };
-  const local:Buffer[]=[]; const central:Buffer[]=[]; let offset=0;
-  for(const f of files){const name=Buffer.from(f.name);const sum=crc(f.bytes);const h=Buffer.alloc(30);h.writeUInt32LE(0x04034b50);h.writeUInt16LE(20,4);h.writeUInt32LE(sum,14);h.writeUInt32LE(f.bytes.length,18);h.writeUInt32LE(f.bytes.length,22);h.writeUInt16LE(name.length,26);local.push(h,name,f.bytes);const c=Buffer.alloc(46);c.writeUInt32LE(0x02014b50);c.writeUInt16LE(20,4);c.writeUInt16LE(20,6);c.writeUInt32LE(sum,16);c.writeUInt32LE(f.bytes.length,20);c.writeUInt32LE(f.bytes.length,24);c.writeUInt16LE(name.length,28);c.writeUInt32LE(offset,42);central.push(c,name);offset+=h.length+name.length+f.bytes.length;}
-  const centralBytes=Buffer.concat(central);const end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.length,8);end.writeUInt16LE(files.length,10);end.writeUInt32LE(centralBytes.length,12);end.writeUInt32LE(offset,16);return Buffer.concat([...local,centralBytes,end]);
+function createZip(files: { name: string; bytes: Buffer }[]) {
+  const crcTable = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    crcTable[n] = c >>> 0;
+  }
+  const crc = (b: Buffer) => {
+    let c = 0xffffffff;
+    for (const x of b) c = crcTable[(c ^ x) & 255]! ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const local: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = Buffer.from(f.name);
+    const sum = crc(f.bytes);
+    const h = Buffer.alloc(30);
+    h.writeUInt32LE(0x04034b50);
+    h.writeUInt16LE(20, 4);
+    h.writeUInt32LE(sum, 14);
+    h.writeUInt32LE(f.bytes.length, 18);
+    h.writeUInt32LE(f.bytes.length, 22);
+    h.writeUInt16LE(name.length, 26);
+    local.push(h, name, f.bytes);
+    const c = Buffer.alloc(46);
+    c.writeUInt32LE(0x02014b50);
+    c.writeUInt16LE(20, 4);
+    c.writeUInt16LE(20, 6);
+    c.writeUInt32LE(sum, 16);
+    c.writeUInt32LE(f.bytes.length, 20);
+    c.writeUInt32LE(f.bytes.length, 24);
+    c.writeUInt16LE(name.length, 28);
+    c.writeUInt32LE(offset, 42);
+    central.push(c, name);
+    offset += h.length + name.length + f.bytes.length;
+  }
+  const centralBytes = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50);
+  end.writeUInt16LE(files.length, 8);
+  end.writeUInt16LE(files.length, 10);
+  end.writeUInt32LE(centralBytes.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...local, centralBytes, end]);
 }

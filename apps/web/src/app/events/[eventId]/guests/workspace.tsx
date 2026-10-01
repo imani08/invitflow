@@ -35,6 +35,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
   const [filter, setFilter] = useState('');
   const [query, setQuery] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
+  const [ceremonyFilter, setCeremonyFilter] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [groupName, setGroupName] = useState('');
@@ -49,11 +50,12 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     const params = new URLSearchParams({ limit: '100' });
     if (query.trim()) params.set('q', query.trim());
     if (groupFilter) params.set('groupId', groupFilter);
+    if (ceremonyFilter) params.set('ceremonyId', ceremonyFilter);
     const [groupResult, firstPage] = await Promise.all([
       api<Group[]>(`${event.id}/guests/groups`), api<{ items: Guest[]; nextCursor: string | null; total: number }>(`${event.id}/guests?${params}`),
     ]);
     setGuests(firstPage.items); setTotalGuests(firstPage.total); setNextCursor(firstPage.nextCursor); setGroups(groupResult); setLoaded(true);
-  }, [event.id, query, groupFilter]);
+  }, [event.id, query, groupFilter, ceremonyFilter]);
 
   useEffect(() => { const timer = window.setTimeout(() => setQuery(filter), 250); return () => window.clearTimeout(timer); }, [filter]);
   useEffect(() => { void refresh().catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Chargement impossible.')); }, [refresh]);
@@ -64,6 +66,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
       const params = new URLSearchParams({ limit: '100', cursor: nextCursor });
       if (query.trim()) params.set('q', query.trim());
       if (groupFilter) params.set('groupId', groupFilter);
+      if (ceremonyFilter) params.set('ceremonyId', ceremonyFilter);
       const page = await api<{ items: Guest[]; nextCursor: string | null }>(`${event.id}/guests?${params}`);
       setGuests((current) => [...current, ...page.items]); setNextCursor(page.nextCursor);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Chargement impossible.'); }
@@ -149,7 +152,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     <div>
       <section className="guest-panel"><div className="events-list-head"><div><p className="eyebrow">LISTE DE PRÉSENCE</p><h2>Invités <span>{totalGuests.toString().padStart(2, '0')}</span></h2></div><button className="small-action" onClick={() => setSelected(null)}>+ Ajouter</button></div>
         <p className="guests-status" role="status" aria-live="polite">{message}</p>
-        <div className="guest-toolbar"><input aria-label="Rechercher un invité" placeholder="Rechercher un nom, e-mail ou téléphone" value={filter} onChange={(e) => setFilter(e.target.value)} /><select aria-label="Filtrer par groupe" value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}><option value="">Tous les groupes</option>{groups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select></div>
+        <div className="guest-toolbar"><input aria-label="Rechercher un invité" placeholder="Rechercher un nom, e-mail ou téléphone" value={filter} onChange={(e) => setFilter(e.target.value)} /><select aria-label="Filtrer par groupe" value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}><option value="">Tous les groupes</option>{groups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select><select aria-label="Filtrer par cérémonie" value={ceremonyFilter} onChange={(e) => setCeremonyFilter(e.target.value)}><option value="">Toutes les cérémonies</option>{event.ceremonies.map((ceremony) => <option value={ceremony.id} key={ceremony.id}>{ceremony.name}</option>)}</select></div>
         {!loaded ? <p className="guest-empty">Chargement des invités…</p> : guests.length === 0 ? <p className="guest-empty">{totalGuests ? 'Aucun invité ne correspond à cette recherche.' : 'Votre liste commence ici. Ajoutez un invité ou importez un fichier.'}</p> : <><div className="guest-list">{guests.map((guest) => <div className="guest-row" key={guest.id}><button onClick={() => setSelected(guest)}><strong>{guest.fullName}</strong><span>{guest.email || guest.phone || 'Aucun contact'}{guest.group ? ` · ${guest.group.name}` : ''}</span></button><div className="guest-row-actions"><button onClick={() => setSelected(guest)} disabled={busy}>Modifier</button><button onClick={() => void archive(guest)} disabled={busy}>Archiver</button></div></div>)}</div>{nextCursor && <button className="small-action" onClick={() => void loadMore()} disabled={busy}>Charger les invités suivants</button>}</>}
         <form className="group-row" onSubmit={addGroup}><input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Créer un groupe (ex. Famille)" maxLength={100} required /><button className="small-action" disabled={busy}>Créer</button></form>
         {groups.length > 0 && <div className="guest-list">{groups.map((group) => <div className="guest-row" key={group.id}><button onClick={() => setGroupFilter(group.id)}><strong>{group.name}</strong><span>{group._count.guests} invité(s)</span></button><div className="guest-row-actions"><button onClick={() => void renameGroup(group)} disabled={busy}>Renommer</button><button onClick={() => void deleteGroup(group)} disabled={busy}>Supprimer</button></div></div>)}</div>}

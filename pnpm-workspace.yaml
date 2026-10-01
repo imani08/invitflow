@@ -3,3 +3,24 @@ packages:
   - "services/*"
   - "packages/*"
 minimumReleaseAge: 1440
+pmOnFail: error
+engineStrict: true
+strictPeerDependencies: true
+saveExact: true
+overrides:
+  '@nestjs/core@<11.2.4': 11.2.4
+  '@nestjs/platform-fastify@<11.2.4': 11.2.4
+  'deepmerge-ts@<8.0.0': 8.0.0
+  'file-type@>=13.0.0 <21.3.2': 21.3.2
+  'fastify@<5.12.1': 5.12.1
+  'find-my-way@<=9.6.0': 9.7.0
+  'mysql2@<=3.23.0': 3.23.1
+  'path-to-regexp@>=8.0.0 <8.4.0': 8.4.0
+  'postcss@<8.5.23': 8.5.23
+  'uuid@<11.1.1': 11.1.1
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true

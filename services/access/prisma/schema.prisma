@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AgentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum AccessScanOutcome {
+  ACCEPTED
+  DUPLICATE
+  REJECTED
+  UNAVAILABLE
+}
+
+model CheckInAgent {
+  id           String                  @id @default(uuid()) @db.Uuid
+  ownerSubject String                  @map("owner_subject") @db.VarChar(255)
+  eventId      String                  @map("event_id") @db.Uuid
+  agentSubject String                  @map("agent_subject") @db.VarChar(255)
+  status       AgentStatus             @default(ACTIVE)
+  createdAt    DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  ceremonies   AgentCeremonyGrant[]
+  scans        AccessScanAttempt[]
+
+  @@unique([eventId, agentSubject], map: "checkin_agents_event_subject_key")
+  @@index([ownerSubject, eventId, status], map: "checkin_agents_owner_event_status_idx")
+  @@map("checkin_agents")
+}
+
+model AgentCeremonyGrant {
+  id           String       @id @default(uuid()) @db.Uuid
+  agentId      String       @map("agent_id") @db.Uuid
+  ownerSubject String       @map("owner_subject") @db.VarChar(255)
+  eventId      String       @map("event_id") @db.Uuid
+  ceremonyId   String       @map("ceremony_id") @db.Uuid
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  agent        CheckInAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, ceremonyId], map: "agent_ceremony_grants_agent_ceremony_key")
+  @@index([ownerSubject, eventId, ceremonyId], map: "agent_ceremony_grants_owner_event_ceremony_idx")
+  @@map("agent_ceremony_grants")
+}
+
+model AccessScanAttempt {
+  id                String            @id @default(uuid()) @db.Uuid
+  ownerSubject      String            @map("owner_subject") @db.VarChar(255)
+  eventId           String            @map("event_id") @db.Uuid
+  ceremonyId        String            @map("ceremony_id") @db.Uuid
+  operatorSubject   String            @map("operator_subject") @db.VarChar(255)
+  agentId           String?           @map("agent_id") @db.Uuid
+  deviceFingerprint String?           @map("device_fingerprint") @db.Char(64)
+  userAgent         String?           @map("user_agent") @db.VarChar(300)
+  outcome           AccessScanOutcome
+  upstreamStatus    Int               @map("upstream_status") @db.SmallInt
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  agent             CheckInAgent?     @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([ownerSubject, eventId, ceremonyId, createdAt(sort: Desc)], map: "access_scan_attempts_owner_event_ceremony_created_idx")
+  @@index([agentId, createdAt(sort: Desc)], map: "access_scan_attempts_agent_created_idx")
+  @@map("access_scan_attempts")
+}
+
+model OutboxMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventType   String   @map("event_type") @db.VarChar(100)
+  aggregateId String   @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int      @default(0)
+
+  @@index([publishedAt, createdAt], map: "access_outbox_pending_idx")
+  @@map("outbox_messages")
+}

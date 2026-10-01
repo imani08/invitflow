@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ProcessedEvent {
+  eventId    String   @id @map("event_id") @db.VarChar(64)
+  eventType  String   @map("event_type") @db.VarChar(100)
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz(3)
+  processedAt DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+
+  @@map("processed_events")
+}
+
+model DailyMetric {
+  id            String   @id @default(uuid()) @db.Uuid
+  day           DateTime @db.Date
+  metric        String   @db.VarChar(80)
+  currency      String   @default("") @db.VarChar(10)
+  count         BigInt   @default(0)
+  valueMinor    BigInt   @default(0) @map("value_minor")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([day, metric, currency], map: "daily_metrics_day_metric_currency_key")
+  @@index([metric, day(sort: Desc)], map: "daily_metrics_metric_day_idx")
+  @@map("daily_metrics")
+}

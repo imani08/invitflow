@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { resolveGuestPreviewValues } from '@/lib/design-guest-preview.mjs';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Layer = Record<string, unknown> & { id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
 type Document = { schemaVersion: 1; metadata: Record<string, unknown>; canvas: { width: number; height: number; unit: 'px' }; theme: { category: string; style: string; palette: string[]; tokens: { primary: string; secondary: string; background: string; font: string } }; assets: Record<string, unknown>[]; elements: Layer[]; variables: { key: string; label: string; type: 'TEXT'; defaultValue: string; required: boolean }[]; constraints: { safeMargin: number; allowOverflow: boolean }; layouts: { id: string; name: string; width: number; height: number }[]; ceremonyRules: Record<string, unknown>[]; exportProfiles: { id: string; width: number; height: number; unit: 'px' }[]; version: number };
 type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string }[] };
+type PreviewGuest = { id: string; fullName: string; email: string | null; phone: string | null };
 type Template = { id: string; slug: string; version: number; name: string; description: string; category: string; style: string; tags: string[]; preview: { background: string; accent: string; style: string } };
 type Design = { id: string; name: string; templateSlug: string | null; version: number; document: Document; createdAt: string; updatedAt: string };
 type Version = { version: number; name: string; createdAt: string };
@@ -26,8 +28,6 @@ async function api<T>(eventId: string, path: string, method = 'GET', data?: unkn
 }
 
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
-function variableValues(document: Document) { return Object.fromEntries(document.variables.map((variable) => [variable.key, variable.defaultValue])); }
-
 function renderText(text: string, values: Record<string, string>) {
   return text.replace(/\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}/g, (_, key: string) => values[key] ?? '');
 }
@@ -70,6 +70,10 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiJob, setAiJob] = useState<AiJob | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+  const [previewGuests, setPreviewGuests] = useState<PreviewGuest[]>([]);
+  const [previewGuest, setPreviewGuest] = useState<PreviewGuest | null>(null);
+  const [previewGuestSearch, setPreviewGuestSearch] = useState('');
+  const [previewGuestError, setPreviewGuestError] = useState('');
   const stageRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<{ id: number; layerId: string; x: number; y: number; moved: boolean; start: Document } | null>(null);
   const openLayer = selected?.document.elements.find((layer) => layer.id === activeLayerId) ?? null;
@@ -88,6 +92,25 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   }, [event.id]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      const query = new URLSearchParams({ limit: '50' });
+      if (previewGuestSearch.trim()) query.set('q', previewGuestSearch.trim());
+      void fetch(`/api/events/${encodeURIComponent(event.id)}/guests?${query}`, { cache: 'no-store', signal: controller.signal })
+        .then(async (response) => {
+          const payload: unknown = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string' ? payload.message : 'Recherche des invités indisponible.');
+          const items = payload && typeof payload === 'object' && 'items' in payload && Array.isArray(payload.items) ? payload.items : [];
+          setPreviewGuests(items.filter((item): item is PreviewGuest => !!item && typeof item === 'object' && 'id' in item && typeof item.id === 'string' && 'fullName' in item && typeof item.fullName === 'string').map((item) => ({ id: item.id, fullName: item.fullName, email: 'email' in item && typeof item.email === 'string' ? item.email : null, phone: 'phone' in item && typeof item.phone === 'string' ? item.phone : null })));
+          setPreviewGuestError('');
+        })
+        .catch((error: unknown) => { if (!controller.signal.aborted) setPreviewGuestError(error instanceof Error ? error.message : 'Recherche des invités indisponible.'); });
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [event.id, previewGuestSearch, selected?.id]);
 
   useEffect(() => {
     if (!aiJob || !selected || aiJob.status === 'PROPOSED' || aiJob.status === 'FAILED' || aiJob.status === 'CANCELLED') return;
@@ -323,7 +346,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
     pointerRef.current = null;
   }
 
-  const variableMap = selected ? variableValues(selected.document) : {};
+  const variableMap = selected ? resolveGuestPreviewValues(selected.document.variables, previewGuest) : {};
   const canvas = selected?.document.canvas;
   const stageWidth = 390;
   const stageHeight = canvas ? Math.round(stageWidth * canvas.height / canvas.width) : 694;
@@ -338,7 +361,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
         <aside className="design-saved"><span className="design-kicker">VOTRE ESPACE</span><h2>Vos créations</h2>{designs.length ? <div className="saved-list">{designs.map((design) => <button key={design.id} onClick={() => void selectDesign(design)} disabled={busy}><span className="saved-palette" style={{ background: String(design.document.theme.tokens.background) }} /><span><strong>{design.name}</strong><small>Version {design.version} · Modifié {new Date(design.updatedAt).toLocaleDateString('fr-FR')}</small></span><span>→</span></button>)}</div> : <p className="saved-empty">Vos designs enregistrés apparaîtront ici.</p>}</aside></div> : <section className="editor-shell">
         <div className="editor-toolbar"><button className="editor-return" onClick={() => { if (dirty && !window.confirm('Les changements non enregistrés seront perdus. Quitter ?')) return; setSelected(null); setSavedDocument(null); setSavedName(''); setHistory([]); setFuture([]); }}>← Bibliothèque</button><div className="editor-title"><input aria-label="Nom du design" value={selected.name} onChange={(eventChange) => setSelected({ ...selected, name: eventChange.target.value })} maxLength={120} /><span>v{selected.version}{dirty ? ' · Modifications non enregistrées' : ' · Enregistré'}</span></div><div className="editor-actions"><button title="Annuler (Ctrl/⌘+Z)" disabled={!history.length || busy} onClick={undo}>↶</button><button title="Rétablir (Ctrl/⌘+Maj+Z)" disabled={!future.length || busy} onClick={redo}>↷</button><button disabled={!dirty || busy} onClick={() => void save()}>Enregistrer</button></div></div>
         <div className="editor-body"><aside className="editor-panel editor-left"><span className="design-kicker">CALQUES · {selected.document.elements.length}</span><div className="layer-list">{[...selected.document.elements].sort((a, b) => b.zIndex - a.zIndex).map((layer) => <button key={layer.id} className={activeLayerId === layer.id ? 'active' : ''} onClick={() => setActiveLayerId(layer.id)}><span className={`layer-icon ${layer.type.toLowerCase()}`}>{layer.type === 'TEXT' ? 'T' : layer.type === 'BACKGROUND' ? '◧' : '□'}</span><span><strong>{layer.name}</strong><small>{layer.type === 'TEXT' ? 'Texte' : layer.type === 'BACKGROUND' ? 'Arrière-plan' : 'Rectangle'}{layer.locked ? ' · verrouillé' : ''}</small></span>{layer.editable && !layer.locked && <i>✳</i>}</button>)}</div><div className="layer-add"><button onClick={addText} disabled={busy}>＋ Ajouter du texte</button><button onClick={addShape} disabled={busy}>＋ Ajouter un cadre</button></div></aside>
-          <section className="editor-stage"><div className="stage-bar"><span>APERÇU DU MODÈLE</span><div><button onClick={() => setDragMode((enabled) => !enabled)} aria-pressed={dragMode} className={dragMode ? 'selected-tool' : ''}>{dragMode ? '✥ Déplacement actif' : '↖ Sélection'}</button><button onClick={() => setZoom((value) => Math.max(0.24, value - 0.04))} aria-label="Zoom arrière">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(0.52, value + 0.04))} aria-label="Zoom avant">＋</button></div></div><div className="stage-scroll"><div className="design-canvas" ref={stageRef} style={{ width: stageWidth, height: stageHeight, transform: `scale(${zoom / (stageWidth / 1080)})`, transformOrigin: 'top center', marginBottom: stageHeight * (zoom / (stageWidth / 1080) - 1) }}><svg viewBox={`0 0 ${canvas!.width} ${canvas!.height}`} width="100%" height="100%" onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} style={{ cursor: dragMode ? 'grab' : 'default', touchAction: 'none' }}>
+          <section className="editor-stage"><div className="stage-bar"><div className="preview-guest-picker"><span className="design-kicker">APERÇU DU MODÈLE</span><label>Prévisualiser comme un invité<input type="search" value={previewGuestSearch} onChange={(eventChange) => setPreviewGuestSearch(eventChange.target.value)} placeholder="Rechercher un invité" maxLength={160} /></label><label>Invité<select aria-label="Invité pour l’aperçu" value={previewGuest?.id ?? ''} onChange={(eventChange) => setPreviewGuest(previewGuests.find((guest) => guest.id === eventChange.target.value) ?? null)}><option value="">Valeurs du modèle</option>{previewGuest && !previewGuests.some((guest) => guest.id === previewGuest.id) && <option value={previewGuest.id}>{previewGuest.fullName}</option>}{previewGuests.map((guest) => <option value={guest.id} key={guest.id}>{guest.fullName}{guest.email ? ` · ${guest.email}` : ''}</option>)}</select></label>{previewGuestError && <small role="status">{previewGuestError}</small>}</div><div><button onClick={() => setDragMode((enabled) => !enabled)} aria-pressed={dragMode} className={dragMode ? 'selected-tool' : ''}>{dragMode ? '✥ Déplacement actif' : '↖ Sélection'}</button><button onClick={() => setZoom((value) => Math.max(0.24, value - 0.04))} aria-label="Zoom arrière">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(0.52, value + 0.04))} aria-label="Zoom avant">＋</button></div></div><div className="stage-scroll"><div className="design-canvas" ref={stageRef} style={{ width: stageWidth, height: stageHeight, transform: `scale(${zoom / (stageWidth / 1080)})`, transformOrigin: 'top center', marginBottom: stageHeight * (zoom / (stageWidth / 1080) - 1) }}><svg viewBox={`0 0 ${canvas!.width} ${canvas!.height}`} width="100%" height="100%" onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} style={{ cursor: dragMode ? 'grab' : 'default', touchAction: 'none' }}>
             {[...selected.document.elements].sort((a, b) => a.zIndex - b.zIndex).map((layer) => {
               const isActive = activeLayerId === layer.id;
               const fontScale = 1080 / canvas!.width;

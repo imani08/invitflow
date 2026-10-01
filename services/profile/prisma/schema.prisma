@@ -19,3 +19,35 @@ model Profile {
   @@index([email], map: "profiles_email_idx")
   @@map("profiles")
 }
+
+enum DeletionRequestStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
+model AccountDeletionRequest {
+  id              String                @id @default(uuid()) @db.Uuid
+  identitySubject String                @map("identity_subject") @db.VarChar(255)
+  status          DeletionRequestStatus @default(PENDING)
+  requestedAt     DateTime              @default(now()) @map("requested_at") @db.Timestamptz(3)
+  cancelledAt     DateTime?             @map("cancelled_at") @db.Timestamptz(3)
+  completedAt     DateTime?             @map("completed_at") @db.Timestamptz(3)
+
+  @@index([identitySubject, requestedAt(sort: Desc)], map: "account_deletion_requests_subject_requested_idx")
+  // PostgreSQL migration adds a partial unique index to enforce a single pending request per identity.
+  @@map("account_deletion_requests")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  eventType   String    @map("event_type") @db.VarChar(100)
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+
+  @@index([publishedAt, createdAt], map: "profile_outbox_pending_idx")
+  @@map("outbox_messages")
+}

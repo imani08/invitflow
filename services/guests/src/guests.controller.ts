@@ -10,11 +10,11 @@ export class GuestsController {
   constructor(private readonly guests: GuestsService) {}
 
   @Get()
-  list(@Req() request: AuthenticatedRequest, @Param('eventId') eventId: string, @Query('cursor') cursor?: string, @Query('limit') rawLimit?: string, @Query('q') search?: string, @Query('groupId') groupId?: string) {
+  list(@Req() request: AuthenticatedRequest, @Param('eventId') eventId: string, @Query('cursor') cursor?: string, @Query('limit') rawLimit?: string, @Query('q') search?: string, @Query('groupId') groupId?: string, @Query('ceremonyId') ceremonyId?: string) {
     const limit = rawLimit === undefined ? 50 : Number(rawLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new BadRequestException('limit doit être compris entre 1 et 100.');
     if (search !== undefined && search.length > 160) throw new BadRequestException('q ne peut pas dépasser 160 caractères.');
-    return this.guests.list(request.identity!.subject, eventId, this.authorization(request), limit, cursor, search?.trim(), groupId);
+    return this.guests.list(request.identity!.subject, eventId, this.authorization(request), limit, cursor, search?.trim(), groupId, ceremonyId);
   }
 
   @Post()

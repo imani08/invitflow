@@ -1,13 +1,14 @@
-FROM node:24.21.0-alpine
+ARG NODE_IMAGE=node:24.21.0-slim
+FROM ${NODE_IMAGE}
 WORKDIR /app
-RUN corepack enable
+RUN npm install --global pnpm@12.8.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY services/payments/package.json services/payments/package.json
 RUN pnpm install --frozen-lockfile --filter @invitaflow/payments...
 COPY services/payments services/payments
 WORKDIR /app/services/payments
 RUN pnpm prisma:generate && pnpm exec tsc -p tsconfig.json
-RUN addgroup -S app && adduser -S app -G app && chown -R app:app /app
+RUN groupadd --system app && useradd --system --gid app app && chown -R app:app /app
 USER app
 EXPOSE 3011
 CMD ["pnpm", "start"]

@@ -5,9 +5,12 @@ InvitaFlow is a platform for creating, personalizing, distributing and managing 
 ## Architecture
 
 - `apps/web` — public Next.js landing page, OIDC BFF routes and authenticated profile, notifications, wallet, event, ceremony, guest, seating, design and invitation workspaces
-- `apps/admin` — redirects to the role-protected web consoles; support/moderation is at `/admin`, finance pricing at `/admin/pricing`, and payment review at `/admin/finance`
+- `apps/admin` — navigation to the existing role-protected web consoles; support/moderation is at `/admin`, finance pricing at `/admin/pricing`, and payment review at `/admin/finance`
+- Gateway exposes bounded-cardinality Prometheus request counters and duration histograms at `/metrics` on the internal observability network
+- RabbitMQ exposes per-queue ready/unacknowledged depth and consumer count to Prometheus over a dedicated internal metrics network; Prometheus alerts on sustained backlog and non-empty dead-letter queues
 - `apps/gateway` — NestJS on Fastify with health route, request IDs, security headers and profile, events, guests, seating, designs, invitations, audit, wallet, billing and payments API proxies
 - `services/profile` — Keycloak-token protected profile API with its own Prisma schema, migrations and database login
+- `services/media` — owner-scoped image uploads to a private quarantine bucket, Sharp pixel decoding/re-encoding to original, preview and thumbnail WebP variants, metadata stripping and signed downloads from the private ready bucket
 - `services/events` — Keycloak-token protected event and ceremony API, isolated database, versioned contracts and transactional outbox publisher
 - `services/guests` — Keycloak-token protected guest, group, companion and ceremony-access API, isolated database, CSV/XLSX import pipeline and transactional outbox publisher
 - `services/seating` — Keycloak-token protected per-ceremony table, zone and guest-placement API, CSV/XLSX table import and transactional outbox in its own isolated database
@@ -27,10 +30,23 @@ Each active service owns its database. PostgreSQL is on a private Docker network
 
 RabbitMQ uses durable event, audit and render queues plus delayed retry queues and a dead-letter exchange. Domain events and render requests are written to transactional outboxes before publication. The Rendering worker claims invitation items idempotently from database snapshots; Audit deduplicates published events in its isolated database; a recovery sweep resumes render work after worker restarts. A dedicated Wallet consumer handles only verified payment-success events and writes purchases idempotently.
 
+## Node.js support
+
+Development recommended: Node.js 26.10.0 (recorded in `.nvmrc` and `.node-version`). Compose development containers use `node:26.10.0-slim`; production Dockerfiles use Node.js 24.21.0 LTS. The supported range is `>=24 <27`; Node 27 and later need an explicit compatibility decision. CI runs lint, typecheck, unit tests and the full build on Node 24.21.0 and 26.10.0.
+
+On Windows, install Node.js 26.10.0 using your preferred installer, then install the pinned pnpm version with npm. Corepack and NVM are optional.
+
+```powershell
+node -v
+npm -v
+npm install -g pnpm@12.8.0
+pnpm -v
+```
+
 ## Prerequisites
 
-- Node.js 24.21.0 LTS (see `.nvmrc`)
-- pnpm 10.18.2 (Corepack is recommended)
+- Node.js 26.10.0 for development; Node.js 24.21.0 LTS for production
+- pnpm 12.8.0
 - Docker Desktop with Compose v2
 
 ## Install and environment
@@ -38,7 +54,6 @@ RabbitMQ uses durable event, audit and render queues plus delayed retry queues a
 ```powershell
 Copy-Item .env.example .env
 # Replace every CHANGE_ME value with a unique, strong local password before starting containers.
-corepack enable
 pnpm install
 ```
 
@@ -67,33 +82,33 @@ pnpm build
 pnpm check:workspace
 ```
 
-`pnpm infra:up` is the supported local end-to-end startup because the web BFF and profile API depend on Compose service DNS. `pnpm dev` is for focused workspace development after providing that service's environment and dependencies. `pnpm check:workspace` validates package manifests. Tests must be added with the service slices that need them; scaffolds do not imply business behavior.
+`pnpm infra:up` is the supported local end-to-end startup because the web BFF and profile API depend on Compose service DNS. The observability stack is opt-in to keep the default development stack lighter: start it with `docker compose --profile observability up -d`. `pnpm dev` is for focused workspace development after providing that service's environment and dependencies. `pnpm check:workspace` validates package manifests. Tests must be added with the service slices that need them; scaffolds do not imply business behavior.
 
 ## Local URLs
 
-| Component | URL | Status |
-|---|---|---|
-| Web | http://localhost:3000 (`/events`, `/account`, `/admin`, finance `/admin/pricing` and `/admin/finance`, `/events/<eventId>/guests`, `/events/<eventId>/seating`, `/events/<eventId>/designs`, `/events/<eventId>/invitations`) | Compose port configured; runtime not yet verified |
-| Admin | http://localhost:3001 redirects to the role-protected web console | Compose port configured; runtime not yet verified |
-| Gateway | http://localhost:3002/health, `/health/live`, `/health/ready` | Routes implemented; runtime not yet verified |
-| Events API | Through Gateway at `/v1/events` | Phase 2 routes implemented; runtime not yet verified |
-| Guests API | Through Gateway at `/v1/events/:eventId/guests` and `/guest-imports` | Phase 3 routes implemented; runtime not yet verified |
-| Seating API | Through Gateway at `/v1/events/:eventId/ceremonies/:ceremonyId/seating` | Phase 4 routes implemented; runtime not yet verified |
-| Designs API | Through Gateway at `/v1/events/:eventId/designs` | Phase 5 routes implemented; runtime not yet verified |
-| Wallet API | Through Gateway at `/v1/wallet/me` and `/v1/wallet/me/transactions` | Phase 7 routes implemented; runtime not yet verified |
-| Billing API | Through Gateway at `/v1/pricing`, `/v1/quotes`, and finance-admin `/v1/admin/price-schedules` | Partial Phase 7 implementation; runtime not yet verified |
-| Payments API | Through Gateway at `/v1/payments`, `/v1/payments/me`, and the reserved FlexPay callback `/v1/payments/webhooks/flexpay` | Mock works locally; FlexPay awaits the official RDC merchant API contract |
-| Finance payments | `/admin/finance` and finance-admin `GET /v1/admin/payments?provider=flexpay` | Added; runtime and authorization not yet verified |
-| Notifications API | Through Gateway at `/v1/notifications` and `/v1/notifications/preferences` | In-app notifications implemented; runtime not yet verified |
-| Invitations API | Through Gateway under `/v1/events/:eventId/invitations/batches`, `/v1/events/:eventId/check-in`, and public `/v1/public/invitations/:token` | Phase 9 and Phase 10 routes implemented; runtime not yet verified |
-| Audit / moderation API | Reports at `/v1/moderation/reports`; Support console at `/v1/admin/audit-events` and `/v1/admin/moderation-reports` | Verified-email session; admin routes require Support/Super Admin and `admin-api` audience; runtime not yet verified |
-| Keycloak | http://localhost:8080 | Dev realm config; runtime not yet verified |
-| RabbitMQ Management | http://localhost:15672 | Local broker console; runtime not yet verified |
-| MinIO API / Console | http://localhost:9000 / http://localhost:9001 | Buckets bootstrapped locally; runtime not yet verified |
-| Mailpit | http://localhost:8025 | SMTP `localhost:1025`; runtime not yet verified |
-| Traefik dashboard | http://localhost:8088 | Dashboard; runtime not yet verified |
-| Prometheus / Grafana | http://localhost:9090 / http://localhost:3005 | Runtime not yet verified |
-| Tempo / Loki | http://localhost:3200 / http://localhost:3100 | Runtime not yet verified |
+| Component              | URL                                                                                                                                                                                                                           | Status                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Web                    | http://localhost:3000 (`/events`, `/account`, `/admin`, finance `/admin/pricing` and `/admin/finance`, `/events/<eventId>/guests`, `/events/<eventId>/seating`, `/events/<eventId>/designs`, `/events/<eventId>/invitations`) | Compose port configured; runtime not yet verified                                                                   |
+| Admin                  | http://localhost:3001 provides navigation to the existing role-protected moderation, finance and pricing views                                                                                                                | Compose port configured; runtime not yet verified                                                                   |
+| Gateway                | http://localhost:3002/health, `/health/live`, `/health/ready`, `/metrics`                                                                                                                                                     | Prometheus scrape configured; runtime not yet verified                                                              |
+| Events API             | Through Gateway at `/v1/events`                                                                                                                                                                                               | Phase 2 routes implemented; runtime not yet verified                                                                |
+| Guests API             | Through Gateway at `/v1/events/:eventId/guests` and `/guest-imports`                                                                                                                                                          | Phase 3 routes implemented; runtime not yet verified                                                                |
+| Seating API            | Through Gateway at `/v1/events/:eventId/ceremonies/:ceremonyId/seating`                                                                                                                                                       | Phase 4 routes implemented; runtime not yet verified                                                                |
+| Designs API            | Through Gateway at `/v1/events/:eventId/designs`                                                                                                                                                                              | Phase 5 routes implemented; runtime not yet verified                                                                |
+| Wallet API             | Through Gateway at `/v1/wallet/me` and `/v1/wallet/me/transactions`                                                                                                                                                           | Phase 7 routes implemented; runtime not yet verified                                                                |
+| Billing API            | Through Gateway at `/v1/pricing`, `/v1/quotes`, and finance-admin `/v1/admin/price-schedules`                                                                                                                                 | Partial Phase 7 implementation; runtime not yet verified                                                            |
+| Payments API           | Through Gateway at `/v1/payments`, `/v1/payments/me`, and the reserved FlexPay callback `/v1/payments/webhooks/flexpay`                                                                                                       | Mock works locally; FlexPay awaits the official RDC merchant API contract                                           |
+| Finance payments       | `/admin/finance` and finance-admin `GET /v1/admin/payments?provider=flexpay`                                                                                                                                                  | Added; runtime and authorization not yet verified                                                                   |
+| Notifications API      | Through Gateway at `/v1/notifications` and `/v1/notifications/preferences`                                                                                                                                                    | In-app notifications implemented; runtime not yet verified                                                          |
+| Invitations API        | Through Gateway under `/v1/events/:eventId/invitations/batches`, `/v1/events/:eventId/check-in`, and public `/v1/public/invitations/:token`                                                                                   | Phase 9 and Phase 10 routes implemented; runtime not yet verified                                                   |
+| Audit / moderation API | Reports at `/v1/moderation/reports`; Support console at `/v1/admin/audit-events` and `/v1/admin/moderation-reports`                                                                                                           | Verified-email session; admin routes require Support/Super Admin and `admin-api` audience; runtime not yet verified |
+| Keycloak               | http://localhost:8080                                                                                                                                                                                                         | Dev realm config; runtime not yet verified                                                                          |
+| RabbitMQ Management    | http://localhost:15672                                                                                                                                                                                                        | Local broker console; runtime not yet verified                                                                      |
+| MinIO API / Console    | http://localhost:9000 / http://localhost:9001                                                                                                                                                                                 | Buckets bootstrapped locally; runtime not yet verified                                                              |
+| Mailpit                | http://localhost:8025                                                                                                                                                                                                         | SMTP `localhost:1025`; runtime not yet verified                                                                     |
+| Traefik dashboard      | http://localhost:8088                                                                                                                                                                                                         | Dashboard; runtime not yet verified                                                                                 |
+| Prometheus / Grafana   | http://localhost:9090 / http://localhost:3005                                                                                                                                                                                 | Runtime not yet verified                                                                                            |
+| Tempo / Loki           | http://localhost:3200 / http://localhost:3100                                                                                                                                                                                 | Runtime not yet verified                                                                                            |
 
 ## Identity and Profile (Phase 1)
 

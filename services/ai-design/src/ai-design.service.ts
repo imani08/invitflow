@@ -1,10 +1,12 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, Injectable, NotFoundException } from '@nestjs/common';
 import { AiDesignJobStatus, Prisma } from '../generated/prisma/client.js';
 import { DesignsClient } from './designs-client.js';
 import { ComfyUIImageProvider } from './comfy-image-provider.js';
 import { PrismaService } from './prisma.service.js';
 import { PreviewStorage } from './preview-storage.js';
 import { applyDesignChanges, MockAIProvider, SelfHostedAIProvider, selectedProvider, type JsonObject } from './providers.js';
+import { aiJobLimits } from './env.js';
+import { aiActiveQuotaRejection, aiQuotaRejection } from './ai-job-quota.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const maxAttempts = 3;
@@ -37,6 +39,15 @@ export class AiDesignService {
     const design = await this.designs.get(eventId, designId, authorization);
     if (!Number.isInteger(design.version) || design.version < 1) throw new BadRequestException('La version du design est invalide.');
     const job = await this.prisma.$transaction(async (tx) => {
+      await this.lockQuotaRows(tx, ownerSubject);
+      const limits = aiJobLimits();
+      const activeStatuses = [AiDesignJobStatus.QUEUED, AiDesignJobStatus.PROCESSING];
+      const [ownerActive, globalActive, recentRequests] = await Promise.all([
+        tx.aiDesignJob.count({ where: { ownerSubject, status: { in: activeStatuses } } }),
+        tx.aiDesignJob.count({ where: { status: { in: activeStatuses } } }),
+        tx.aiDesignJob.count({ where: { ownerSubject, createdAt: { gte: new Date(Date.now() - 60 * 60_000) } } }),
+      ]);
+      this.rejectQuota(aiQuotaRejection({ activeOwner: ownerActive, activeGlobal: globalActive, requestsLastHour: recentRequests }, limits));
       const created = await tx.aiDesignJob.create({ data: {
         ownerSubject, eventId, designId, baseVersion: design.version, prompt,
         sourceDocument: design.document as Prisma.InputJsonValue,
@@ -47,6 +58,32 @@ export class AiDesignService {
       return created;
     });
     return this.publicJob(job);
+  }
+
+  private async lockQuotaRows(tx: Prisma.TransactionClient, ownerSubject: string) {
+    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, 0)`);
+    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, hashtext(${ownerSubject}))`);
+  }
+
+  private rejectQuota(reason: ReturnType<typeof aiQuotaRejection>) {
+    if (!reason) return;
+    const message = reason === 'OWNER_ACTIVE'
+      ? 'Limite de générations simultanées atteinte pour ce compte.'
+      : reason === 'GLOBAL_ACTIVE'
+        ? 'La file de génération est saturée. Réessayez plus tard.'
+        : 'Limite horaire de générations atteinte pour ce compte.';
+    throw new HttpException({ statusCode: 429, error: 'AI_QUOTA_EXCEEDED', message }, 429);
+  }
+
+  private async assertActiveCapacity(tx: Prisma.TransactionClient, ownerSubject: string) {
+    await this.lockQuotaRows(tx, ownerSubject);
+    const limits = aiJobLimits();
+    const activeStatuses = [AiDesignJobStatus.QUEUED, AiDesignJobStatus.PROCESSING];
+    const [activeOwner, activeGlobal] = await Promise.all([
+      tx.aiDesignJob.count({ where: { ownerSubject, status: { in: activeStatuses } } }),
+      tx.aiDesignJob.count({ where: { status: { in: activeStatuses } } }),
+    ]);
+    this.rejectQuota(aiActiveQuotaRejection({ activeOwner, activeGlobal }, limits));
   }
 
   async list(eventId: string, designId: string, ownerSubject: string, authorization: string) {
@@ -86,6 +123,7 @@ export class AiDesignService {
       if (!current) throw new NotFoundException('Proposition IA introuvable.');
       if (current.status !== AiDesignJobStatus.FAILED) throw new ConflictException('Seule une demande en échec peut être relancée.');
       if (current.attempt >= maxAttempts) throw new ConflictException('Cette demande a atteint sa limite de tentatives.');
+      await this.assertActiveCapacity(tx, ownerSubject);
       const updated = await tx.aiDesignJob.updateMany({ where: { id: jobId, ownerSubject, status: AiDesignJobStatus.FAILED }, data: { status: AiDesignJobStatus.QUEUED, deliveryAfter: new Date(Date.now() + 30_000), startedAt: null, completedAt: null, errorCode: null, summary: null, proposal: Prisma.DbNull } });
       if (!updated.count) throw new ConflictException('La demande a déjà changé d’état.');
       await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: jobId, payload: { jobId, eventId, designId } } });

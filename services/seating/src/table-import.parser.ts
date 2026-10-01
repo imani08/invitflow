@@ -134,7 +134,7 @@ function normalizeSheet(sheetName: string, rawRows: string[][]): ParsedGuestShee
 async function parseXlsx(buffer: Buffer): Promise<ParsedGuestSheet> {
   inspectZip(buffer);
   const workbook = new ExcelJS.Workbook();
-  try { await workbook.xlsx.load(buffer); } catch { throw new BadRequestException('Le classeur XLSX est illisible ou endommagé.'); }
+  try { await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]); } catch { throw new BadRequestException('Le classeur XLSX est illisible ou endommagé.'); }
   const worksheet = workbook.worksheets[0];
   if (!worksheet) throw new BadRequestException('Le classeur ne contient aucune feuille.');
   if (worksheet.state !== 'visible') throw new BadRequestException('La première feuille Excel doit être visible.');

@@ -3,3 +3,5 @@ node_modules/
 dist/
 coverage/
 services/profile/generated/
+**/generated/prisma/
+apps/*/next-env.d.ts

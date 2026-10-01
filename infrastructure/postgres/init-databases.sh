@@ -27,6 +27,10 @@ if [ -z "${AI_DESIGN_DB_PASSWORD:-}" ]; then
   echo "AI_DESIGN_DB_PASSWORD is required to provision the AI Design database role" >&2
   exit 1
 fi
+if [ -z "${MEDIA_DB_PASSWORD:-}" ]; then
+  echo "MEDIA_DB_PASSWORD is required to provision the Media database role" >&2
+  exit 1
+fi
 if [ -z "${WALLET_DB_PASSWORD:-}" ]; then
   echo "WALLET_DB_PASSWORD is required to provision the Wallet database role" >&2
   exit 1
@@ -41,6 +45,10 @@ if [ -z "${PAYMENT_DB_PASSWORD:-}" ]; then
 fi
 if [ -z "${NOTIFICATIONS_DB_PASSWORD:-}" ]; then
   echo "NOTIFICATIONS_DB_PASSWORD is required to provision the Notifications database role" >&2
+  exit 1
+fi
+if [ -z "${ANALYTICS_DB_PASSWORD:-}" ]; then
+  echo "ANALYTICS_DB_PASSWORD is required to provision the analytics database role" >&2
   exit 1
 fi
 if [ -z "${INVITATIONS_DB_PASSWORD:-}" ]; then
@@ -119,6 +127,21 @@ SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'role')
 \gexec
 SQL
 
+# Analytics owns aggregate projections only; it never copies source payloads.
+PGPASSWORD="$POSTGRES_PASSWORD" psql --username "$POSTGRES_USER" --dbname postgres --set=ON_ERROR_STOP=1 \
+  --set=database=analytics_db --set=role=analytics_service --set=password="$ANALYTICS_DB_PASSWORD" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'password')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role')
+\gexec
+SELECT format('ALTER ROLE %I WITH PASSWORD %L', :'role', :'password')
+\gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'role')
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database')
+\gexec
+SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'role')
+\gexec
+SQL
+
 # Payments owns orders, provider transactions and payment confirmations.
 PGPASSWORD="$POSTGRES_PASSWORD" psql --username "$POSTGRES_USER" --dbname postgres --set=ON_ERROR_STOP=1 \
   --set=database=payment_db --set=role=payments_service --set=password="$PAYMENT_DB_PASSWORD" <<'SQL'
@@ -167,6 +190,21 @@ SQL
 # AI Design owns generation jobs and proposals in its isolated database.
 PGPASSWORD="$POSTGRES_PASSWORD" psql --username "$POSTGRES_USER" --dbname postgres --set=ON_ERROR_STOP=1 \
   --set=database=ai_design_db --set=role=ai_design_service --set=password="$AI_DESIGN_DB_PASSWORD" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'password')
+WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role')
+\gexec
+SELECT format('ALTER ROLE %I WITH PASSWORD %L', :'role', :'password')
+\gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'database', :'role')
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database')
+\gexec
+SELECT format('ALTER DATABASE %I OWNER TO %I', :'database', :'role')
+\gexec
+SQL
+
+# Media owns asset metadata and lifecycle state in its isolated database.
+PGPASSWORD="$POSTGRES_PASSWORD" psql --username "$POSTGRES_USER" --dbname postgres --set=ON_ERROR_STOP=1 \
+  --set=database=media_db --set=role=media_service --set=password="$MEDIA_DB_PASSWORD" <<'SQL'
 SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'role', :'password')
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role')
 \gexec
@@ -241,7 +279,7 @@ SQL
 
 # Reserve isolated empty logical databases for later services. Runtime credentials
 # and grants for each are created with that service's own implementation phase.
-for database in event_db guest_db seating_db design_db ai_design_db media_db invitation_db payment_db wallet_db billing_db notification_db analytics_db audit_db; do
+for database in event_db guest_db seating_db design_db ai_design_db media_db invitation_db payment_db wallet_db billing_db notification_db audit_db; do
   PGPASSWORD="$POSTGRES_PASSWORD" psql --username "$POSTGRES_USER" --dbname postgres --set=ON_ERROR_STOP=1 --set=database="$database" <<'SQL'
 SELECT format('CREATE DATABASE %I', :'database')
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'database')

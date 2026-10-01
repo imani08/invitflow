@@ -7,20 +7,203 @@ import './admin.css';
 import './moderation.css';
 
 export const dynamic = 'force-dynamic';
-type AuditEvent = { id: string; eventType: string; actorSubject: string | null; resourceId: string | null; occurredAt: string; receivedAt: string; metadata: Record<string, string | number> };
+type AuditEvent = {
+  id: string;
+  eventType: string;
+  actorSubject: string | null;
+  resourceId: string | null;
+  occurredAt: string;
+  receivedAt: string;
+  metadata: Record<string, string | number>;
+};
 type AuditPage = { items: AuditEvent[]; nextCursor: string | null };
 type ModerationPage = { items: ModerationReport[] };
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ eventType?: string; actorSubject?: string; cursor?: string }> }) {
-  const filters = await searchParams; const store = await cookies(); const session = await getSession(store.get(sessionCookieName())?.value);
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ eventType?: string; actorSubject?: string; cursor?: string }>;
+}) {
+  const filters = await searchParams;
+  const store = await cookies();
+  const session = await getSession(store.get(sessionCookieName())?.value);
   if (!session) redirect(`/api/auth/login?returnTo=${encodeURIComponent('/admin')}`);
   let roles: string[] = [];
-  try { const access = decodeJwt(session.accessToken)['realm_access']; roles = access && typeof access === 'object' && 'roles' in access && Array.isArray(access.roles) ? access.roles.filter((role): role is string => typeof role === 'string') : []; } catch { /* The Audit API independently verifies access. */ }
-  const canSupport = roles.some(role => role === 'SUPPORT_ADMIN' || role === 'SUPER_ADMIN');
-  const canFinance = roles.some(role => role === 'FINANCE_ADMIN' || role === 'SUPER_ADMIN');
-  if (!canSupport && canFinance) return <main className="admin-shell"><nav><a href="/account">← Mon compte</a></nav><section className="admin-panel"><small>INVITAFLOW · FINANCE</small><h1>Console finance</h1><p>Consultez les paiements, références fournisseurs et statuts depuis l’espace Finance.</p><a className="admin-next" href="/admin/finance">Ouvrir les paiements →</a></section></main>;
-  if (!canSupport) return <main className="admin-shell"><a href="/account">← Mon compte</a><section className="admin-denied"><span>ACCÈS RESTREINT</span><h1>Permission d’administration requise</h1><p>Cette console est réservée aux rôles Support Admin et Super Admin.</p></section></main>;
-  const query = new URLSearchParams({ limit: '50' }); if (filters.eventType) query.set('eventType', filters.eventType); if (filters.actorSubject) query.set('actorSubject', filters.actorSubject); if (filters.cursor) query.set('cursor', filters.cursor);
-  let result: AuditPage | null = null; let moderation: ModerationPage | null = null;
-  try { const headers = { authorization: `Bearer ${session.accessToken}` }; const base = process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'; const [auditResponse, moderationResponse] = await Promise.all([fetch(`${base}/v1/admin/audit-events?${query}`, { headers, cache: 'no-store', signal: AbortSignal.timeout(8000) }), fetch(`${base}/v1/admin/moderation-reports?status=ACTIVE&limit=50`, { headers, cache: 'no-store', signal: AbortSignal.timeout(8000) })]); if (auditResponse.ok) result = await auditResponse.json() as AuditPage; if (moderationResponse.ok) moderation = await moderationResponse.json() as ModerationPage; } catch { /* Render service availability states below. */ }
-  return <main className="admin-shell"><nav><a href="/account">← Mon compte</a><div><a href="/admin/finance">Paiements ↗</a><a href="/admin/pricing">Gestion des tarifs ↗</a><a href="/account/report">Créer un signalement</a><a href="/account/notifications">Notifications</a></div></nav><header><span>INVITAFLOW · BACK-OFFICE</span><h1>Administration &amp; modération</h1><p>Examinez les signalements et consultez le journal append-only des événements applicatifs.</p></header><section className="admin-panel"><div className="admin-panel-head"><div><small>MODÉRATION</small><h2>Signalements ouverts</h2></div><span>{moderation ? `${moderation.items.length} dossier(s)` : 'Service indisponible'}</span></div>{moderation ? <ModerationQueue reports={moderation.items} /> : <p className="admin-empty">Le service de modération n’a pas pu répondre.</p>}</section><section className="admin-panel"><div className="admin-panel-head"><div><small>SÉCURITÉ &amp; TRAÇABILITÉ</small><h2>Événements récents</h2></div><span>{result ? `${result.items.length} entrée(s)` : 'Service indisponible'}</span></div><form className="admin-filters"><label>Type d’événement<input name="eventType" defaultValue={filters.eventType ?? ''} placeholder="guest.created.v1" /></label><label>Sujet utilisateur<input name="actorSubject" defaultValue={filters.actorSubject ?? ''} maxLength={255} /></label><button>Filtrer</button></form>{result ? result.items.length ? <div className="admin-table-wrap"><table><thead><tr><th>Date</th><th>Événement</th><th>Acteur</th><th>Ressource</th><th>Métadonnées</th></tr></thead><tbody>{result.items.map(item => <tr key={item.id}><td>{new Date(item.occurredAt).toLocaleString('fr-FR')}</td><td><code>{item.eventType}</code></td><td>{item.actorSubject ?? 'Système'}</td><td>{item.resourceId ?? '—'}</td><td><code>{JSON.stringify(item.metadata)}</code></td></tr>)}</tbody></table></div> : <p className="admin-empty">Aucun événement dans ce résultat. Les événements apparaîtront après leur publication sur le bus applicatif.</p> : <p className="admin-empty">L’API Audit n’a pas pu répondre. Vérifiez sa disponibilité et la présence de l’audience admin-api dans votre session Keycloak.</p>}{result?.nextCursor && <a className="admin-next" href={`/admin?${new URLSearchParams({ ...(filters.eventType ? { eventType: filters.eventType } : {}), ...(filters.actorSubject ? { actorSubject: filters.actorSubject } : {}), cursor: result.nextCursor })}`}>Charger la page suivante →</a>}</section></main>;
+  try {
+    const access = decodeJwt(session.accessToken)['realm_access'];
+    roles =
+      access && typeof access === 'object' && 'roles' in access && Array.isArray(access.roles)
+        ? access.roles.filter((role): role is string => typeof role === 'string')
+        : [];
+  } catch {
+    /* The Audit API independently verifies access. */
+  }
+  const canSupport = roles.some((role) => role === 'SUPPORT_ADMIN' || role === 'SUPER_ADMIN');
+  const canFinance = roles.some((role) => role === 'FINANCE_ADMIN' || role === 'SUPER_ADMIN');
+  if (!canSupport && canFinance)
+    return (
+      <main className="admin-shell">
+        <nav>
+          <a href="/account">← Mon compte</a>
+        </nav>
+        <section className="admin-panel">
+          <small>INVITAFLOW · FINANCE</small>
+          <h1>Console finance</h1>
+          <p>Consultez les paiements, références fournisseurs et indicateurs agrégés.</p>
+          <a className="admin-next" href="/admin/finance">
+            Ouvrir les paiements →
+          </a>
+          <a className="admin-next" href="/admin/analytics">
+            Voir les indicateurs →
+          </a>
+        </section>
+      </main>
+    );
+  if (!canSupport)
+    return (
+      <main className="admin-shell">
+        <a href="/account">← Mon compte</a>
+        <section className="admin-denied">
+          <span>ACCÈS RESTREINT</span>
+          <h1>Permission d’administration requise</h1>
+          <p>Cette console est réservée aux rôles Support Admin et Super Admin.</p>
+        </section>
+      </main>
+    );
+  const query = new URLSearchParams({ limit: '50' });
+  if (filters.eventType) query.set('eventType', filters.eventType);
+  if (filters.actorSubject) query.set('actorSubject', filters.actorSubject);
+  if (filters.cursor) query.set('cursor', filters.cursor);
+  let result: AuditPage | null = null;
+  let moderation: ModerationPage | null = null;
+  try {
+    const headers = { authorization: `Bearer ${session.accessToken}` };
+    const base = process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002';
+    const [auditResponse, moderationResponse] = await Promise.all([
+      fetch(`${base}/v1/admin/audit-events?${query}`, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      }),
+      fetch(`${base}/v1/admin/moderation-reports?status=ACTIVE&limit=50`, {
+        headers,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      }),
+    ]);
+    if (auditResponse.ok) result = (await auditResponse.json()) as AuditPage;
+    if (moderationResponse.ok) moderation = (await moderationResponse.json()) as ModerationPage;
+  } catch {
+    /* Render service availability states below. */
+  }
+  return (
+    <main className="admin-shell">
+      <nav>
+        <a href="/account">← Mon compte</a>
+        <div>
+          {canFinance && <a href="/admin/analytics">Indicateurs ↗</a>}
+          <a href="/admin/finance">Paiements ↗</a>
+          <a href="/admin/pricing">Gestion des tarifs ↗</a>
+          <a href="/account/report">Créer un signalement</a>
+          <a href="/account/notifications">Notifications</a>
+        </div>
+      </nav>
+      <header>
+        <span>INVITAFLOW · BACK-OFFICE</span>
+        <h1>Administration &amp; modération</h1>
+        <p>
+          Examinez les signalements et consultez le journal append-only des événements applicatifs.
+        </p>
+      </header>
+      <section className="admin-panel">
+        <div className="admin-panel-head">
+          <div>
+            <small>MODÉRATION</small>
+            <h2>Signalements ouverts</h2>
+          </div>
+          <span>
+            {moderation ? `${moderation.items.length} dossier(s)` : 'Service indisponible'}
+          </span>
+        </div>
+        {moderation ? (
+          <ModerationQueue reports={moderation.items} />
+        ) : (
+          <p className="admin-empty">Le service de modération n’a pas pu répondre.</p>
+        )}
+      </section>
+      <section className="admin-panel">
+        <div className="admin-panel-head">
+          <div>
+            <small>SÉCURITÉ &amp; TRAÇABILITÉ</small>
+            <h2>Événements récents</h2>
+          </div>
+          <span>{result ? `${result.items.length} entrée(s)` : 'Service indisponible'}</span>
+        </div>
+        <form className="admin-filters">
+          <label>
+            Type d’événement
+            <input
+              name="eventType"
+              defaultValue={filters.eventType ?? ''}
+              placeholder="guest.created.v1"
+            />
+          </label>
+          <label>
+            Sujet utilisateur
+            <input name="actorSubject" defaultValue={filters.actorSubject ?? ''} maxLength={255} />
+          </label>
+          <button>Filtrer</button>
+        </form>
+        {result ? (
+          result.items.length ? (
+            <div className="admin-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Événement</th>
+                    <th>Acteur</th>
+                    <th>Ressource</th>
+                    <th>Métadonnées</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>{new Date(item.occurredAt).toLocaleString('fr-FR')}</td>
+                      <td>
+                        <code>{item.eventType}</code>
+                      </td>
+                      <td>{item.actorSubject ?? 'Système'}</td>
+                      <td>{item.resourceId ?? '—'}</td>
+                      <td>
+                        <code>{JSON.stringify(item.metadata)}</code>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="admin-empty">
+              Aucun événement dans ce résultat. Les événements apparaîtront après leur publication
+              sur le bus applicatif.
+            </p>
+          )
+        ) : (
+          <p className="admin-empty">
+            L’API Audit n’a pas pu répondre. Vérifiez sa disponibilité et la présence de l’audience
+            admin-api dans votre session Keycloak.
+          </p>
+        )}
+        {result?.nextCursor && (
+          <a
+            className="admin-next"
+            href={`/admin?${new URLSearchParams({ ...(filters.eventType ? { eventType: filters.eventType } : {}), ...(filters.actorSubject ? { actorSubject: filters.actorSubject } : {}), cursor: result.nextCursor })}`}
+          >
+            Charger la page suivante →
+          </a>
+        )}
+      </section>
+    </main>
+  );
 }

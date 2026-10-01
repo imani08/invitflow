@@ -37,6 +37,7 @@ model AiDesignJob {
   updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@index([ownerSubject, eventId, designId, createdAt(sort: Desc)], map: "ai_design_jobs_owner_design_created_idx")
+  @@index([ownerSubject, createdAt(sort: Desc)], map: "ai_design_jobs_owner_created_idx")
   @@index([status, deliveryAfter], map: "ai_design_jobs_delivery_idx")
   @@map("ai_design_jobs")
 }

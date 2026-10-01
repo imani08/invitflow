@@ -3,6 +3,7 @@ import 'server-only';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createClient } from 'redis';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { deleteSessionIfUnchanged, REFRESH_LOCK_TTL_SECONDS, releaseRefreshLock, replaceSessionIfUnchanged, waitForSessionChange } from './session-refresh.mjs';
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_TTL_SECONDS = 5 * 60;
@@ -222,28 +223,52 @@ async function readSession(sessionId: string): Promise<AuthSession | null> {
   const key = opaqueKey('auth:session', sessionId);
   const saved = await client.get(key);
   if (!saved) return null;
-  const parsed: unknown = decrypt(saved);
+  let parsed: unknown;
+  try {
+    parsed = decrypt(saved);
+  } catch {
+    const deleted = await deleteSessionIfUnchanged(client, key, saved);
+    return deleted ? null : readSession(sessionId);
+  }
   if (!isSession(parsed)) {
-    await client.del(key);
-    return null;
+    const deleted = await deleteSessionIfUnchanged(client, key, saved);
+    return deleted ? null : readSession(sessionId);
   }
   if (parsed.accessTokenExpiresAt > Date.now() + 60_000) return parsed;
 
+  const lockKey = opaqueKey('auth:refresh-lock', sessionId);
+  const lockOwner = randomOpaqueValue();
+  const acquired = await client.set(lockKey, lockOwner, { EX: REFRESH_LOCK_TTL_SECONDS, NX: true });
+  if (acquired !== 'OK') {
+    const current = await waitForSessionChange(() => client.get(key), saved);
+    return current && current !== saved ? readSession(sessionId) : null;
+  }
+
   try {
-    const tokens = await requestToken(new URLSearchParams({
-      grant_type: 'refresh_token', client_id: clientId, refresh_token: parsed.refreshToken,
-    }));
+    const current = await client.get(key);
+    if (!current) return null;
+    if (current !== saved) return readSession(sessionId);
+
+    let tokens: TokenSet;
+    try {
+      tokens = await requestToken(new URLSearchParams({
+        grant_type: 'refresh_token', client_id: clientId, refresh_token: parsed.refreshToken,
+      }));
+    } catch {
+      const deleted = await deleteSessionIfUnchanged(client, key, saved);
+      return deleted ? null : readSession(sessionId);
+    }
+
     const refreshed: AuthSession = {
       ...parsed,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       accessTokenExpiresAt: Date.now() + tokens.expires_in * 1000,
     };
-    await client.set(key, encrypt(refreshed), { EX: SESSION_TTL_SECONDS });
-    return refreshed;
-  } catch {
-    await client.del(key);
-    return null;
+    const replaced = await replaceSessionIfUnchanged(client, key, saved, encrypt(refreshed), SESSION_TTL_SECONDS);
+    return replaced ? refreshed : readSession(sessionId);
+  } finally {
+    await releaseRefreshLock(client, lockKey, lockOwner).catch(() => false);
   }
 }
 

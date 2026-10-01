@@ -17,7 +17,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
           <a className="secondary-action" href="#vision">Découvrir InvitaFlow</a>
         </div>
       </section>
-      <footer>InvitaFlow <span>·</span> Une attention pour chacun.</footer>
+      <footer>InvitaFlow <span>·</span> Une attention pour chacun. <Link className="legal-footer-link" href="/legal">Informations légales</Link></footer>
     </main>
   );
 }

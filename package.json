@@ -2,18 +2,20 @@
   "name": "invitaflow",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.18.2",
-  "engines": { "node": ">=24.11.0 <25", "pnpm": "10.18.2" },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@nestjs/core", "@prisma/engines", "esbuild", "prisma", "unrs-resolver"]
+  "packageManager": "pnpm@12.8.0",
+  "engines": {
+    "node": ">=24 <27",
+    "pnpm": ">=12.8.0 <13"
   },
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
-    "test": "turbo test",
+    "test": "turbo test && node --test scripts/*.spec.mjs services/media/*.spec.mjs",
     "check:workspace": "node scripts/validate-workspace.mjs",
+    "db:backup": "node scripts/backup-postgres.mjs",
+    "db:restore": "node scripts/restore-postgres.mjs",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },

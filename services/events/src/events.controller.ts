@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post,
 import type { FastifyRequest } from 'fastify';
 import { IdentityGuard, type VerifiedIdentity } from './identity.guard.js';
 import { EventsService } from './events.service.js';
+import { parseIsoTimestamp, timestampMatchesTimeZone } from './events-date.js';
 import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFields } from './events.types.js';
 
 type AuthRequest = FastifyRequest & { identity: VerifiedIdentity };
@@ -18,17 +19,18 @@ function optionalText(value: unknown, field: string, max: number): string | null
   return trimmed;
 }
 
-function timestamp(value: unknown, field: string, required: boolean): Date | null | undefined {
+function timestamp(value: unknown, field: string, required: boolean, timezone?: string): Date | null | undefined {
   if (value === undefined) {
     if (required) throw new BadRequestException(`${field} is required`);
     return undefined;
   }
   if (value === null && !required) return null;
-  if (typeof value !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d{1,3})?)?(?:Z|[+-]\d\d:\d\d)$/.test(value)) {
+  if (typeof value !== 'string') {
     throw new BadRequestException(`${field} must be an ISO-8601 timestamp with an explicit UTC offset`);
   }
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) throw new BadRequestException(`${field} is not a valid date`);
+  const date = parseIsoTimestamp(value);
+  if (!date) throw new BadRequestException(`${field} must be a valid ISO-8601 timestamp with an explicit UTC offset`);
+  if (timezone && !timestampMatchesTimeZone(value, timezone)) throw new BadRequestException(`${field} local time and UTC offset must match timezone`);
   return date;
 }
 
@@ -62,9 +64,13 @@ function mapEvent(input: EventInput, creating: boolean): EventFields | CreateEve
   const name = optionalText(input.name, 'name', 120);
   const description = optionalText(input.description, 'description', 4000);
   const eventType = optionalText(input.eventType, 'eventType', 40);
-  const startAt = timestamp(input.startAt, 'startAt', false);
-  const endAt = timestamp(input.endAt, 'endAt', false);
   const timezone = timeZone(input.timezone);
+  if (!creating && timezone === undefined && [input.startAt, input.endAt].some((value) => typeof value === 'string')) {
+    throw new BadRequestException('timezone is required when updating event times');
+  }
+  const effectiveTimezone = timezone ?? 'Africa/Kinshasa';
+  const startAt = timestamp(input.startAt, 'startAt', false, input.startAt === undefined || input.startAt === null ? undefined : effectiveTimezone);
+  const endAt = timestamp(input.endAt, 'endAt', false, input.endAt === undefined || input.endAt === null ? undefined : effectiveTimezone);
   if (creating && (typeof name !== 'string' || typeof eventType !== 'string')) throw new BadRequestException('name and eventType are required');
   if (eventType !== undefined && (typeof eventType !== 'string' || !['WEDDING', 'BIRTHDAY', 'GRADUATION', 'BAPTISM', 'BABY_SHOWER', 'CONFERENCE', 'GALA', 'DINNER', 'CORPORATE', 'CEREMONY', 'RELIGIOUS', 'ANNIVERSARY', 'OTHER'].includes(eventType))) {
     throw new BadRequestException('eventType is not supported');
@@ -89,9 +95,10 @@ function mapCeremony(input: CeremonyInput): CreateCeremonyFields {
   const latitude = coordinate(input.latitude, 'latitude');
   const longitude = coordinate(input.longitude, 'longitude');
   const capacity = ceremonyCapacity(input.capacity);
-  const startAt = timestamp(input.startAt, 'startAt', true) as Date;
-  const endAt = timestamp(input.endAt, 'endAt', false);
   const timezone = timeZone(input.timezone);
+  const effectiveTimezone = timezone ?? 'Africa/Kinshasa';
+  const startAt = timestamp(input.startAt, 'startAt', true, effectiveTimezone) as Date;
+  const endAt = timestamp(input.endAt, 'endAt', false, input.endAt === undefined || input.endAt === null ? undefined : effectiveTimezone);
   if (!name || !ceremonyType) throw new BadRequestException('name and ceremonyType are required');
   if (ceremonyType.length < 2) throw new BadRequestException('ceremonyType must contain at least 2 characters');
   if ((latitude === undefined) !== (longitude === undefined) || (latitude === null) !== (longitude === null)) throw new BadRequestException('latitude and longitude must be provided together');
@@ -145,6 +152,10 @@ export class EventsController {
   @Patch('/:eventId/ceremonies/:ceremonyId') updateCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Body() body: CeremonyInput) {
     if (!body || Object.keys(body).length === 0) throw new BadRequestException('Provide at least one ceremony field');
     if (Object.keys(body).some((key) => !['name', 'ceremonyType', 'description', 'location', 'address', 'latitude', 'longitude', 'instructions', 'dressCode', 'notes', 'capacity', 'startAt', 'endAt', 'timezone'].includes(key))) throw new BadRequestException('Unsupported ceremony fields');
+    const timezone = timeZone(body.timezone);
+    if (timezone === undefined && [body.startAt, body.endAt].some((value) => typeof value === 'string')) {
+      throw new BadRequestException('timezone is required when updating ceremony times');
+    }
     const data: CeremonyFields = {};
     if (body.name !== undefined) {
       const name = optionalText(body.name, 'name', 120);
@@ -166,9 +177,9 @@ export class EventsController {
     if (body.dressCode !== undefined) data.dressCode = optionalText(body.dressCode, 'dressCode', 200)!;
     if (body.notes !== undefined) data.notes = optionalText(body.notes, 'notes', 2000)!;
     if (body.capacity !== undefined) data.capacity = ceremonyCapacity(body.capacity)!;
-    if (body.startAt !== undefined) data.startAt = timestamp(body.startAt, 'startAt', true) as Date;
-    if (body.endAt !== undefined) data.endAt = timestamp(body.endAt, 'endAt', false) as Date | null;
-    if (body.timezone !== undefined) data.timezone = timeZone(body.timezone)!;
+    if (body.startAt !== undefined) data.startAt = timestamp(body.startAt, 'startAt', true, timezone) as Date;
+    if (body.endAt !== undefined) data.endAt = timestamp(body.endAt, 'endAt', false, typeof body.endAt === 'string' ? timezone : undefined) as Date | null;
+    if (body.timezone !== undefined) data.timezone = timezone!;
     if ((data.latitude === undefined) !== (data.longitude === undefined)) throw new BadRequestException('latitude and longitude must be updated together');
     return this.events.updateCeremony(request.identity.subject, eventId, ceremonyId, data);
   }

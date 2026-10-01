@@ -85,9 +85,15 @@ export class PaymentsService {
     return this.present(order, payment);
   }
 
-  async list(ownerSubject: string) {
-    const orders = await this.prisma.paymentOrder.findMany({ where: { ownerSubject }, include: { payment: true }, orderBy: { createdAt: 'desc' }, take: 50 });
-    return { items: orders.filter((entry) => entry.payment).map((entry) => this.present(entry, entry.payment!)) };
+  async list(ownerSubject: string, rawLimit?: string, cursor?: string) {
+    const limit = rawLimit === undefined ? 50 : Number(rawLimit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new BadRequestException('La limite doit être comprise entre 1 et 100.');
+    if (cursor !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor)) throw new BadRequestException('Le curseur de paiement est invalide.');
+    if (cursor && !(await this.prisma.payment.findFirst({ where: { id: cursor, order: { ownerSubject } }, select: { id: true } }))) throw new BadRequestException('Le curseur ne correspond pas à un paiement du compte.');
+    const rows = await this.prisma.payment.findMany({ where: { order: { ownerSubject } }, include: { order: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
+    const hasMore = rows.length > limit;
+    const items = rows.slice(0, limit).map((payment) => this.present(payment.order, payment));
+    return { items, nextCursor: hasMore ? items.at(-1)?.id ?? null : null };
   }
 
   async get(ownerSubject: string, paymentId: string) {
@@ -121,12 +127,20 @@ export class PaymentsService {
     if (!payment) throw new NotFoundException('Paiement introuvable.');
     if (payment.status === 'REFUNDED') return this.present(payment.order, payment);
     if (payment.status !== 'SUCCEEDED') throw new ConflictException('Seul un paiement confirmé peut être remboursé.');
-    const result = await this.provider.refundPayment(payment.id);
+    const claimed = await this.prisma.payment.updateMany({ where: { id, status: 'SUCCEEDED' }, data: { status: 'REFUND_PENDING' } });
+    if (!claimed.count) throw new ConflictException('Un remboursement est déjà en cours ou le paiement a changé de statut.');
+    let result: Awaited<ReturnType<PaymentProvider['refundPayment']>>;
+    try { result = await this.provider.refundPayment(payment.id); }
+    catch (error) {
+      // Provider timeouts can be ambiguous. Keep the payment pending for finance reconciliation
+      // instead of allowing an automatic retry to issue a second refund.
+      throw error;
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM payments WHERE id = ${id}::uuid FOR UPDATE`);
       const current = await tx.payment.findUniqueOrThrow({ where: { id }, include: { order: true } });
       if (current.status === 'REFUNDED') return current;
-      if (current.status !== 'SUCCEEDED') throw new ConflictException('Le paiement a changé de statut pendant le remboursement.');
+      if (current.status !== 'REFUND_PENDING') throw new ConflictException('Le paiement a changé de statut pendant le remboursement.');
       await tx.payment.update({ where: { id }, data: { status: result.status, providerRefundId: result.providerRefundId } });
       if (result.status === 'REFUNDED') {
         await tx.paymentOrder.update({ where: { id: current.orderId }, data: { status: 'REFUNDED' } });
