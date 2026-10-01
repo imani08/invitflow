@@ -119,6 +119,49 @@
       ],
       "title": "Messages en dead-letter queues",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "invitaflow-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (route, le) (rate(invitaflow_http_request_duration_seconds_bucket[5m]))))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Latence p95 par route (10 principales)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "invitaflow-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 1 }, "overrides": [] },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 32 },
+      "id": 8,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"postgres-exporter\"}",
+          "legendFormat": "PostgreSQL exporter scrape",
+          "refId": "A"
+        },
+        {
+          "expr": "1 - pg_exporter_last_scrape_error",
+          "legendFormat": "Collecte PostgreSQL réussie",
+          "refId": "B"
+        }
+      ],
+      "title": "Disponibilité des métriques PostgreSQL",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",

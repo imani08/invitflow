@@ -82,6 +82,10 @@ jobs:
         run: |
           docker pull prom/prometheus:v3.6.0
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.69.3 image --image-src docker --severity HIGH,CRITICAL --exit-code 1 prom/prometheus:v3.6.0
+      - name: Scan PostgreSQL exporter runtime image
+        run: |
+          docker pull quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.69.3 image --image-src docker --severity HIGH,CRITICAL --exit-code 1 quay.io/prometheuscommunity/postgres-exporter:v0.20.1
       - uses: actions/upload-artifact@v7
         if: always() && hashFiles('sbom.cdx.json') != ''
         with:

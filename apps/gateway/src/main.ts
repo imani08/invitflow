@@ -16,11 +16,15 @@ import {
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import multipart from '@fastify/multipart';
-import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { performance } from 'node:perf_hooks';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { HttpMetrics } from './http-metrics.js';
+import {
+  createRequestContext,
+  withRequestContextHeaders,
+  type RequestContext,
+} from './request-context.js';
 
 function requiredEnv(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -48,6 +52,20 @@ class HealthController {
 
 const httpMetrics = new HttpMetrics();
 const requestStartedAt = new WeakMap<FastifyRequest, number>();
+const requestContexts = new WeakMap<FastifyRequest, RequestContext>();
+
+function fetchWithRequestContext(
+  request: FastifyRequest,
+  input: string | URL | Request,
+  init: RequestInit = {},
+): Promise<Response> {
+  const context = requestContexts.get(request);
+  if (!context) throw new Error('Request context was not initialized');
+  return globalThis.fetch(input, {
+    ...init,
+    headers: withRequestContextHeaders(init.headers, context),
+  });
+}
 
 @Controller()
 class MetricsController {
@@ -98,7 +116,7 @@ class ProfileProxyController {
     reply.header('Cache-Control', 'private, no-store');
     const baseUrl = requiredEnv('PROFILE_SERVICE_URL');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${baseUrl.replace(/\/$/, '')}/v1/me${suffix ? `/${suffix}` : ''}`,
         {
           method,
@@ -155,7 +173,7 @@ class EventsProxyController {
     const baseUrl = requiredEnv('EVENTS_SERVICE_URL');
     const targetPath = request.url.replace(/^\/v1\/events/, '/v1/events');
     try {
-      const upstream = await fetch(`${baseUrl.replace(/\/$/, '')}${targetPath}`, {
+      const upstream = await fetchWithRequestContext(request, `${baseUrl.replace(/\/$/, '')}${targetPath}`, {
         method: request.method,
         headers: {
           authorization,
@@ -198,7 +216,7 @@ class MediaProxyController {
       return reply.code(413).send({ error: 'payload_too_large' });
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('MEDIA_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -277,7 +295,7 @@ class GuestsProxyController {
     reply.header('Cache-Control', 'private, no-store');
     const baseUrl = requiredEnv('GUESTS_SERVICE_URL');
     try {
-      const upstream = await fetch(`${baseUrl.replace(/\/$/, '')}${request.url}`, {
+      const upstream = await fetchWithRequestContext(request, `${baseUrl.replace(/\/$/, '')}${request.url}`, {
         method: request.method,
         headers: {
           authorization,
@@ -325,7 +343,7 @@ class GuestsProxyController {
         .send({ error: statusCode === 413 ? 'file_too_large' : 'invalid_upload' });
     }
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('GUESTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: 'POST',
@@ -388,7 +406,7 @@ class SeatingProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('SEATING_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -441,7 +459,7 @@ class SeatingProxyController {
         .send({ error: statusCode === 413 ? 'file_too_large' : 'invalid_upload' });
     }
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('SEATING_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: 'POST',
@@ -513,7 +531,7 @@ class DesignsProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('DESIGNS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -539,7 +557,7 @@ class DesignsProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('AI_DESIGN_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -585,7 +603,7 @@ class WalletProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('WALLET_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -622,7 +640,7 @@ class BillingProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('BILLING_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -689,7 +707,7 @@ class PaymentsProxyController {
           ? undefined
           : JSON.stringify(request.body);
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -733,7 +751,7 @@ class NotificationsProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('NOTIFICATIONS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -761,7 +779,7 @@ class PaymentReconciliationProxyController {
     const authorization = request.headers['authorization'];
     if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization))
       throw new UnauthorizedException();
-    return fetch(
+    return fetchWithRequestContext(request,
       `${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}/v1/admin/reconciliation/issues`,
       {
         method: request.method,
@@ -786,7 +804,7 @@ class PaymentFinanceProxyController {
     const authorization = request.headers['authorization'];
     if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization))
       throw new UnauthorizedException();
-    return fetch(`${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
+    return fetchWithRequestContext(request, `${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
       method: 'GET',
       headers: { authorization },
       cache: 'no-store',
@@ -804,7 +822,7 @@ class PaymentFinanceProxyController {
     const authorization = request.headers['authorization'];
     if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization))
       throw new UnauthorizedException();
-    return fetch(`${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
+    return fetchWithRequestContext(request, `${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
       method: 'POST',
       headers: { authorization },
       cache: 'no-store',
@@ -892,7 +910,7 @@ class InvitationsProxyController {
       if (typeof deviceId === 'string' && deviceId.length <= 200) headers['x-checkin-device-id'] = deviceId;
       if (typeof request.headers['idempotency-key'] === 'string')
         headers['idempotency-key'] = request.headers['idempotency-key'];
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('INVITATIONS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -950,7 +968,7 @@ class AccessProxyController {
     if (typeof device === 'string' && device.length <= 200) headers['x-checkin-device-id'] = device;
     if (request.body !== undefined && Buffer.byteLength(JSON.stringify(request.body)) > 8192) return reply.code(413).send({ error: 'payload_too_large' });
     try {
-      const upstream = await fetch(`${requiredEnv('ACCESS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
+      const upstream = await fetchWithRequestContext(request, `${requiredEnv('ACCESS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
         method: request.method, headers,
         ...(request.body !== undefined ? { body: JSON.stringify(request.body) } : {}),
         cache: 'no-store', signal: AbortSignal.timeout(10_000),
@@ -988,7 +1006,7 @@ class PublicInvitationsProxyController {
       return reply.code(413).send({ error: 'payload_too_large' });
     reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('INVITATIONS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -1020,7 +1038,7 @@ class AuditProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('AUDIT_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(10_000) },
       );
@@ -1049,7 +1067,7 @@ class AnalyticsProxyController {
     }
     const baseUrl = requiredEnv('ANALYTICS_SERVICE_URL');
     try {
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${baseUrl.replace(/\/$/, '')}/v1/admin/analytics/daily${query.size ? `?${query}` : ''}`,
         {
           headers: { authorization },
@@ -1101,7 +1119,7 @@ class ModerationProxyController {
       const idempotencyKey = request.headers['idempotency-key'];
       if (typeof idempotencyKey === 'string' && /^[A-Za-z0-9._:@/-]{1,200}$/.test(idempotencyKey))
         headers['idempotency-key'] = idempotencyKey;
-      const upstream = await fetch(
+      const upstream = await fetchWithRequestContext(request,
         `${requiredEnv('AUDIT_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
         {
           method: request.method,
@@ -1180,14 +1198,8 @@ async function bootstrap() {
         requestStartedAt.set(request, performance.now());
       const incoming = request.headers['x-request-id'];
       const correlation = request.headers['x-correlation-id'];
-      const requestId =
-        typeof incoming === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(incoming)
-          ? incoming
-          : randomUUID();
-      const correlationId =
-        typeof correlation === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(correlation)
-          ? correlation
-          : requestId;
+      const { requestId, correlationId } = createRequestContext(incoming, correlation);
+      requestContexts.set(request, { requestId, correlationId });
       reply.header('x-request-id', requestId);
       reply.header('x-correlation-id', correlationId);
       reply.header('x-content-type-options', 'nosniff');
@@ -1206,6 +1218,7 @@ async function bootstrap() {
           request.method,
           reply.statusCode,
           (performance.now() - startedAt) / 1000,
+          request.routeOptions.url,
         );
     });
   const port = Number(requiredEnv('PORT', '3002'));

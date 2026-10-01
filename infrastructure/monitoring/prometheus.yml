@@ -25,3 +25,6 @@ scrape_configs:
       vhost: ['/']
     static_configs:
       - targets: ['rabbitmq:15692']
+  - job_name: postgres-exporter
+    static_configs:
+      - targets: ['postgres-exporter:9187']

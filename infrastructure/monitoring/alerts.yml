@@ -21,6 +21,26 @@ groups:
           summary: Une cible de supervision InvitaFlow est indisponible
           description: Prometheus ne peut pas scruter une cible de Prometheus ou du Collector depuis trois minutes.
 
+      - alert: InvitaFlowPostgresExporterUnavailable
+        expr: up{job="postgres-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: Prometheus ne peut plus joindre les métriques PostgreSQL
+          description: L’endpoint de métriques PostgreSQL est indisponible depuis deux minutes.
+
+      - alert: InvitaFlowPostgresScrapeFailed
+        expr: pg_exporter_last_scrape_error == 1
+        for: 2m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: L’exporter ne collecte plus les métriques PostgreSQL
+          description: La collecte depuis PostgreSQL échoue depuis deux minutes.
+
       - alert: InvitaFlowGatewayHighHttpErrorRate
         expr: |
           sum(rate(invitaflow_http_requests_total{status_code=~"5.."}[5m]))

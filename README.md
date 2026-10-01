@@ -32,7 +32,7 @@ RabbitMQ uses durable event, audit and render queues plus delayed retry queues a
 
 ## Node.js support
 
-Development recommended: Node.js 26.10.0 (recorded in `.nvmrc` and `.node-version`). Compose development containers use `node:26.10.0-slim`; production Dockerfiles use Node.js 24.21.0 LTS. The supported range is `>=24 <27`; Node 27 and later need an explicit compatibility decision. CI runs lint, typecheck, unit tests and the full build on Node 24.21.0 and 26.10.0.
+Development recommended: Node.js 26.10.0 (recorded in `.nvmrc` and `.node-version`). Compose development containers use `node:26.10.0-slim`; production Dockerfiles default to Node.js 24.21.0 LTS. The repository accepts `>=24 <27`; Node 27 and later need an explicit compatibility decision. CI runs lint, typecheck, unit tests and the full build on Node 24.21.0 and 26.10.0. Local validation on Node 26.10.0 passes, including Prisma Client generation, but Prisma 7.10.0's installer still warns that its vendor support list covers Node 20, 22 and 24 only; see the remaining-work register.
 
 On Windows, install Node.js 26.10.0 using your preferred installer, then install the pinned pnpm version with npm. Corepack and NVM are optional.
 
@@ -69,7 +69,7 @@ pnpm infra:down
 
 The Compose stack is intended for local development, not a production deployment. Databases, Redis and internal brokers are not published to the host. Public development consoles bind to `127.0.0.1`.
 
-For authentication and database isolation, choose unique URL-safe `PROFILE_DB_PASSWORD`, `EVENT_DB_PASSWORD`, `GUEST_DB_PASSWORD`, `SEATING_DB_PASSWORD` and `DESIGNS_DB_PASSWORD` values, a unique URL-safe `REDIS_PASSWORD`, and an `AUTH_SESSION_SECRET` of at least 32 random characters. For example, generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`. Redis stores encrypted server-side OIDC session records; the browser receives only an opaque HttpOnly cookie. Replace every sample password before running beyond local development.
+For authentication and database isolation, choose unique URL-safe `PROFILE_DB_PASSWORD`, `EVENT_DB_PASSWORD`, `GUEST_DB_PASSWORD`, `SEATING_DB_PASSWORD` and `DESIGNS_DB_PASSWORD` values, a unique URL-safe `REDIS_PASSWORD`, and an `AUTH_SESSION_SECRET` of at least 32 random characters. When enabling observability, also set a unique `POSTGRES_EXPORTER_PASSWORD`; its read-only role receives PostgreSQL's built-in `pg_monitor` membership. For example, generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`. Redis stores encrypted server-side OIDC session records; the browser receives only an opaque HttpOnly cookie. Replace every sample password before running beyond local development.
 
 ## Development commands
 
@@ -82,7 +82,7 @@ pnpm build
 pnpm check:workspace
 ```
 
-`pnpm infra:up` is the supported local end-to-end startup because the web BFF and profile API depend on Compose service DNS. The observability stack is opt-in to keep the default development stack lighter: start it with `docker compose --profile observability up -d`. `pnpm dev` is for focused workspace development after providing that service's environment and dependencies. `pnpm check:workspace` validates package manifests. Tests must be added with the service slices that need them; scaffolds do not imply business behavior.
+`pnpm infra:up` is the supported local end-to-end startup because the web BFF and profile API depend on Compose service DNS. The observability stack is opt-in to keep the default development stack lighter: start it with `docker compose --profile observability up -d`. It scrapes Gateway, RabbitMQ and PostgreSQL; exporter credentials and details are in [the observability guide](infrastructure/monitoring/README.md). `pnpm dev` is for focused workspace development after providing that service's environment and dependencies. `pnpm check:workspace` validates package manifests. Tests must be added with the service slices that need them; scaffolds do not imply business behavior.
 
 ## Local URLs
 

@@ -208,12 +208,48 @@ services:
   prometheus:
     profiles: [observability]
     image: prom/prometheus:v3.6.0
+    depends_on:
+      postgres-exporter:
+        condition: service_started
     volumes:
       - prometheus_data:/prometheus
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infrastructure/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
     networks: [observability, metrics]
     ports: ['127.0.0.1:9090:9090']
+  postgres-exporter-db-init:
+    profiles: [observability]
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-postgres-exporter.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_EXPORTER_PASSWORD: ${POSTGRES_EXPORTER_PASSWORD:-}
+    volumes: [./infrastructure/postgres/provision-postgres-exporter.sh:/provision-postgres-exporter.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  postgres-exporter:
+    profiles: [observability]
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
+      DATA_SOURCE_USER: postgres_exporter
+      DATA_SOURCE_PASS: ${POSTGRES_EXPORTER_PASSWORD:-}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 64
+    networks: [data, metrics]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-exporter-db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
   grafana:
     profiles: [observability]
     image: grafana/grafana:12.2.0
