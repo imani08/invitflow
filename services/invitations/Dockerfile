@@ -3,10 +3,8 @@ FROM ${NODE_IMAGE}
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends chromium qrencode && rm -rf /var/lib/apt/lists/*
 RUN npm install --global pnpm@12.8.0
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-COPY services/invitations/package.json services/invitations/package.json
+COPY . .
 RUN pnpm install --frozen-lockfile --filter @invitaflow/invitations...
-COPY services/invitations services/invitations
 WORKDIR /app/services/invitations
 RUN DATABASE_URL=postgresql://generate:generate@localhost:5432/invitations pnpm prisma:generate && pnpm exec tsc -p tsconfig.json
 RUN groupadd --system app && useradd --system --gid app app && chown -R app:app /app
