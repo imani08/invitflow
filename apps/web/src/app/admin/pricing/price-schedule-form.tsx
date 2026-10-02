@@ -7,6 +7,7 @@ export type Pack = {
   key: string;
   name: string;
   credits: number;
+  periodDays: number | null;
   priceMinor: number;
   currency: string;
   description: string;
@@ -44,6 +45,7 @@ function editablePack(pack: Pack): EditablePack {
     key: pack.key,
     name: pack.name,
     credits: pack.credits,
+    periodDays: pack.segment === 'AGENCY' ? 30 : pack.periodDays,
     priceMinor: pack.priceMinor,
     currency: pack.currency,
     description: pack.description,
@@ -87,6 +89,7 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
             : { enabled: false, ruleCode: null, rateBps: 0 },
           packs: packs.map((pack) => ({
             ...pack,
+            periodDays: pack.segment === 'AGENCY' ? 30 : pack.periodDays,
             validFrom: pack.validFrom ? new Date(pack.validFrom).toISOString() : null,
             validUntil: pack.validUntil ? new Date(pack.validUntil).toISOString() : null,
           })),
@@ -116,7 +119,7 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
       <div className="pricing-section-title"><div><span>PACKS DE CRÉDITS</span><h2>Prix client</h2></div>
         <button type="button" onClick={() => setPacks((current) => [...current, {
           key: `nouveau-pack-${current.length + 1}`, name: '', credits: 0, priceMinor: 0, currency: 'USD',
-          description: '', segment: 'INDIVIDUAL', displayOrder: (current.length + 1) * 10,
+          description: '', segment: 'INDIVIDUAL', periodDays: null, displayOrder: (current.length + 1) * 10,
           badge: null, validFrom: '', validUntil: '', visible: true,
         }])}>＋ Ajouter un pack</button>
       </div>
@@ -124,8 +127,9 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
         <label>Clé<input required pattern="[a-z][a-z0-9-]{1,59}" value={pack.key} onChange={(event) => updatePack(index, { key: event.target.value })} /></label>
         <label>Nom<input required maxLength={100} value={pack.name} onChange={(event) => updatePack(index, { name: event.target.value })} /></label>
         <label>Description<input maxLength={1000} value={pack.description} onChange={(event) => updatePack(index, { description: event.target.value })} /></label>
-        <label>Segment<select value={pack.segment} onChange={(event) => updatePack(index, { segment: event.target.value as EditablePack['segment'] })}><option value="INDIVIDUAL">Particulier</option><option value="AGENCY">Agence</option><option value="ALL">Tous</option></select></label>
+        <label>Segment<select value={pack.segment} onChange={(event) => { const segment = event.target.value as EditablePack['segment']; updatePack(index, { segment, ...(segment === 'AGENCY' ? { periodDays: 30 } : {}) }); }}><option value="INDIVIDUAL">Particulier</option><option value="AGENCY">Agence</option><option value="ALL">Tous</option></select></label>
         <label>Crédits<input required type="number" min="1" max="1000000000" value={pack.credits || ''} onChange={(event) => updatePack(index, { credits: Number(event.target.value) })} /></label>
+        {pack.segment === 'AGENCY' && <p>Durée fixe : <strong>30 jours</strong> à compter de l’activation après paiement.</p>}
         <label>Prix en centimes<input required type="number" min="1" max="1000000000" value={pack.priceMinor || ''} onChange={(event) => updatePack(index, { priceMinor: Number(event.target.value) })} /></label>
         <label>Devise<input required minLength={3} maxLength={3} pattern="[A-Z]{3}" value={pack.currency} onChange={(event) => updatePack(index, { currency: event.target.value.toUpperCase() })} /></label>
         <label>Ordre<input required type="number" min="0" max="1000000000" value={pack.displayOrder} onChange={(event) => updatePack(index, { displayOrder: Number(event.target.value) })} /></label>

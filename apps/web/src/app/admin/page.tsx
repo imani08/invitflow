@@ -2,6 +2,7 @@ import { decodeJwt } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
+import { BrandLogo } from '@/components/brand-logo';
 import { ModerationQueue, type ModerationReport } from './moderation-queue';
 import './admin.css';
 import './moderation.css';
@@ -43,6 +44,7 @@ export default async function AdminPage({
     return (
       <main className="admin-shell">
         <nav>
+          <BrandLogo variant="compact" />
           <a href="/account">← Mon compte</a>
         </nav>
         <section className="admin-panel">
@@ -98,6 +100,7 @@ export default async function AdminPage({
   return (
     <main className="admin-shell">
       <nav>
+        <BrandLogo variant="compact" />
         <a href="/account">← Mon compte</a>
         <div>
           {canFinance && <a href="/admin/analytics">Indicateurs ↗</a>}

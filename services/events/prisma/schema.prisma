@@ -29,6 +29,7 @@ enum AgencyRole {
 enum AgencyMemberStatus {
   ACTIVE
   SUSPENDED
+  REMOVED
 }
 
 enum AgencyWorkspaceStatus {
@@ -140,6 +141,7 @@ model AgencyWorkspace {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   memberships AgencyMembership[]
+  auditEntries AgencyAuditEntry[]
   clients     AgencyClient[]
   events      Event[] @relation("AgencyWorkspaceEvents")
   subscriptions AgencySubscription[]
@@ -163,6 +165,20 @@ model AgencyMembership {
   @@unique([workspaceId, subject], map: "agency_memberships_workspace_subject_key")
   @@index([subject, status], map: "agency_memberships_subject_status_idx")
   @@map("agency_memberships")
+}
+
+model AgencyAuditEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  workspaceId   String          @map("workspace_id") @db.Uuid
+  actorSubject  String          @map("actor_subject") @db.VarChar(255)
+  targetSubject String?         @map("target_subject") @db.VarChar(255)
+  action        String          @db.VarChar(80)
+  before        Json?
+  after         Json?
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  workspace     AgencyWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  @@index([workspaceId, createdAt(sort: Desc)], map: "agency_audit_workspace_created_idx")
+  @@map("agency_audit_entries")
 }
 
 model AgencyClient {
@@ -206,6 +222,11 @@ model AgencySubscription {
   currency            String   @db.Char(3)
   priceScheduleId     String   @map("price_schedule_id") @db.Uuid
   priceScheduleVersion Int     @map("price_schedule_version")
+  currentPlanVersion   Int     @default(1) @map("current_plan_version")
+  periodDays           Int?    @map("period_days")
+  renewalOfId          String? @map("renewal_of_id") @db.Uuid
+  renewalOf            AgencySubscription? @relation("AgencySubscriptionPeriods", fields: [renewalOfId], references: [id], onDelete: Restrict)
+  renewedPeriods       AgencySubscription[] @relation("AgencySubscriptionPeriods")
   status              AgencySubscriptionStatus @default(PENDING)
   paymentOrderId      String?  @unique @map("payment_order_id") @db.Uuid
   paymentId           String?  @unique @map("payment_id") @db.Uuid

@@ -13,19 +13,22 @@ export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async agencyDashboard(subject: string) {
+    await this.prisma.agencySubscription.updateMany({ where: { status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
     const memberships = await this.prisma.agencyMembership.findMany({
       where: { subject, status: 'ACTIVE', workspace: { status: 'ACTIVE' } },
       orderBy: { createdAt: 'asc' },
       include: { workspace: { include: { subscriptions: { orderBy: { createdAt: 'desc' }, take: 1 } } } },
     });
     return Promise.all(memberships.map(async ({ workspace, role }) => {
+      const activeSubscription = await this.prisma.agencySubscription.findFirst({ where: { workspaceId: workspace.id, status: 'ACTIVE', startsAt: { lte: new Date() }, billingPeriodEnd: { gt: new Date() } }, orderBy: { billingPeriodEnd: 'desc' } });
+      const displayedSubscription = activeSubscription ?? workspace.subscriptions[0] ?? null;
       const [clients, events, consumed, reserved] = await Promise.all([
         this.prisma.agencyClient.count({ where: { workspaceId: workspace.id } }),
         this.prisma.event.count({ where: { agencyWorkspaceId: workspace.id } }),
-        this.prisma.agencyQuotaReservation.aggregate({ where: { workspaceId: workspace.id, status: 'CONSUMED' }, _sum: { credits: true } }),
-        this.prisma.agencyQuotaReservation.aggregate({ where: { workspaceId: workspace.id, status: 'RESERVED' }, _sum: { credits: true } }),
+        this.prisma.agencyQuotaReservation.aggregate({ where: { subscriptionId: displayedSubscription?.id ?? '00000000-0000-4000-8000-000000000000', status: 'CONSUMED' }, _sum: { credits: true } }),
+        this.prisma.agencyQuotaReservation.aggregate({ where: { subscriptionId: displayedSubscription?.id ?? '00000000-0000-4000-8000-000000000000', status: 'RESERVED' }, _sum: { credits: true } }),
       ]);
-      return { id: workspace.id, name: workspace.name, status: workspace.status, role, plan: workspace.subscriptions[0] ?? null,
+      return { id: workspace.id, name: workspace.name, status: workspace.status, role, plan: displayedSubscription,
         usage: { consumed: consumed._sum.credits ?? 0, reserved: reserved._sum.credits ?? 0 }, clients, events };
     }));
   }
@@ -46,7 +49,8 @@ export class EventsService {
   }
 
   async addAgencyMember(subject: string, workspaceId: string, memberSubject: string, role: 'ADMIN' | 'MEMBER') {
-    await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']);
+    const actor = await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']);
+    if (actor.role === 'ADMIN' && role === 'ADMIN') throw new ForbiddenException('Admins may add members only');
     if (memberSubject === subject) throw new BadRequestException('An owner cannot invite themselves as a member');
     try {
       return await this.prisma.agencyMembership.create({ data: { workspaceId, subject: memberSubject, role, addedBy: subject }, select: { id: true, subject: true, role: true, status: true, createdAt: true } });
@@ -54,6 +58,24 @@ export class EventsService {
       if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') throw new ConflictException('This person is already a member');
       throw error;
     }
+  }
+
+  async updateAgencyMember(actor: string, workspaceId: string, memberId: string, change: { role?: 'ADMIN' | 'MEMBER'; status?: 'ACTIVE' | 'SUSPENDED' | 'REMOVED' }) {
+    const actorMembership = await this.requireAgencyRole(actor, workspaceId, ['OWNER', 'ADMIN']);
+    if (!Object.keys(change).length || Object.keys(change).some((key) => !['role', 'status'].includes(key))) throw new BadRequestException('Member change is invalid');
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "agency_workspaces" WHERE "id" = ${workspaceId}::uuid FOR UPDATE`;
+      const target = await tx.agencyMembership.findFirst({ where: { id: memberId, workspaceId }, select: { id: true, subject: true, role: true, status: true } });
+      if (!target) throw new NotFoundException('Agency member not found');
+      if (actorMembership.role === 'ADMIN' && target.role !== 'MEMBER') throw new ForbiddenException('Admins can manage members only');
+      if (target.role === 'OWNER' && (change.role !== undefined || change.status === 'SUSPENDED' || change.status === 'REMOVED')) {
+        const owners = await tx.agencyMembership.count({ where: { workspaceId, role: 'OWNER', status: 'ACTIVE' } });
+        if (owners <= 1) throw new ConflictException('The last active agency owner cannot be changed, suspended or removed');
+      }
+      const updated = await tx.agencyMembership.update({ where: { id: target.id }, data: { ...change }, select: { id: true, subject: true, role: true, status: true, createdAt: true } });
+      await tx.agencyAuditEntry.create({ data: { workspaceId, actorSubject: actor, targetSubject: target.subject, action: change.status === 'REMOVED' ? 'MEMBER_REMOVED' : change.status ? `MEMBER_${change.status}` : 'MEMBER_ROLE_CHANGED', before: target, after: { id: updated.id, subject: updated.subject, role: updated.role, status: updated.status } } });
+      return updated;
+    });
   }
 
   async agencyClients(subject: string, workspaceId: string) {
@@ -96,14 +118,15 @@ export class EventsService {
     const member = await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']);
     if (member.role !== 'OWNER') throw new ForbiddenException('Only the agency owner can change its plan');
     if (!catalog || typeof catalog !== 'object' || !('scheduleId' in catalog) || !('version' in catalog) || !('packs' in catalog) || !Array.isArray(catalog.packs)) throw new BadRequestException('Agency pricing catalog is unavailable');
-    const value = catalog as { scheduleId: string; version: number; packs: Array<{ id: string; key: string; name: string; credits: number; priceMinor: number; currency: string; segment: string }> };
+    const value = catalog as { scheduleId: string; version: number; packs: Array<{ id: string; key: string; name: string; credits: number; periodDays: number | null; priceMinor: number; currency: string; segment: string }> };
     const pack = value.packs.find((candidate) => candidate.key === planKey && candidate.segment === 'AGENCY');
-    if (!pack || !Number.isSafeInteger(value.version) || !/^[0-9a-f-]{36}$/i.test(value.scheduleId)) throw new BadRequestException('Select a currently published agency plan');
+    if (!pack || pack.periodDays !== null && pack.periodDays !== 30 || !Number.isSafeInteger(value.version) || !/^[0-9a-f-]{36}$/i.test(value.scheduleId)) throw new BadRequestException('Select a valid agency plan');
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.agencySubscription.findFirst({ where: { workspaceId, planPackId: pack.id, priceScheduleId: value.scheduleId, status: 'PENDING', paymentId: null }, orderBy: { createdAt: 'desc' } });
+      const previous = await tx.agencySubscription.findFirst({ where: { workspaceId, status: { in: ['ACTIVE', 'PAST_DUE'] } }, orderBy: { billingPeriodEnd: 'desc' } });
+      const existing = await tx.agencySubscription.findFirst({ where: { workspaceId, planPackId: pack.id, priceScheduleId: value.scheduleId, renewalOfId: previous?.id ?? null, status: 'PENDING', paymentId: null }, orderBy: { createdAt: 'desc' } });
       if (existing) return existing;
       await tx.agencySubscription.updateMany({ where: { workspaceId, status: 'PENDING' }, data: { status: 'CANCELLED', endsAt: new Date() } });
-      return tx.agencySubscription.create({ data: { workspaceId, planPackId: pack.id, planKey: pack.key, planName: pack.name, quotaCredits: pack.credits, priceMinor: pack.priceMinor, currency: pack.currency, priceScheduleId: value.scheduleId, priceScheduleVersion: value.version, status: 'PENDING' } });
+      return tx.agencySubscription.create({ data: { workspaceId, planPackId: pack.id, planKey: pack.key, planName: pack.name, quotaCredits: pack.credits, priceMinor: pack.priceMinor, currency: pack.currency, priceScheduleId: value.scheduleId, priceScheduleVersion: value.version, currentPlanVersion: value.version, periodDays: 30, renewalOfId: previous?.id ?? null, status: 'PENDING' } });
     });
   }
 
@@ -121,6 +144,7 @@ export class EventsService {
     await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     this.assertUuid(eventId);
     if (!/^[A-Za-z0-9._:@/-]{1,200}$/.test(referenceKey) || !Number.isSafeInteger(credits) || credits < 1 || credits > 5000) throw new BadRequestException('Agency quota reservation is invalid');
+    await this.prisma.agencySubscription.updateMany({ where: { workspaceId, status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
     const prior = await this.prisma.agencyQuotaReservation.findUnique({ where: { referenceKey } });
       if (prior) {
         if (prior.workspaceId !== workspaceId || prior.eventId !== eventId || prior.credits !== credits || prior.status === 'RELEASED') throw new ConflictException('Quota reservation reference was already used');
@@ -130,7 +154,7 @@ export class EventsService {
       return await this.prisma.$transaction(async (tx) => {
         const event = await tx.event.findFirst({ where: { id: eventId, agencyWorkspaceId: workspaceId }, select: { id: true } });
         if (!event) throw new NotFoundException('Agency event not found');
-        const subscription = await tx.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', startsAt: { lte: new Date() }, OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }, orderBy: { createdAt: 'desc' } });
+        const subscription = await tx.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', startsAt: { lte: new Date() }, billingPeriodEnd: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
         if (!subscription) throw new BadRequestException('Aucune souscription agence active. Changez de plan pour générer des invitations.');
         await tx.$queryRaw`SELECT "id" FROM "agency_subscriptions" WHERE "id" = ${subscription.id}::uuid FOR UPDATE`;
         const duplicate = await tx.agencyQuotaReservation.findUnique({ where: { referenceKey } });
@@ -159,7 +183,8 @@ export class EventsService {
 
   async agencyQuotaSummary(subject: string, workspaceId: string) {
     await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
-    const subscription = await this.prisma.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', startsAt: { lte: new Date() }, OR: [{ endsAt: null }, { endsAt: { gt: new Date() } }] }, orderBy: { createdAt: 'desc' } });
+    await this.prisma.agencySubscription.updateMany({ where: { workspaceId, status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
+    const subscription = await this.prisma.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', startsAt: { lte: new Date() }, billingPeriodEnd: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
     if (!subscription) return { subscriptionId: null, includedQuota: 0, consumed: 0, reserved: 0, remaining: 0 };
     const [consumed, reserved] = await Promise.all([
       this.prisma.agencyQuotaReservation.aggregate({ where: { subscriptionId: subscription.id, status: 'CONSUMED' }, _sum: { credits: true } }),
@@ -208,11 +233,13 @@ export class EventsService {
     const snapshot = metadata as Record<string, unknown>;
     const subscriptionId = event['businessReference'];
     const subscription = await this.prisma.agencySubscription.findFirst({ where: { id: subscriptionId, workspace: { ownerSubject: event['customerSubject'] } } });
-    if (!subscription || subscription.planPackId !== snapshot['packId'] || subscription.priceScheduleId !== snapshot['priceScheduleId'] || subscription.priceScheduleVersion !== snapshot['priceScheduleVersion'] || subscription.priceMinor !== event['amountMinor'] || subscription.currency.trim() !== event['currency']) throw new ConflictException('Confirmed payment does not match the agency subscription snapshot');
+    if (!subscription || subscription.planPackId !== snapshot['packId'] || subscription.periodDays !== snapshot['periodDays'] || subscription.priceScheduleId !== snapshot['priceScheduleId'] || subscription.priceScheduleVersion !== snapshot['priceScheduleVersion'] || subscription.priceMinor !== event['amountMinor'] || subscription.currency.trim() !== event['currency']) throw new ConflictException('Confirmed payment does not match the agency subscription snapshot');
     if (subscription.status === 'ACTIVE' && subscription.paymentId === event['paymentId'] && subscription.paymentOrderId === event['orderId']) return { activated: false, subscription };
     if (subscription.status !== 'PENDING' || subscription.paymentId !== event['paymentId'] || subscription.paymentOrderId !== event['orderId']) throw new ConflictException('Payment does not match the pending agency checkout');
+    if (subscription.periodDays !== 30 || snapshot['periodDays'] !== 30) throw new ConflictException('Agency subscriptions must have an exact 30-day billing period');
     const startedAt = new Date();
-    const changed = await this.prisma.agencySubscription.updateMany({ where: { id: subscription.id, status: 'PENDING', paymentId: event['paymentId'], paymentOrderId: event['orderId'] }, data: { status: 'ACTIVE', startsAt: startedAt, billingPeriodStart: startedAt } });
+    const periodEnd = new Date(startedAt.getTime() + 30 * 86_400_000);
+    const changed = await this.prisma.agencySubscription.updateMany({ where: { id: subscription.id, status: 'PENDING', paymentId: event['paymentId'], paymentOrderId: event['orderId'] }, data: { status: 'ACTIVE', startsAt: startedAt, endsAt: periodEnd, billingPeriodStart: startedAt, billingPeriodEnd: periodEnd, currentPlanVersion: subscription.priceScheduleVersion } });
     if (!changed.count) {
       const active = await this.prisma.agencySubscription.findFirst({ where: { id: subscription.id, status: 'ACTIVE', paymentId: event['paymentId'], paymentOrderId: event['orderId'] } });
       if (!active) throw new ConflictException('Agency subscription activation raced with another update');

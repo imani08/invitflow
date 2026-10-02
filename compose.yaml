@@ -210,6 +210,7 @@ services:
     volumes:
       - keycloak_data:/opt/keycloak/data
       - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./infrastructure/keycloak/themes:/opt/keycloak/themes:ro
     networks: [identity, messaging, data]
     ports: ['127.0.0.1:8080:8080']
     healthcheck:

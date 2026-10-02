@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { resolveGuestPreviewValues } from '@/lib/design-guest-preview.mjs';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -354,7 +354,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   const stageHeight = canvas ? Math.round(stageWidth * canvas.height / canvas.width) : 694;
 
   return <main className="events-shell design-page">
-    <nav className="events-nav"><Link className="brand" href="/">Invita<span>Flow</span></Link><div><a href="/events">Événements</a><a href={`/events/${encodeURIComponent(event.id)}/guests`}>Invités</a><a href={`/events/${encodeURIComponent(event.id)}/seating`}>Placement</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
+    <nav className="events-nav"><BrandLogo/><div><a href="/events">Événements</a><a href={`/events/${encodeURIComponent(event.id)}/guests`}>Invités</a><a href={`/events/${encodeURIComponent(event.id)}/seating`}>Placement</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
     <header className="design-heading"><div><p className="eyebrow">ATELIER DE CRÉATION · {event.name}</p><h1>Composez votre<br /><em>invitation.</em></h1><p>Choisissez un modèle, adaptez chaque détail et retrouvez vos versions à tout moment.</p></div><a className="design-back" href="/events">← Tous les événements</a></header>
     {message && <p className="design-status" role="status">{message}</p>}
     {loading ? <section className="design-state"><p>Chargement de la bibliothèque enregistrée…</p></section> : <>

@@ -30,7 +30,8 @@ model CreditPack {
   scheduleId       String        @map("schedule_id") @db.Uuid
   key              String        @db.VarChar(60)
   name             String        @db.VarChar(100)
-  credits          Int
+    credits          Int
+    periodDays       Int?          @map("period_days")
   priceMinor       Int           @map("price_minor")
   currency         String        @db.Char(3)
   description      String        @default("") @db.VarChar(1000)

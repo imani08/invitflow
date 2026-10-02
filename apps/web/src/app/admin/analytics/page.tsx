@@ -2,6 +2,7 @@ import { decodeJwt } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
+import { BrandLogo } from '@/components/brand-logo';
 import '../admin.css';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,7 @@ export default async function AnalyticsAdminPage({
   return (
     <main className="admin-shell">
       <nav>
+        <BrandLogo variant="compact" />
         <a href="/admin">← Administration</a>
         <div>
           <a href="/admin/finance">Paiements ↗</a>

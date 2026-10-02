@@ -2,6 +2,7 @@
   "realm": "invitaflow-dev",
   "enabled": true,
   "displayName": "InvitaFlow Development",
+  "loginTheme": "invitaflow",
   "sslRequired": "external",
   "registrationAllowed": true,
   "verifyEmail": true,

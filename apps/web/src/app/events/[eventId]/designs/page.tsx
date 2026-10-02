@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
@@ -25,7 +25,7 @@ export default async function DesignsPage({ params }: { params: Promise<{ eventI
     event = await response.json() as Event;
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_')) throw error;
-    return <main className="events-shell design-page"><nav className="events-nav"><Link className="brand" href="/">Invita<span>Flow</span></Link><div><a href="/events">Événements</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav><section className="design-unavailable"><span>ESPACE CRÉATION</span><h1>Le design n’a pas pu être chargé.</h1><p>Vérifiez la connexion aux services puis réessayez.</p><a href={`/events/${encodeURIComponent(eventId)}/designs`}>Réessayer</a></section></main>;
+    return <main className="events-shell design-page"><nav className="events-nav"><BrandLogo/><div><a href="/events">Événements</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav><section className="design-unavailable"><span>ESPACE CRÉATION</span><h1>Le design n’a pas pu être chargé.</h1><p>Vérifiez la connexion aux services puis réessayez.</p><a href={`/events/${encodeURIComponent(eventId)}/designs`}>Réessayer</a></section></main>;
   }
   return <DesignsWorkspace event={event} />;
 }

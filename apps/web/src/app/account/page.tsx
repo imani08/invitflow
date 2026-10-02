@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { decodeJwt } from 'jose';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
+import { BrandLogo } from '@/components/brand-logo';
 import { ProfileForm } from './profile-form';
 import './profile.css';
 
@@ -82,9 +82,7 @@ export default async function AccountPage() {
   return (
     <main className="account-shell">
       <nav className="account-nav">
-        <Link className="brand" href="/">
-          Invita<span>Flow</span>
-        </Link>
+        <BrandLogo />
         <div>
           {canManagePricing && (
             <a className="account-link" href="/admin/pricing">

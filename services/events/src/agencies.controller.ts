@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { IdentityGuard, type VerifiedIdentity } from './identity.guard.js';
 import { EventsService } from './events.service.js';
@@ -45,6 +45,12 @@ export class AgenciesController {
   addMember(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Body() body: { subject?: unknown; role?: unknown }) {
     if (typeof body?.subject !== 'string' || !body.subject.trim() || body.subject.length > 255 || (body.role !== 'ADMIN' && body.role !== 'MEMBER')) throw new BadRequestException('subject and role (ADMIN or MEMBER) are required');
     return this.events.addAgencyMember(request.identity.subject, workspaceId, body.subject.trim(), body.role);
+  }
+
+  @Patch('/:workspaceId/members/:memberId')
+  updateMember(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Param('memberId') memberId: string, @Body() body: { role?: unknown; status?: unknown }) {
+    if (!/^[0-9a-f-]{36}$/i.test(memberId) || (body?.role !== undefined && body.role !== 'ADMIN' && body.role !== 'MEMBER') || (body?.status !== undefined && !['ACTIVE', 'SUSPENDED', 'REMOVED'].includes(String(body.status)))) throw new BadRequestException('Member change is invalid');
+    return this.events.updateAgencyMember(request.identity.subject, workspaceId, memberId, { ...(body.role !== undefined ? { role: body.role as 'ADMIN' | 'MEMBER' } : {}), ...(body.status !== undefined ? { status: body.status as 'ACTIVE' | 'SUSPENDED' | 'REMOVED' } : {}) });
   }
 
   @Get('/:workspaceId/clients')

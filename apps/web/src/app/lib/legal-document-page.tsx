@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { legalDocuments, legalDocumentVersion, type LegalSlug } from '@/lib/legal-documents';
+import { BrandLogo } from '@/components/brand-logo';
 import '../legal/legal.css';
 
 export async function LegalDocumentPage({ slug }: { slug: LegalSlug }) {
@@ -9,7 +10,7 @@ export async function LegalDocumentPage({ slug }: { slug: LegalSlug }) {
   const configuredValue = process.env['LEGAL_CONTACT_EMAIL'];
   const configuredContact = configuredValue && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(configuredValue) ? configuredValue : undefined;
   return <main className="legal-shell">
-    <Link className="legal-brand" href="/">Invita<span>Flow</span></Link>
+    <BrandLogo variant="compact" />
     <p className="legal-status">BROUILLON · NON PUBLIÉ · {legalDocumentVersion}</p>
     <h1>{document.title}</h1>
     <p className="legal-intro">{document.purpose}</p>

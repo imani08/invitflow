@@ -10,11 +10,11 @@ const subscriptionId = '33333333-3333-4333-8333-333333333333';
 function quotaHarness(quotaCredits: number) {
   let used = Promise.resolve();
   const reservations = new Map<string, Record<string, unknown>>();
-  const subscription = { id: subscriptionId, workspaceId, quotaCredits, status: 'ACTIVE', createdAt: new Date(), startsAt: new Date(Date.now() - 1000), endsAt: null };
+  const subscription = { id: subscriptionId, workspaceId, quotaCredits, status: 'ACTIVE', createdAt: new Date(), startsAt: new Date(Date.now() - 1000), billingPeriodEnd: new Date(Date.now() + 30 * 86_400_000) };
   const tx = {
     $queryRaw: async () => [],
     agencyMembership: { findFirst: async () => ({ role: 'OWNER' }) },
-    agencySubscription: { findFirst: async () => subscription },
+    agencySubscription: { findFirst: async ({ where }: { where: { billingPeriodEnd?: { gt: Date } } }) => where.billingPeriodEnd && subscription.billingPeriodEnd > where.billingPeriodEnd.gt ? subscription : null, updateMany: async () => ({ count: 0 }) },
     event: { findFirst: async ({ where }: { where: { id: string; agencyWorkspaceId: string } }) => where.id === eventId && where.agencyWorkspaceId === workspaceId ? { id: eventId } : null },
     agencyQuotaReservation: {
       findUnique: async ({ where }: { where: { referenceKey: string } }) => reservations.get(where.referenceKey) ?? null,
@@ -37,7 +37,7 @@ function quotaHarness(quotaCredits: number) {
       try { return await callback(tx); } finally { unlock(); }
     },
   };
-  return { events: new EventsService(prisma as unknown as PrismaService), reservations };
+  return { events: new EventsService(prisma as unknown as PrismaService), reservations, subscription };
 }
 
 test('agency quota reservation checks available, consumes once and releases failed work', async () => {
@@ -78,4 +78,20 @@ test('partial reservation returns exactly the concurrently available agency quot
   assert.equal(partial.reservedCredits, 1);
   assert.equal(partial.remaining, 0);
   assert.equal(reservations.get('second')?.['credits'], 1);
+});
+
+test('agency quota reservation is refused at and after the exact period expiration', async () => {
+  const { events, subscription } = quotaHarness(5);
+  subscription.billingPeriodEnd = new Date(Date.now() - 1);
+  await assert.rejects(events.reserveAgencyQuota('owner', workspaceId, eventId, 'expired-period', 1), /souscription agence active/);
+});
+
+test('a fresh agency period gets its full quota without carrying reservations from the expired period', async () => {
+  const { events, reservations } = quotaHarness(1500);
+  reservations.set('previous-period-consumption', { id: 'old-reservation', subscriptionId: '44444444-4444-4444-8444-444444444444', workspaceId, eventId, referenceKey: 'previous-period-consumption', credits: 1400, status: 'CONSUMED' });
+  const summary = await events.agencyQuotaSummary('owner', workspaceId);
+  assert.equal(summary.includedQuota, 1500);
+  assert.equal(summary.consumed, 0);
+  assert.equal(summary.reserved, 0);
+  assert.equal(summary.remaining, 1500);
 });

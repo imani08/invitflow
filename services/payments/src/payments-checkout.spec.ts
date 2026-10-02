@@ -99,3 +99,22 @@ test('Billing quote arithmetic is validated before an order is persisted', async
     if (originalProvider === undefined) delete process.env['PAYMENT_PROVIDER']; else process.env['PAYMENT_PROVIDER'] = originalProvider;
   }
 });
+
+test('agency checkout rejects any Billing period other than the fixed 30 days', async () => {
+  const originalFetch = globalThis.fetch;
+  const originalNodeEnv = process.env['NODE_ENV'];
+  const originalProvider = process.env['PAYMENT_PROVIDER'];
+  process.env['NODE_ENV'] = 'test'; process.env['PAYMENT_PROVIDER'] = 'mock';
+  let writes = 0;
+  const db = { paymentOrder: { findUnique: async () => null }, $transaction: async () => { writes += 1; } };
+  globalThis.fetch = async () => Response.json(quote({ orderType: 'AGENCY_SUBSCRIPTION', periodDays: 31, quantity: 1, unitCredits: 50, credits: 50, subtotalMinor: 1500, totalMinor: 1500 }));
+  try {
+    const service = new PaymentsService(db as never);
+    await assert.rejects(service.create('owner', 'Bearer token', 'agency-bad-period', { packId, quantity: 1, orderType: 'AGENCY_SUBSCRIPTION', businessReference: 'b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2', expectedPriceScheduleId: scheduleId, expectedPriceScheduleVersion: 2 }), /invariants de calcul/);
+    assert.equal(writes, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalNodeEnv === undefined) delete process.env['NODE_ENV']; else process.env['NODE_ENV'] = originalNodeEnv;
+    if (originalProvider === undefined) delete process.env['PAYMENT_PROVIDER']; else process.env['PAYMENT_PROVIDER'] = originalProvider;
+  }
+});

@@ -51,6 +51,7 @@ test('public catalog exposes only visible in-window packs in configured order', 
 test('agency catalog returns only dynamically published agency and shared offers', async () => {
   const result = await service().catalog('AGENCY');
   assert.deepEqual(result.packs.map((pack) => pack.id), ['pack-agency', 'pack-second']);
+  assert.equal(result.packs.find((pack) => pack.segment === 'AGENCY')?.periodDays, 30);
   await assert.rejects(service().catalog('UNKNOWN'), /Segment tarifaire invalide/);
 });
 
@@ -77,7 +78,7 @@ test('checkout quote snapshots unit price, quantity, credits, discount and disab
   const prisma = { priceSchedule: { findFirst: async () => selectedSchedule } } as unknown as PrismaService;
   const quote = await new BillingService(prisma).checkoutQuote({ packId, quantity: 2 });
   assert.deepEqual(quote, {
-    orderType: 'CREDIT_PURCHASE', packId, packKey: 'starter', packName: 'Hidden', quantity: 2, unitCredits: 50, credits: 100,
+    orderType: 'CREDIT_PURCHASE', packId, packKey: 'starter', packName: 'Hidden', periodDays: null, quantity: 2, unitCredits: 50, credits: 100,
     currency: 'USD', unitPriceMinor: 1500, discountMinor: 0, discountRule: null,
     taxEnabled: false, taxRule: null, taxRateBps: 0, taxMinor: 0, subtotalMinor: 3000,
     totalMinor: 3000, priceScheduleId: schedule.id, priceScheduleVersion: schedule.version,
@@ -86,14 +87,17 @@ test('checkout quote snapshots unit price, quantity, credits, discount and disab
 
 test('agency subscription quote requires agency pack and snapshots its configured quota and price', async () => {
   const packId = '8e7fa4c2-bd22-4c5a-9847-920cd0ea9101';
-  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[3]!, id: packId, key: 'agency-pro', name: 'Agency Pro', credits: 1500, priceMinor: 5900, currency: 'USD', visible: true }] };
+  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[3]!, id: packId, key: 'agency-pro', name: 'Agency Pro', credits: 1500, periodDays: 30, priceMinor: 5900, currency: 'USD', visible: true }] };
   const prisma = { priceSchedule: { findFirst: async () => selectedSchedule } } as unknown as PrismaService;
   const quote = await new BillingService(prisma).checkoutQuote({ packId, orderType: 'AGENCY_SUBSCRIPTION' });
   assert.equal(quote.orderType, 'AGENCY_SUBSCRIPTION');
   assert.equal(quote.credits, 1500);
+  assert.equal(quote.periodDays, 30);
   assert.equal(quote.totalMinor, 5900);
   const wrongSegment = { priceSchedule: { findFirst: async () => ({ ...selectedSchedule, packs: [{ ...selectedSchedule.packs[0]!, segment: 'INDIVIDUAL' }] }) } } as unknown as PrismaService;
   await assert.rejects(new BillingService(wrongSegment).checkoutQuote({ packId, orderType: 'AGENCY_SUBSCRIPTION' }));
+  const wrongDuration = { priceSchedule: { findFirst: async () => ({ ...selectedSchedule, packs: [{ ...selectedSchedule.packs[0]!, periodDays: 31 }] }) } } as unknown as PrismaService;
+  await assert.rejects(new BillingService(wrongDuration).checkoutQuote({ packId, orderType: 'AGENCY_SUBSCRIPTION' }), /30 jours/);
 });
 
 test('checkout quote computes only an explicitly configured synthetic rate and never invents a tax rule', async () => {

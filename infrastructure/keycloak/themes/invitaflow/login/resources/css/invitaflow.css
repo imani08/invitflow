@@ -1,0 +1,222 @@
+:root {
+  --if-plum: #35133f;
+  --if-plum-deep: #210d29;
+  --if-gold: #c9974d;
+  --if-ivory: #fbf9f5;
+  --if-ink: #281a2b;
+  --if-muted: #6c6470;
+  --if-border: #e7e0e8;
+  --if-focus: #9d65b6;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--if-ivory);
+}
+
+body {
+  color: var(--if-ink);
+  background-image: radial-gradient(ellipse at 50% 0, #fff 0, var(--if-ivory) 66%);
+}
+
+#kc-header-wrapper {
+  box-sizing: border-box;
+  width: min(100%, 260px);
+  height: 76px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: url("../img/invitaflow-logo.png") center / contain no-repeat;
+  color: transparent;
+  font-size: 0;
+}
+
+#kc-header {
+  padding: 28px 16px 8px;
+}
+
+#kc-content-wrapper,
+.login-pf-page .card-pf,
+#kc-content,
+.pf-v5-c-login__main,
+#kc-form-wrapper {
+  color: var(--if-ink);
+}
+
+.login-pf-page .card-pf {
+  max-width: 440px;
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid rgb(53 19 63 / 9%);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgb(53 19 63 / 10%);
+  animation: if-card-in 360ms ease-out both;
+}
+
+.pf-v5-c-login__main {
+  max-width: 480px;
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid rgb(53 19 63 / 9%);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgb(53 19 63 / 10%);
+  animation: if-card-in 360ms ease-out both;
+}
+
+#kc-page-title {
+  color: var(--if-plum);
+  font-size: clamp(1.45rem, 4vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+label,
+.pf-c-form__label-text {
+  color: var(--if-ink);
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+select,
+.pf-c-form-control {
+  min-height: 46px;
+  border: 1px solid var(--if-border);
+  border-radius: 10px;
+  background-color: #fff;
+  color: var(--if-ink);
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.pf-v5-c-form-control {
+  min-height: 46px;
+  border-color: var(--if-border);
+  border-radius: 10px;
+  background-color: #fff;
+  color: var(--if-ink);
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+input:focus,
+select:focus,
+.pf-c-form-control:focus {
+  border-color: var(--if-focus) !important;
+  outline: 3px solid rgb(157 101 182 / 22%) !important;
+  outline-offset: 1px;
+  box-shadow: none !important;
+}
+
+.pf-v5-c-form-control:focus {
+  border-color: var(--if-focus) !important;
+  outline: 3px solid rgb(157 101 182 / 22%) !important;
+  outline-offset: 1px;
+  box-shadow: none !important;
+}
+
+input[type="submit"],
+button[type="submit"],
+.pf-c-button.pf-m-primary {
+  min-height: 48px;
+  border: 1px solid var(--if-plum);
+  border-radius: 10px;
+  background: var(--if-plum);
+  color: #fff;
+  font-weight: 700;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.pf-v5-c-button.pf-m-primary {
+  min-height: 48px;
+  border: 1px solid var(--if-plum);
+  border-radius: 10px;
+  background: var(--if-plum);
+  color: #fff;
+  font-weight: 700;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+input[type="submit"]:hover,
+button[type="submit"]:hover,
+.pf-c-button.pf-m-primary:hover {
+  border-color: var(--if-plum-deep);
+  background: var(--if-plum-deep);
+}
+
+.pf-v5-c-button.pf-m-primary:hover {
+  border-color: var(--if-plum-deep);
+  background: var(--if-plum-deep);
+}
+
+input[type="submit"]:active,
+button[type="submit"]:active,
+.pf-c-button.pf-m-primary:active {
+  transform: translateY(1px);
+}
+
+.pf-v5-c-button.pf-m-primary:active {
+  transform: translateY(1px);
+}
+
+a,
+.pf-c-button.pf-m-link {
+  color: var(--if-plum);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover,
+.pf-c-button.pf-m-link:hover {
+  color: #6a3477;
+}
+
+#input-error,
+.pf-c-helper-text.pf-m-error,
+.pf-c-alert.pf-m-danger {
+  color: #9b1c31;
+}
+
+.pf-c-alert {
+  border-radius: 10px;
+}
+
+*:focus-visible {
+  outline: 3px solid var(--if-focus);
+  outline-offset: 2px;
+}
+
+@keyframes if-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  #kc-header { padding-top: 18px; }
+  #kc-header-wrapper { width: 210px; height: 62px; }
+  .login-pf-page .card-pf {
+    width: calc(100% - 24px);
+    margin: 12px auto;
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+  .pf-v5-c-login__main {
+    width: calc(100% - 24px);
+    margin: 12px auto;
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

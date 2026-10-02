@@ -1,10 +1,12 @@
 import './globals.css';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const availableModules = [
   { name: 'Modération & audit', description: 'Consulter les signalements actifs et le journal administratif.', href: '/admin', area: 'support' },
   { name: 'Paiements', description: 'Filtrer les opérations et examiner leurs références.', href: '/admin/finance', area: 'finance' },
   { name: 'Tarification', description: 'Gérer les packs et les grilles de prix publiées.', href: '/admin/pricing', area: 'finance' },
+  { name: 'Partenaires', description: 'Gérer les codes, commissions et demandes de payout.', href: '/admin/partners', area: 'finance' },
 ];
 
 const unavailableModules = [
@@ -21,8 +23,11 @@ export default function AdminHome() {
     <main className="admin-home">
       <header className="admin-masthead">
         <Link className="admin-brand" href="/" aria-label="InvitaFlow Administration">
-          <span className="admin-brand-mark">IF</span>
-          <span>INVITAFLOW <small>ADMINISTRATION</small></span>
+          <picture className="admin-brand-picture">
+            <source media="(max-width: 600px)" srcSet="/brand/invitaflow-icon-64.png 1x, /brand/invitaflow-icon-180.png 2x" />
+            <Image className="admin-brand-horizontal" src="/brand/invitaflow-logo.png" width={235} height={69} alt="InvitaFlow" priority />
+          </picture>
+          <span className="admin-brand-label">ADMINISTRATION</span>
         </Link>
         <a className="admin-platform-link" href={platformUrl('/account')}>Ouvrir la plateforme ↗</a>
       </header>

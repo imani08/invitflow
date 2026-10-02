@@ -2,6 +2,7 @@ import { decodeJwt } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
+import { BrandLogo } from '@/components/brand-logo';
 import '../admin.css';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ export default async function FinancePaymentsPage({ searchParams }: { searchPara
   } catch { /* Show a service availability message below. */ }
 
   return <main className="admin-shell">
-    <nav><a href="/admin">← Administration</a><a href="/account">Mon compte</a></nav>
+    <nav><BrandLogo variant="compact"/><a href="/admin">← Administration</a><a href="/account">Mon compte</a></nav>
     <header><span>INVITAFLOW · FINANCE</span><h1>Paiements</h1><p>Filtrez par fournisseur et consultez les références de paiement et les montants des commandes.</p></header>
     <section className="admin-panel">
       <form className="admin-filters"><label>Fournisseur<select name="provider" defaultValue={filters.provider ?? ''}><option value="">Tous</option><option value="flexpay">FlexPay</option><option value="cinetpay">CinetPay · historique</option><option value="mock">Mock · développement</option></select></label><button>Filtrer</button></form>

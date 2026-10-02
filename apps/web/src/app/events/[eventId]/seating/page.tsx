@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
@@ -28,9 +28,9 @@ export default async function SeatingPage({ params }: { params: Promise<{ eventI
     if (event.id !== eventId || !Array.isArray(event.ceremonies)) notFound();
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error) throw error;
-    return <main className="events-shell"><nav className="events-nav"><a className="brand" href="/events">Invita<span>Flow</span></a></nav><section className="events-notice"><h1>Plan de salle indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={returnTo}>Réessayer</a></section></main>;
+    return <main className="events-shell"><nav className="events-nav"><BrandLogo href="/events"/></nav><section className="events-notice"><h1>Plan de salle indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={returnTo}>Réessayer</a></section></main>;
   }
-  return <main className="events-shell"><nav className="events-nav"><Link className="brand" href="/">Invita<span>Flow</span></Link><div><a href="/events">Mes événements</a><a href="/account">Mon profil</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
+  return <main className="events-shell"><nav className="events-nav"><BrandLogo/><div><a href="/events">Mes événements</a><a href="/account">Mon profil</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
     <header className="seating-heading"><a href="/events">← Retour aux événements</a><p className="eyebrow">PLACEMENT & CAPACITÉS</p><h1>{event.name}</h1><p>Préparez un plan de salle distinct pour chaque cérémonie.</p><a className="seating-guest-link" href={`/events/${event.id}/designs`}>Créer une invitation →</a><a className="seating-guest-link" href={`/events/${event.id}/guests`}>Gérer les invités →</a></header>
     <SeatingWorkspace event={event} />
   </main>;

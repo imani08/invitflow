@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandLogo } from '@/components/brand-logo';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { legalDocuments, legalDocumentVersion } from '@/lib/legal-documents';
@@ -9,7 +10,7 @@ export const metadata: Metadata = { title: 'Informations légales · InvitaFlow'
 export default async function LegalIndexPage() {
   await headers();
   return <main className="legal-shell">
-    <Link className="legal-brand" href="/">Invita<span>Flow</span></Link>
+    <BrandLogo variant="compact" />
     <p className="legal-status">DOCUMENTS EN PRÉPARATION · {legalDocumentVersion}</p>
     <h1>Informations légales</h1>
     <p className="legal-intro">Les documents ci-dessous ne sont pas publiés. Leur contenu dépend des informations officielles de l’entreprise et d’une validation juridique.</p>

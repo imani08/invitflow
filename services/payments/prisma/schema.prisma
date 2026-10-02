@@ -31,6 +31,31 @@ enum PaymentOrderType {
   AGENCY_SUBSCRIPTION
 }
 
+enum PartnerStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+enum PartnerAttributionStatus {
+  ACTIVE
+  REVOKED
+}
+enum CommissionLedgerStatus {
+  PENDING
+  VALIDATED
+  PAYABLE
+  PAID
+  REVERSED
+  DISPUTED
+}
+enum PartnerPayoutStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  PAID
+  REJECTED
+}
+
 model PaymentOrder {
   id                String        @id @default(uuid()) @db.Uuid
   orderType         PaymentOrderType @default(CREDIT_PURCHASE) @map("order_type")
@@ -61,6 +86,7 @@ model PaymentOrder {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   payment           Payment?
+  commissionLedgerEntries CommissionLedgerEntry[]
 
   @@unique([ownerSubject, idempotencyKey], map: "payment_orders_owner_idempotency_key")
   @@index([ownerSubject, createdAt(sort: Desc)], map: "payment_orders_owner_created_idx")
@@ -83,9 +109,105 @@ model Payment {
   updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   order                 PaymentOrder  @relation(fields: [orderId], references: [id], onDelete: Restrict)
   reconciliationIssues  PaymentReconciliationIssue[]
+  commissionLedgerEntries CommissionLedgerEntry[]
 
   @@index([status, reconciliationAttemptAt], map: "payments_status_reconciled_idx")
   @@map("payments")
+}
+
+model Partner {
+  id                 String              @id @default(uuid()) @db.Uuid
+  ownerSubject       String?             @unique @map("owner_subject") @db.VarChar(255)
+  code               String              @unique @db.VarChar(60)
+  status             PartnerStatus       @default(PENDING)
+  commissionRateBps  Int                 @map("commission_rate_bps")
+  eligibleOrderTypes PaymentOrderType[]  @default([]) @map("eligible_order_types")
+  createdAt          DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  attributions       ReferralAttribution[]
+  ledgerEntries      CommissionLedgerEntry[]
+  payouts            PartnerPayout[]
+  auditEntries       PartnerAuditEntry[]
+  @@map("partners")
+}
+
+model ReferralAttribution {
+  id              String                    @id @default(uuid()) @db.Uuid
+  partnerId       String                    @map("partner_id") @db.Uuid
+  customerSubject String                    @unique @map("customer_subject") @db.VarChar(255)
+  source          String                    @db.VarChar(20)
+  codeSnapshot    String                    @map("code_snapshot") @db.VarChar(60)
+  status          PartnerAttributionStatus  @default(ACTIVE)
+  attributedAt    DateTime                  @default(now()) @map("attributed_at") @db.Timestamptz(3)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  partner         Partner                   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  ledgerEntries   CommissionLedgerEntry[]
+  @@index([partnerId, status, attributedAt(sort: Desc)], map: "referral_attributions_partner_idx")
+  @@map("referral_attributions")
+}
+
+model CommissionLedgerEntry {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  partnerId             String                 @map("partner_id") @db.Uuid
+  attributionId         String?                @map("attribution_id") @db.Uuid
+  paymentId             String                 @map("payment_id") @db.Uuid
+  originalPaymentId     String?                @unique @map("original_payment_id") @db.Uuid
+  orderId               String                 @map("order_id") @db.Uuid
+  originalEntryId       String?                @unique @map("original_entry_id") @db.Uuid
+  status                CommissionLedgerStatus @default(PENDING)
+  orderType             PaymentOrderType       @map("order_type")
+  baseAmountMinor       Int                    @map("base_amount_minor")
+  commissionAmountMinor Int                    @map("commission_amount_minor")
+  rateBpsSnapshot       Int                    @map("rate_bps_snapshot")
+  currency              String                 @db.Char(3)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  partner               Partner                @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  attribution           ReferralAttribution?   @relation(fields: [attributionId], references: [id], onDelete: Restrict)
+  payment               Payment                @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  order                 PaymentOrder           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  originalEntry         CommissionLedgerEntry? @relation("CommissionReversal", fields: [originalEntryId], references: [id], onDelete: Restrict)
+  reversal              CommissionLedgerEntry? @relation("CommissionReversal")
+  payoutLinks           PartnerPayoutCommission[]
+  @@index([partnerId, status, createdAt(sort: Desc)], map: "commission_ledger_partner_status_idx")
+  @@map("commission_ledger_entries")
+}
+
+model PartnerPayout {
+  id                 String            @id @default(uuid()) @db.Uuid
+  partnerId          String            @map("partner_id") @db.Uuid
+  amountMinor        Int               @map("amount_minor")
+  currency           String            @db.Char(3)
+  status             PartnerPayoutStatus @default(PENDING)
+  externalReference  String?           @map("external_reference") @db.VarChar(255)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  partner            Partner           @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  commissions        PartnerPayoutCommission[]
+  @@index([partnerId, createdAt(sort: Desc)], map: "partner_payouts_partner_created_idx")
+  @@map("partner_payouts")
+}
+
+model PartnerPayoutCommission {
+  payoutId          String                @map("payout_id") @db.Uuid
+  commissionEntryId String                @map("commission_entry_id") @db.Uuid
+  payout            PartnerPayout         @relation(fields: [payoutId], references: [id], onDelete: Restrict)
+  commissionEntry   CommissionLedgerEntry @relation(fields: [commissionEntryId], references: [id], onDelete: Restrict)
+  @@id([payoutId, commissionEntryId])
+  @@unique([commissionEntryId])
+  @@map("partner_payout_commissions")
+}
+
+model PartnerAuditEntry {
+  id           String   @id @default(uuid()) @db.Uuid
+  partnerId    String   @map("partner_id") @db.Uuid
+  actorSubject String   @map("actor_subject") @db.VarChar(255)
+  action       String   @db.VarChar(80)
+  before       Json?
+  after        Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  partner      Partner  @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  @@index([partnerId, createdAt(sort: Desc)], map: "partner_audit_partner_created_idx")
+  @@map("partner_audit_entries")
 }
 
 model WebhookReceipt {

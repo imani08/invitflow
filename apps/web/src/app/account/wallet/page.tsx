@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
+import { BrandLogo } from '@/components/brand-logo';
 import { PaymentActions } from './payment-actions';
 import './wallet.css';
 
@@ -37,7 +37,7 @@ export default async function WalletPage() {
   const paymentsPayload = await paymentsResponse.json() as { items: Payment[] };
   if (!Number.isSafeInteger(balance.availableCredits) || !Array.isArray(entriesPayload.items) || !Array.isArray(catalog.packs) || !Number.isInteger(catalog.version) || !Array.isArray(paymentsPayload.items)) return <Unavailable />;
 
-  return <main className="wallet-page"><nav className="account-nav"><Link className="brand" href="/">Invita<span>Flow</span></Link><div><a className="account-link" href="/account">Mon compte</a><a className="account-link" href="/account/notifications">Notifications</a><a className="account-link" href="/events">Mes événements</a></div></nav>
+  return <main className="wallet-page"><nav className="account-nav"><BrandLogo/><div><a className="account-link" href="/account">Mon compte</a><a className="account-link" href="/account/notifications">Notifications</a><a className="account-link" href="/events">Mes événements</a></div></nav>
     <header className="wallet-heading"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Crédits & tarifs</h1><p>Consultez le solde réel de votre portefeuille et la grille tarifaire en vigueur.</p></header>
     <section className="wallet-balance" aria-label="Solde de crédits"><div><span>Crédits disponibles</span><strong>{balance.availableCredits.toLocaleString('fr-FR')}</strong></div><div><span>Crédits réservés</span><strong>{balance.reservedCredits.toLocaleString('fr-FR')}</strong></div><small>Grille tarifaire version {catalog.version} · mise à jour du portefeuille {new Date(balance.updatedAt).toLocaleString('fr-FR')}</small></section>
     <section className="wallet-section"><div className="wallet-section-title"><div><span className="eyebrow">TARIFS EN VIGUEUR</span><h2>Packs de crédits</h2></div><small>Version {catalog.version} · à partir du {new Date(catalog.effectiveAt).toLocaleDateString('fr-FR')}</small></div><PaymentActions packs={catalog.packs} payments={paymentsPayload.items} scheduleVersion={catalog.version} /><p className="wallet-note">Le crédit du portefeuille intervient uniquement après vérification de la transaction par le serveur. Les aperçus et tests sont gratuits ; une invitation personnalisée finale générée coûte {catalog.rules.find((rule) => rule.operation === 'invitation.final.personalized')?.creditCost ?? '—'} crédit.</p></section>
@@ -51,5 +51,5 @@ function entryLabel(type: string) {
 }
 
 function Unavailable() {
-  return <main className="wallet-page"><nav className="account-nav"><Link className="brand" href="/">Invita<span>Flow</span></Link><div><a className="account-link" href="/account">Mon compte</a></div></nav><section className="wallet-unavailable"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Informations momentanément indisponibles</h1><p>Le portefeuille et la grille tarifaire n’ont pas pu être chargés. Réessayez dans quelques instants.</p><a href="/account/wallet">Réessayer</a></section></main>;
+  return <main className="wallet-page"><nav className="account-nav"><BrandLogo/><div><a className="account-link" href="/account">Mon compte</a></div></nav><section className="wallet-unavailable"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Informations momentanément indisponibles</h1><p>Le portefeuille et la grille tarifaire n’ont pas pu être chargés. Réessayez dans quelques instants.</p><a href="/account/wallet">Réessayer</a></section></main>;
 }

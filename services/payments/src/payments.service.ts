@@ -9,7 +9,7 @@ const keyPattern = /^[A-Za-z0-9._:@/-]{1,200}$/;
 const POSTGRES_INT_MAX = 2_147_483_647;
 type CheckoutQuote = {
   orderType: 'CREDIT_PURCHASE' | 'AGENCY_SUBSCRIPTION';
-  packId: string; packKey: string; packName: string; quantity: number; unitCredits: number; credits: number;
+    packId: string; packKey: string; packName: string; periodDays: number | null; quantity: number; unitCredits: number; credits: number;
   currency: string; unitPriceMinor: number; discountMinor: number; discountRule: string | null;
   taxEnabled: boolean; taxRule: string | null; taxRateBps: number; taxMinor: number;
   subtotalMinor: number; totalMinor: number; priceScheduleId: string; priceScheduleVersion: number;
@@ -45,6 +45,7 @@ export class PaymentsService {
     const expectedTax = quote.taxEnabled ? Math.round(quote.subtotalMinor * quote.taxRateBps / 10_000) : 0;
     if (
       quote.orderType !== orderType || quote.packId !== packId || quote.quantity !== quantity || !integerFields.every(Number.isSafeInteger) ||
+      (orderType === 'AGENCY_SUBSCRIPTION' && quote.periodDays !== 30) ||
       quote.unitCredits < 1 || quote.credits !== quote.unitCredits * quote.quantity ||
       quote.unitPriceMinor < 1 || quote.discountMinor < 0 || quote.discountMinor > quote.unitPriceMinor * quote.quantity ||
       quote.subtotalMinor !== quote.unitPriceMinor * quote.quantity - quote.discountMinor ||
@@ -85,7 +86,7 @@ export class PaymentsService {
         order = await this.prisma.$transaction(async (tx) => {
           const createdOrder = await tx.paymentOrder.create({ data: {
             orderType, businessReference: businessReference ?? null, ownerSubject, packId, packKey: quote.packKey, packName: quote.packName, credits: quote.credits,
-            metadata: { packId: quote.packId, packKey: quote.packKey, orderType, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion },
+              metadata: { packId: quote.packId, packKey: quote.packKey, orderType, periodDays: quote.periodDays, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion },
             unitCredits: quote.unitCredits, quantity: quote.quantity, unitPriceMinor: quote.unitPriceMinor,
             discountMinor: quote.discountMinor, discountRule: quote.discountRule,
             taxEnabled: quote.taxEnabled, taxRule: quote.taxRule, taxRateBps: quote.taxRateBps, taxMinor: quote.taxMinor,
@@ -186,6 +187,7 @@ export class PaymentsService {
       await tx.payment.update({ where: { id }, data: { status: result.status, providerRefundId: result.providerRefundId } });
       if (result.status === 'REFUNDED') {
         await tx.paymentOrder.update({ where: { id: current.orderId }, data: { status: 'REFUNDED' } });
+        await this.reversePartnerCommission(tx, id);
         const payload = { paymentId: id, orderId: current.orderId, orderType: current.order.orderType, ownerSubject: current.order.ownerSubject, customerSubject: current.order.ownerSubject, credits: current.order.credits, amountMinor: current.order.amountMinor, currency: current.order.currency, provider: current.provider, providerRefundId: result.providerRefundId, metadata: { packId: current.order.packId, packKey: current.order.packKey, priceScheduleId: current.order.priceScheduleId, priceScheduleVersion: current.order.priceScheduleVersion } };
         if (current.order.orderType === 'CREDIT_PURCHASE') await tx.outboxMessage.create({ data: { eventType: 'payment.refunded.v1', aggregateId: id, payload } });
         await tx.outboxMessage.create({ data: { eventType: 'payment.refunded.v2', aggregateId: id, payload } });
@@ -248,6 +250,16 @@ export class PaymentsService {
         await tx.payment.update({ where: { id: paymentId }, data: { status: newStatus, providerTransactionId: newStatus === 'SUCCEEDED' ? confirmation.transactionId : payment.providerTransactionId, paidAt: newStatus === 'SUCCEEDED' ? (payment.paidAt ?? now) : null, failureCode: newStatus === 'FAILED' ? 'provider_declined' : null } });
         if (newStatus === 'SUCCEEDED') {
           await tx.paymentOrder.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
+          const attribution = await tx.referralAttribution.findUnique({ where: { customerSubject: payment.order.ownerSubject }, include: { partner: true } });
+          if (attribution?.status === 'ACTIVE' && attribution.partner.status === 'ACTIVE' && attribution.partner.ownerSubject !== payment.order.ownerSubject && attribution.partner.eligibleOrderTypes.includes(payment.order.orderType) && attribution.partner.commissionRateBps > 0) {
+            const commissionAmountMinor = Math.floor(payment.order.amountMinor * attribution.partner.commissionRateBps / 10_000);
+            if (commissionAmountMinor > 0 && commissionAmountMinor <= POSTGRES_INT_MAX) await tx.commissionLedgerEntry.createMany({ data: [{
+              partnerId: attribution.partnerId, attributionId: attribution.id, paymentId: payment.id, originalPaymentId: payment.id,
+              orderId: payment.orderId, status: 'PENDING', orderType: payment.order.orderType,
+              baseAmountMinor: payment.order.amountMinor, commissionAmountMinor,
+              rateBpsSnapshot: attribution.partner.commissionRateBps, currency: payment.order.currency,
+            }], skipDuplicates: true });
+          }
           const payload = { paymentId: payment.id, orderId: payment.orderId, orderType: payment.order.orderType, businessReference: payment.order.businessReference, ownerSubject: payment.order.ownerSubject, customerSubject: payment.order.ownerSubject, credits: payment.order.credits, amountMinor: payment.order.amountMinor, currency: payment.order.currency, provider: providerName, providerTransactionId: confirmation.transactionId, metadata: payment.order.metadata };
           if (payment.order.orderType === 'CREDIT_PURCHASE') await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v1', aggregateId: payment.id, payload } });
           await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v2', aggregateId: payment.id, payload } });
@@ -263,6 +275,19 @@ export class PaymentsService {
       }
       throw error;
     }
+  }
+
+  private async reversePartnerCommission(tx: Prisma.TransactionClient, paymentId: string) {
+    const originalCommission = await tx.commissionLedgerEntry.findUnique({ where: { originalPaymentId: paymentId } });
+    if (!originalCommission) return;
+    await tx.commissionLedgerEntry.createMany({ data: [{
+      partnerId: originalCommission.partnerId, attributionId: originalCommission.attributionId, paymentId,
+      orderId: originalCommission.orderId, originalEntryId: originalCommission.id, status: 'REVERSED',
+      orderType: originalCommission.orderType, baseAmountMinor: originalCommission.baseAmountMinor,
+      commissionAmountMinor: -originalCommission.commissionAmountMinor, rateBpsSnapshot: originalCommission.rateBpsSnapshot,
+      currency: originalCommission.currency,
+    }], skipDuplicates: true });
+    if (originalCommission.status !== 'REVERSED' && originalCommission.status !== 'PAID') await tx.commissionLedgerEntry.update({ where: { id: originalCommission.id }, data: { status: 'REVERSED' } });
   }
 
   async reconcile() {
