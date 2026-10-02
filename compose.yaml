@@ -115,7 +115,7 @@ services:
       timeout: 10s
       retries: 10
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: invitaflow-minio:2025-09-07
     command: ['server', '/data', '--console-address', ':9001']
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-invitaflow_minio}
@@ -129,7 +129,7 @@ services:
       timeout: 10s
       retries: 10
   minio-bootstrap:
-    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: invitaflow-minio-mc:2025-08-13
     entrypoint: ['/bin/sh', '/bootstrap.sh']
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-invitaflow_minio}

@@ -32,4 +32,4 @@ if ! mc admin policy info local media-service-access >/dev/null 2>&1; then
   mc admin policy create local media-service-access /media-policy.json
 fi
 mc admin policy attach local media-service-access --user "$MINIO_MEDIA_ACCESS_KEY"
-mc cors set local/media-quarantine /media-cors.xml
+mc cors set local/media-quarantine /media-cors.xml || echo "CORS bucket non supporté par cette édition MinIO, étape ignorée."

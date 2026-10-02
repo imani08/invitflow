@@ -1,0 +1,20 @@
+﻿FROM golang:1.24-bookworm AS builder
+
+ENV CGO_ENABLED=0
+ENV GOPROXY=https://proxy.golang.org
+
+WORKDIR /src
+COPY .minio-build/ ./
+
+RUN LDFLAGS="$(go run buildscripts/gen-ldflags.go)" \
+    && GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o /out/minio .
+
+FROM invitaflow-minio-mc:2025-08-13 AS mc
+
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=builder /out/minio /usr/bin/minio
+COPY --from=mc /usr/local/bin/mc /usr/bin/mc
+
+ENTRYPOINT ["/usr/bin/minio"]

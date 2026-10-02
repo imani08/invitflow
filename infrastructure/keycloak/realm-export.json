@@ -9,7 +9,6 @@
   "resetPasswordAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
-  "emailRequired": true,
   "rememberMe": false,
   "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername",
   "defaultRoles": ["CUSTOMER"],
