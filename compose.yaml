@@ -46,6 +46,44 @@ services:
         'yes',
         '--requirepass',
         '${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}',
+        '--user',
+        'exporter',
+        'on',
+        '>${REDIS_EXPORTER_PASSWORD:?Set REDIS_EXPORTER_PASSWORD in .env}',
+        '-@all',
+        '+@connection',
+        '+memory',
+        '-readonly',
+        '+strlen',
+        '+config|get',
+        '+xinfo',
+        '+pfcount',
+        '-quit',
+        '+zcard',
+        '+type',
+        '+xlen',
+        '-readwrite',
+        '-command',
+        '+client',
+        '-wait',
+        '+scard',
+        '+llen',
+        '+hlen',
+        '+arcount',
+        '+get',
+        '+eval',
+        '+slowlog',
+        '+cluster|info',
+        '+cluster|slots',
+        '+cluster|nodes',
+        '-hello',
+        '-echo',
+        '+info',
+        '+latency',
+        '+scan',
+        '-reset',
+        '-auth',
+        '-asking',
       ]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
@@ -211,6 +249,8 @@ services:
     depends_on:
       postgres-exporter:
         condition: service_started
+      redis-exporter:
+        condition: service_started
     volumes:
       - prometheus_data:/prometheus
       - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -226,7 +266,8 @@ services:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
       POSTGRES_EXPORTER_PASSWORD: ${POSTGRES_EXPORTER_PASSWORD:-}
-    volumes: [./infrastructure/postgres/provision-postgres-exporter.sh:/provision-postgres-exporter.sh:ro]
+    volumes:
+      [./infrastructure/postgres/provision-postgres-exporter.sh:/provision-postgres-exporter.sh:ro]
     networks: [data]
     depends_on:
       postgres:
@@ -249,6 +290,23 @@ services:
         condition: service_healthy
       postgres-exporter-db-init:
         condition: service_completed_successfully
+    restart: unless-stopped
+  redis-exporter:
+    profiles: [observability]
+    image: quay.io/oliver006/redis_exporter:v1.89.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_USER: exporter
+      REDIS_PASSWORD: ${REDIS_EXPORTER_PASSWORD:?Set REDIS_EXPORTER_PASSWORD in .env}
+      REDIS_EXPORTER_REDIS_ONLY_METRICS: 'true'
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 64
+    networks: [data, metrics]
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
   grafana:
     profiles: [observability]
@@ -821,6 +879,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: '3010'
+      BILLING_TAX_POLICY_APPROVED: ${BILLING_TAX_POLICY_APPROVED:-false}
       DATABASE_URL: postgresql://billing_service:${BILLING_DB_PASSWORD:?Set BILLING_DB_PASSWORD in .env}@postgres:5432/billing_db?schema=public
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
@@ -1130,12 +1189,10 @@ services:
         '--providers.docker=true',
         '--providers.docker.exposedbydefault=false',
         '--entrypoints.web.address=:80',
-        '--api.dashboard=true',
-        '--api.insecure=true',
       ]
     volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']
     networks: [edge]
-    ports: ['127.0.0.1:80:80', '127.0.0.1:8088:8080']
+    ports: ['127.0.0.1:80:80']
 
 networks:
   edge: {}

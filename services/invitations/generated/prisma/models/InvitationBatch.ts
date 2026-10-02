@@ -28,6 +28,8 @@ export type AggregateInvitationBatch = {
 
 export type InvitationBatchAvgAggregateOutputType = {
   designVersion: number | null
+  agencyReservedCredits: number | null
+  walletReservedCredits: number | null
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
@@ -35,6 +37,8 @@ export type InvitationBatchAvgAggregateOutputType = {
 
 export type InvitationBatchSumAggregateOutputType = {
   designVersion: number | null
+  agencyReservedCredits: number | null
+  walletReservedCredits: number | null
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
@@ -49,6 +53,11 @@ export type InvitationBatchMinAggregateOutputType = {
   status: $Enums.BatchStatus | null
   idempotencyKey: string | null
   reservationReference: string | null
+  agencyReservationReference: string | null
+  agencyWorkspaceId: string | null
+  agencyReservedCredits: number | null
+  walletReservedCredits: number | null
+  reservationReleasePending: boolean | null
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
@@ -66,6 +75,11 @@ export type InvitationBatchMaxAggregateOutputType = {
   status: $Enums.BatchStatus | null
   idempotencyKey: string | null
   reservationReference: string | null
+  agencyReservationReference: string | null
+  agencyWorkspaceId: string | null
+  agencyReservedCredits: number | null
+  walletReservedCredits: number | null
+  reservationReleasePending: boolean | null
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
@@ -83,6 +97,11 @@ export type InvitationBatchCountAggregateOutputType = {
   status: number
   idempotencyKey: number
   reservationReference: number
+  agencyReservationReference: number
+  agencyWorkspaceId: number
+  agencyReservedCredits: number
+  walletReservedCredits: number
+  reservationReleasePending: number
   totalItems: number
   completedItems: number
   failedItems: number
@@ -95,6 +114,8 @@ export type InvitationBatchCountAggregateOutputType = {
 
 export type InvitationBatchAvgAggregateInputType = {
   designVersion?: true
+  agencyReservedCredits?: true
+  walletReservedCredits?: true
   totalItems?: true
   completedItems?: true
   failedItems?: true
@@ -102,6 +123,8 @@ export type InvitationBatchAvgAggregateInputType = {
 
 export type InvitationBatchSumAggregateInputType = {
   designVersion?: true
+  agencyReservedCredits?: true
+  walletReservedCredits?: true
   totalItems?: true
   completedItems?: true
   failedItems?: true
@@ -116,6 +139,11 @@ export type InvitationBatchMinAggregateInputType = {
   status?: true
   idempotencyKey?: true
   reservationReference?: true
+  agencyReservationReference?: true
+  agencyWorkspaceId?: true
+  agencyReservedCredits?: true
+  walletReservedCredits?: true
+  reservationReleasePending?: true
   totalItems?: true
   completedItems?: true
   failedItems?: true
@@ -133,6 +161,11 @@ export type InvitationBatchMaxAggregateInputType = {
   status?: true
   idempotencyKey?: true
   reservationReference?: true
+  agencyReservationReference?: true
+  agencyWorkspaceId?: true
+  agencyReservedCredits?: true
+  walletReservedCredits?: true
+  reservationReleasePending?: true
   totalItems?: true
   completedItems?: true
   failedItems?: true
@@ -150,6 +183,11 @@ export type InvitationBatchCountAggregateInputType = {
   status?: true
   idempotencyKey?: true
   reservationReference?: true
+  agencyReservationReference?: true
+  agencyWorkspaceId?: true
+  agencyReservedCredits?: true
+  walletReservedCredits?: true
+  reservationReleasePending?: true
   totalItems?: true
   completedItems?: true
   failedItems?: true
@@ -254,6 +292,11 @@ export type InvitationBatchGroupByOutputType = {
   status: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference: string | null
+  agencyWorkspaceId: string | null
+  agencyReservedCredits: number
+  walletReservedCredits: number
+  reservationReleasePending: boolean
   totalItems: number
   completedItems: number
   failedItems: number
@@ -294,6 +337,11 @@ export type InvitationBatchWhereInput = {
   status?: Prisma.EnumBatchStatusFilter<"InvitationBatch"> | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFilter<"InvitationBatch"> | string
   reservationReference?: Prisma.StringFilter<"InvitationBatch"> | string
+  agencyReservationReference?: Prisma.StringNullableFilter<"InvitationBatch"> | string | null
+  agencyWorkspaceId?: Prisma.UuidNullableFilter<"InvitationBatch"> | string | null
+  agencyReservedCredits?: Prisma.IntFilter<"InvitationBatch"> | number
+  walletReservedCredits?: Prisma.IntFilter<"InvitationBatch"> | number
+  reservationReleasePending?: Prisma.BoolFilter<"InvitationBatch"> | boolean
   totalItems?: Prisma.IntFilter<"InvitationBatch"> | number
   completedItems?: Prisma.IntFilter<"InvitationBatch"> | number
   failedItems?: Prisma.IntFilter<"InvitationBatch"> | number
@@ -312,6 +360,11 @@ export type InvitationBatchOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   reservationReference?: Prisma.SortOrder
+  agencyReservationReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  agencyWorkspaceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
+  reservationReleasePending?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -324,6 +377,7 @@ export type InvitationBatchOrderByWithRelationInput = {
 export type InvitationBatchWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   reservationReference?: string
+  agencyReservationReference?: string
   ownerSubject_idempotencyKey?: Prisma.InvitationBatchOwnerSubjectIdempotencyKeyCompoundUniqueInput
   AND?: Prisma.InvitationBatchWhereInput | Prisma.InvitationBatchWhereInput[]
   OR?: Prisma.InvitationBatchWhereInput[]
@@ -334,6 +388,10 @@ export type InvitationBatchWhereUniqueInput = Prisma.AtLeast<{
   designVersion?: Prisma.IntFilter<"InvitationBatch"> | number
   status?: Prisma.EnumBatchStatusFilter<"InvitationBatch"> | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFilter<"InvitationBatch"> | string
+  agencyWorkspaceId?: Prisma.UuidNullableFilter<"InvitationBatch"> | string | null
+  agencyReservedCredits?: Prisma.IntFilter<"InvitationBatch"> | number
+  walletReservedCredits?: Prisma.IntFilter<"InvitationBatch"> | number
+  reservationReleasePending?: Prisma.BoolFilter<"InvitationBatch"> | boolean
   totalItems?: Prisma.IntFilter<"InvitationBatch"> | number
   completedItems?: Prisma.IntFilter<"InvitationBatch"> | number
   failedItems?: Prisma.IntFilter<"InvitationBatch"> | number
@@ -341,7 +399,7 @@ export type InvitationBatchWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
   items?: Prisma.BatchItemListRelationFilter
-}, "id" | "reservationReference" | "ownerSubject_idempotencyKey">
+}, "id" | "reservationReference" | "agencyReservationReference" | "ownerSubject_idempotencyKey">
 
 export type InvitationBatchOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -352,6 +410,11 @@ export type InvitationBatchOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   reservationReference?: Prisma.SortOrder
+  agencyReservationReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  agencyWorkspaceId?: Prisma.SortOrderInput | Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
+  reservationReleasePending?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -377,6 +440,11 @@ export type InvitationBatchScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumBatchStatusWithAggregatesFilter<"InvitationBatch"> | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"InvitationBatch"> | string
   reservationReference?: Prisma.StringWithAggregatesFilter<"InvitationBatch"> | string
+  agencyReservationReference?: Prisma.StringNullableWithAggregatesFilter<"InvitationBatch"> | string | null
+  agencyWorkspaceId?: Prisma.UuidNullableWithAggregatesFilter<"InvitationBatch"> | string | null
+  agencyReservedCredits?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
+  walletReservedCredits?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
+  reservationReleasePending?: Prisma.BoolWithAggregatesFilter<"InvitationBatch"> | boolean
   totalItems?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
   completedItems?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
   failedItems?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
@@ -394,6 +462,11 @@ export type InvitationBatchCreateInput = {
   status?: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference?: string | null
+  agencyWorkspaceId?: string | null
+  agencyReservedCredits?: number
+  walletReservedCredits?: number
+  reservationReleasePending?: boolean
   totalItems: number
   completedItems?: number
   failedItems?: number
@@ -412,6 +485,11 @@ export type InvitationBatchUncheckedCreateInput = {
   status?: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference?: string | null
+  agencyWorkspaceId?: string | null
+  agencyReservedCredits?: number
+  walletReservedCredits?: number
+  reservationReleasePending?: boolean
   totalItems: number
   completedItems?: number
   failedItems?: number
@@ -430,6 +508,11 @@ export type InvitationBatchUpdateInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -448,6 +531,11 @@ export type InvitationBatchUncheckedUpdateInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -466,6 +554,11 @@ export type InvitationBatchCreateManyInput = {
   status?: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference?: string | null
+  agencyWorkspaceId?: string | null
+  agencyReservedCredits?: number
+  walletReservedCredits?: number
+  reservationReleasePending?: boolean
   totalItems: number
   completedItems?: number
   failedItems?: number
@@ -483,6 +576,11 @@ export type InvitationBatchUpdateManyMutationInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -500,6 +598,11 @@ export type InvitationBatchUncheckedUpdateManyInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -522,6 +625,11 @@ export type InvitationBatchCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   reservationReference?: Prisma.SortOrder
+  agencyReservationReference?: Prisma.SortOrder
+  agencyWorkspaceId?: Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
+  reservationReleasePending?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -532,6 +640,8 @@ export type InvitationBatchCountOrderByAggregateInput = {
 
 export type InvitationBatchAvgOrderByAggregateInput = {
   designVersion?: Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -546,6 +656,11 @@ export type InvitationBatchMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   reservationReference?: Prisma.SortOrder
+  agencyReservationReference?: Prisma.SortOrder
+  agencyWorkspaceId?: Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
+  reservationReleasePending?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -563,6 +678,11 @@ export type InvitationBatchMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   reservationReference?: Prisma.SortOrder
+  agencyReservationReference?: Prisma.SortOrder
+  agencyWorkspaceId?: Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
+  reservationReleasePending?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -573,6 +693,8 @@ export type InvitationBatchMinOrderByAggregateInput = {
 
 export type InvitationBatchSumOrderByAggregateInput = {
   designVersion?: Prisma.SortOrder
+  agencyReservedCredits?: Prisma.SortOrder
+  walletReservedCredits?: Prisma.SortOrder
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
@@ -585,6 +707,10 @@ export type InvitationBatchScalarRelationFilter = {
 
 export type EnumBatchStatusFieldUpdateOperationsInput = {
   set?: $Enums.BatchStatus
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 export type NullableDateTimeFieldUpdateOperationsInput = {
@@ -614,6 +740,11 @@ export type InvitationBatchCreateWithoutItemsInput = {
   status?: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference?: string | null
+  agencyWorkspaceId?: string | null
+  agencyReservedCredits?: number
+  walletReservedCredits?: number
+  reservationReleasePending?: boolean
   totalItems: number
   completedItems?: number
   failedItems?: number
@@ -631,6 +762,11 @@ export type InvitationBatchUncheckedCreateWithoutItemsInput = {
   status?: $Enums.BatchStatus
   idempotencyKey: string
   reservationReference: string
+  agencyReservationReference?: string | null
+  agencyWorkspaceId?: string | null
+  agencyReservedCredits?: number
+  walletReservedCredits?: number
+  reservationReleasePending?: boolean
   totalItems: number
   completedItems?: number
   failedItems?: number
@@ -664,6 +800,11 @@ export type InvitationBatchUpdateWithoutItemsInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -681,6 +822,11 @@ export type InvitationBatchUncheckedUpdateWithoutItemsInput = {
   status?: Prisma.EnumBatchStatusFieldUpdateOperationsInput | $Enums.BatchStatus
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   reservationReference?: Prisma.StringFieldUpdateOperationsInput | string
+  agencyReservationReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  agencyReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  walletReservedCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  reservationReleasePending?: Prisma.BoolFieldUpdateOperationsInput | boolean
   totalItems?: Prisma.IntFieldUpdateOperationsInput | number
   completedItems?: Prisma.IntFieldUpdateOperationsInput | number
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
@@ -729,6 +875,11 @@ export type InvitationBatchSelect<ExtArgs extends runtime.Types.Extensions.Inter
   status?: boolean
   idempotencyKey?: boolean
   reservationReference?: boolean
+  agencyReservationReference?: boolean
+  agencyWorkspaceId?: boolean
+  agencyReservedCredits?: boolean
+  walletReservedCredits?: boolean
+  reservationReleasePending?: boolean
   totalItems?: boolean
   completedItems?: boolean
   failedItems?: boolean
@@ -748,6 +899,11 @@ export type InvitationBatchSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   status?: boolean
   idempotencyKey?: boolean
   reservationReference?: boolean
+  agencyReservationReference?: boolean
+  agencyWorkspaceId?: boolean
+  agencyReservedCredits?: boolean
+  walletReservedCredits?: boolean
+  reservationReleasePending?: boolean
   totalItems?: boolean
   completedItems?: boolean
   failedItems?: boolean
@@ -765,6 +921,11 @@ export type InvitationBatchSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   status?: boolean
   idempotencyKey?: boolean
   reservationReference?: boolean
+  agencyReservationReference?: boolean
+  agencyWorkspaceId?: boolean
+  agencyReservedCredits?: boolean
+  walletReservedCredits?: boolean
+  reservationReleasePending?: boolean
   totalItems?: boolean
   completedItems?: boolean
   failedItems?: boolean
@@ -782,6 +943,11 @@ export type InvitationBatchSelectScalar = {
   status?: boolean
   idempotencyKey?: boolean
   reservationReference?: boolean
+  agencyReservationReference?: boolean
+  agencyWorkspaceId?: boolean
+  agencyReservedCredits?: boolean
+  walletReservedCredits?: boolean
+  reservationReleasePending?: boolean
   totalItems?: boolean
   completedItems?: boolean
   failedItems?: boolean
@@ -790,7 +956,7 @@ export type InvitationBatchSelectScalar = {
   updatedAt?: boolean
 }
 
-export type InvitationBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "designId" | "designVersion" | "status" | "idempotencyKey" | "reservationReference" | "totalItems" | "completedItems" | "failedItems" | "cancelledAt" | "createdAt" | "updatedAt", ExtArgs["result"]["invitationBatch"]>
+export type InvitationBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "designId" | "designVersion" | "status" | "idempotencyKey" | "reservationReference" | "agencyReservationReference" | "agencyWorkspaceId" | "agencyReservedCredits" | "walletReservedCredits" | "reservationReleasePending" | "totalItems" | "completedItems" | "failedItems" | "cancelledAt" | "createdAt" | "updatedAt", ExtArgs["result"]["invitationBatch"]>
 export type InvitationBatchInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.InvitationBatch$itemsArgs<ExtArgs>
   _count?: boolean | Prisma.InvitationBatchCountOutputTypeDefaultArgs<ExtArgs>
@@ -812,6 +978,11 @@ export type $InvitationBatchPayload<ExtArgs extends runtime.Types.Extensions.Int
     status: $Enums.BatchStatus
     idempotencyKey: string
     reservationReference: string
+    agencyReservationReference: string | null
+    agencyWorkspaceId: string | null
+    agencyReservedCredits: number
+    walletReservedCredits: number
+    reservationReleasePending: boolean
     totalItems: number
     completedItems: number
     failedItems: number
@@ -1250,6 +1421,11 @@ export interface InvitationBatchFieldRefs {
   readonly status: Prisma.FieldRef<"InvitationBatch", 'BatchStatus'>
   readonly idempotencyKey: Prisma.FieldRef<"InvitationBatch", 'String'>
   readonly reservationReference: Prisma.FieldRef<"InvitationBatch", 'String'>
+  readonly agencyReservationReference: Prisma.FieldRef<"InvitationBatch", 'String'>
+  readonly agencyWorkspaceId: Prisma.FieldRef<"InvitationBatch", 'String'>
+  readonly agencyReservedCredits: Prisma.FieldRef<"InvitationBatch", 'Int'>
+  readonly walletReservedCredits: Prisma.FieldRef<"InvitationBatch", 'Int'>
+  readonly reservationReleasePending: Prisma.FieldRef<"InvitationBatch", 'Boolean'>
   readonly totalItems: Prisma.FieldRef<"InvitationBatch", 'Int'>
   readonly completedItems: Prisma.FieldRef<"InvitationBatch", 'Int'>
   readonly failedItems: Prisma.FieldRef<"InvitationBatch", 'Int'>

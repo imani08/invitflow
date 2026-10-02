@@ -5,7 +5,7 @@ import { getSession, sessionCookieName } from '@/lib/auth-session';
 import { DesignsWorkspace } from './workspace';
 import './designs.css';
 
-type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string }[] };
+type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
 
 export const dynamic = 'force-dynamic';
 

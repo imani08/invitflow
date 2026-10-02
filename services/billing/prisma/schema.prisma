@@ -12,6 +12,10 @@ model PriceSchedule {
   version     Int          @unique
   effectiveAt DateTime     @map("effective_at") @db.Timestamptz(3)
   createdBy   String       @map("created_by") @db.VarChar(255)
+  changeReason String      @map("change_reason") @db.VarChar(500)
+  taxPolicyEnabled Boolean @default(false) @map("tax_policy_enabled")
+  taxRuleCode String?      @map("tax_rule_code") @db.VarChar(80)
+  taxRateBps Int           @default(0) @map("tax_rate_bps")
   idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(255)
   createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
   packs       CreditPack[]
@@ -29,6 +33,13 @@ model CreditPack {
   credits          Int
   priceMinor       Int           @map("price_minor")
   currency         String        @db.Char(3)
+  description      String        @default("") @db.VarChar(1000)
+  segment          String        @default("INDIVIDUAL") @db.VarChar(30)
+  displayOrder     Int           @default(0) @map("display_order")
+  badge            String?       @db.VarChar(40)
+  validFrom        DateTime?     @map("valid_from") @db.Timestamptz(3)
+  validUntil       DateTime?     @map("valid_until") @db.Timestamptz(3)
+  visible          Boolean       @default(true)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   schedule         PriceSchedule @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
 

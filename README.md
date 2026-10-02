@@ -8,6 +8,7 @@ InvitaFlow is a platform for creating, personalizing, distributing and managing 
 - `apps/admin` — navigation to the existing role-protected web consoles; support/moderation is at `/admin`, finance pricing at `/admin/pricing`, and payment review at `/admin/finance`
 - Gateway exposes bounded-cardinality Prometheus request counters and duration histograms at `/metrics` on the internal observability network
 - RabbitMQ exposes per-queue ready/unacknowledged depth and consumer count to Prometheus over a dedicated internal metrics network; Prometheus alerts on sustained backlog and non-empty dead-letter queues
+- The opt-in observability profile scrapes PostgreSQL and Redis exporters on private networks, with alerts for connection saturation and exporter/Redis availability
 - `apps/gateway` — NestJS on Fastify with health route, request IDs, security headers and profile, events, guests, seating, designs, invitations, audit, wallet, billing and payments API proxies
 - `services/profile` — Keycloak-token protected profile API with its own Prisma schema, migrations and database login
 - `services/media` — owner-scoped image uploads to a private quarantine bucket, Sharp pixel decoding/re-encoding to original, preview and thumbnail WebP variants, metadata stripping and signed downloads from the private ready bucket
@@ -69,7 +70,7 @@ pnpm infra:down
 
 The Compose stack is intended for local development, not a production deployment. Databases, Redis and internal brokers are not published to the host. Public development consoles bind to `127.0.0.1`.
 
-For authentication and database isolation, choose unique URL-safe `PROFILE_DB_PASSWORD`, `EVENT_DB_PASSWORD`, `GUEST_DB_PASSWORD`, `SEATING_DB_PASSWORD` and `DESIGNS_DB_PASSWORD` values, a unique URL-safe `REDIS_PASSWORD`, and an `AUTH_SESSION_SECRET` of at least 32 random characters. When enabling observability, also set a unique `POSTGRES_EXPORTER_PASSWORD`; its read-only role receives PostgreSQL's built-in `pg_monitor` membership. For example, generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`. Redis stores encrypted server-side OIDC session records; the browser receives only an opaque HttpOnly cookie. Replace every sample password before running beyond local development.
+For authentication and database isolation, choose unique URL-safe `PROFILE_DB_PASSWORD`, `EVENT_DB_PASSWORD`, `GUEST_DB_PASSWORD`, `SEATING_DB_PASSWORD` and `DESIGNS_DB_PASSWORD` values, a unique URL-safe `REDIS_PASSWORD`, and an `AUTH_SESSION_SECRET` of at least 32 random characters. When enabling observability, also set unique `POSTGRES_EXPORTER_PASSWORD` and `REDIS_EXPORTER_PASSWORD` values; the exporters use dedicated read-only PostgreSQL/Redis monitoring access. For example, generate a secret with `node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"`. Redis stores encrypted server-side OIDC session records; the browser receives only an opaque HttpOnly cookie. Replace every sample password before running beyond local development.
 
 ## Development commands
 
@@ -198,4 +199,4 @@ The development plan has **12 phases numbered 0 to 11**, as defined in the Invit
 10. QR / RSVP / Check-in
 11. Administration et modération / Hardening
 
-The domain slices have meaningful code, but each is partial against the cahier des charges. In particular, Media, Access and Analytics remain scaffolds; FlexPay is not yet connected; invoices/legal acceptance, email delivery, full business analytics, production observability, CI/security scans, backups and end-to-end/load verification remain outstanding. Do not treat any phase as launch-ready until its acceptance checks pass. The complete gap register is in [docs/REMAINING_WORK.md](docs/REMAINING_WORK.md).
+The domain slices have meaningful code, but each is partial against the cahier des charges. In particular, Media, Access and Analytics still need runtime integration validation; FlexPay is not connected; invoices/legal acceptance, email delivery and full business analytics remain outstanding. Backup/restore scripts and an operations procedure exist, but no real recovery drill has passed. Production observability, remote CI/security scan results and end-to-end/load verification also remain outstanding. Do not treat any phase as launch-ready until its acceptance checks pass. The complete gap register is in [docs/REMAINING_WORK.md](docs/REMAINING_WORK.md).

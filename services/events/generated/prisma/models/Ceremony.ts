@@ -337,6 +337,7 @@ export type CeremonyWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Ceremony"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Ceremony"> | Date | string
   event?: Prisma.XOR<Prisma.EventScalarRelationFilter, Prisma.EventWhereInput>
+  programItems?: Prisma.CeremonyProgramItemListRelationFilter
 }
 
 export type CeremonyOrderByWithRelationInput = {
@@ -360,6 +361,7 @@ export type CeremonyOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   event?: Prisma.EventOrderByWithRelationInput
+  programItems?: Prisma.CeremonyProgramItemOrderByRelationAggregateInput
 }
 
 export type CeremonyWhereUniqueInput = Prisma.AtLeast<{
@@ -387,6 +389,7 @@ export type CeremonyWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Ceremony"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Ceremony"> | Date | string
   event?: Prisma.XOR<Prisma.EventScalarRelationFilter, Prisma.EventWhereInput>
+  programItems?: Prisma.CeremonyProgramItemListRelationFilter
 }, "id" | "id_eventId">
 
 export type CeremonyOrderByWithAggregationInput = {
@@ -461,6 +464,7 @@ export type CeremonyCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   event: Prisma.EventCreateNestedOneWithoutCeremoniesInput
+  programItems?: Prisma.CeremonyProgramItemCreateNestedManyWithoutCeremonyInput
 }
 
 export type CeremonyUncheckedCreateInput = {
@@ -483,6 +487,7 @@ export type CeremonyUncheckedCreateInput = {
   status?: $Enums.CeremonyStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  programItems?: Prisma.CeremonyProgramItemUncheckedCreateNestedManyWithoutCeremonyInput
 }
 
 export type CeremonyUpdateInput = {
@@ -505,6 +510,7 @@ export type CeremonyUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   event?: Prisma.EventUpdateOneRequiredWithoutCeremoniesNestedInput
+  programItems?: Prisma.CeremonyProgramItemUpdateManyWithoutCeremonyNestedInput
 }
 
 export type CeremonyUncheckedUpdateInput = {
@@ -527,6 +533,7 @@ export type CeremonyUncheckedUpdateInput = {
   status?: Prisma.EnumCeremonyStatusFieldUpdateOperationsInput | $Enums.CeremonyStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  programItems?: Prisma.CeremonyProgramItemUncheckedUpdateManyWithoutCeremonyNestedInput
 }
 
 export type CeremonyCreateManyInput = {
@@ -687,6 +694,11 @@ export type CeremonySumOrderByAggregateInput = {
   capacity?: Prisma.SortOrder
 }
 
+export type CeremonyScalarRelationFilter = {
+  is?: Prisma.CeremonyWhereInput
+  isNot?: Prisma.CeremonyWhereInput
+}
+
 export type CeremonyCreateNestedManyWithoutEventInput = {
   create?: Prisma.XOR<Prisma.CeremonyCreateWithoutEventInput, Prisma.CeremonyUncheckedCreateWithoutEventInput> | Prisma.CeremonyCreateWithoutEventInput[] | Prisma.CeremonyUncheckedCreateWithoutEventInput[]
   connectOrCreate?: Prisma.CeremonyCreateOrConnectWithoutEventInput | Prisma.CeremonyCreateOrConnectWithoutEventInput[]
@@ -749,6 +761,20 @@ export type EnumCeremonyStatusFieldUpdateOperationsInput = {
   set?: $Enums.CeremonyStatus
 }
 
+export type CeremonyCreateNestedOneWithoutProgramItemsInput = {
+  create?: Prisma.XOR<Prisma.CeremonyCreateWithoutProgramItemsInput, Prisma.CeremonyUncheckedCreateWithoutProgramItemsInput>
+  connectOrCreate?: Prisma.CeremonyCreateOrConnectWithoutProgramItemsInput
+  connect?: Prisma.CeremonyWhereUniqueInput
+}
+
+export type CeremonyUpdateOneRequiredWithoutProgramItemsNestedInput = {
+  create?: Prisma.XOR<Prisma.CeremonyCreateWithoutProgramItemsInput, Prisma.CeremonyUncheckedCreateWithoutProgramItemsInput>
+  connectOrCreate?: Prisma.CeremonyCreateOrConnectWithoutProgramItemsInput
+  upsert?: Prisma.CeremonyUpsertWithoutProgramItemsInput
+  connect?: Prisma.CeremonyWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.CeremonyUpdateToOneWithWhereWithoutProgramItemsInput, Prisma.CeremonyUpdateWithoutProgramItemsInput>, Prisma.CeremonyUncheckedUpdateWithoutProgramItemsInput>
+}
+
 export type CeremonyCreateWithoutEventInput = {
   id?: string
   name: string
@@ -768,6 +794,7 @@ export type CeremonyCreateWithoutEventInput = {
   status?: $Enums.CeremonyStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  programItems?: Prisma.CeremonyProgramItemCreateNestedManyWithoutCeremonyInput
 }
 
 export type CeremonyUncheckedCreateWithoutEventInput = {
@@ -789,6 +816,7 @@ export type CeremonyUncheckedCreateWithoutEventInput = {
   status?: $Enums.CeremonyStatus
   createdAt?: Date | string
   updatedAt?: Date | string
+  programItems?: Prisma.CeremonyProgramItemUncheckedCreateNestedManyWithoutCeremonyInput
 }
 
 export type CeremonyCreateOrConnectWithoutEventInput = {
@@ -842,6 +870,110 @@ export type CeremonyScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Ceremony"> | Date | string
 }
 
+export type CeremonyCreateWithoutProgramItemsInput = {
+  id?: string
+  name: string
+  ceremonyType: string
+  description?: string | null
+  location?: string | null
+  address?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  instructions?: string | null
+  dressCode?: string | null
+  notes?: string | null
+  capacity?: number | null
+  startAt: Date | string
+  endAt?: Date | string | null
+  timezone?: string
+  status?: $Enums.CeremonyStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  event: Prisma.EventCreateNestedOneWithoutCeremoniesInput
+}
+
+export type CeremonyUncheckedCreateWithoutProgramItemsInput = {
+  id?: string
+  eventId: string
+  name: string
+  ceremonyType: string
+  description?: string | null
+  location?: string | null
+  address?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  instructions?: string | null
+  dressCode?: string | null
+  notes?: string | null
+  capacity?: number | null
+  startAt: Date | string
+  endAt?: Date | string | null
+  timezone?: string
+  status?: $Enums.CeremonyStatus
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type CeremonyCreateOrConnectWithoutProgramItemsInput = {
+  where: Prisma.CeremonyWhereUniqueInput
+  create: Prisma.XOR<Prisma.CeremonyCreateWithoutProgramItemsInput, Prisma.CeremonyUncheckedCreateWithoutProgramItemsInput>
+}
+
+export type CeremonyUpsertWithoutProgramItemsInput = {
+  update: Prisma.XOR<Prisma.CeremonyUpdateWithoutProgramItemsInput, Prisma.CeremonyUncheckedUpdateWithoutProgramItemsInput>
+  create: Prisma.XOR<Prisma.CeremonyCreateWithoutProgramItemsInput, Prisma.CeremonyUncheckedCreateWithoutProgramItemsInput>
+  where?: Prisma.CeremonyWhereInput
+}
+
+export type CeremonyUpdateToOneWithWhereWithoutProgramItemsInput = {
+  where?: Prisma.CeremonyWhereInput
+  data: Prisma.XOR<Prisma.CeremonyUpdateWithoutProgramItemsInput, Prisma.CeremonyUncheckedUpdateWithoutProgramItemsInput>
+}
+
+export type CeremonyUpdateWithoutProgramItemsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ceremonyType?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  instructions?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dressCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  capacity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumCeremonyStatusFieldUpdateOperationsInput | $Enums.CeremonyStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  event?: Prisma.EventUpdateOneRequiredWithoutCeremoniesNestedInput
+}
+
+export type CeremonyUncheckedUpdateWithoutProgramItemsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  ceremonyType?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  address?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  latitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  longitude?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  instructions?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dressCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  capacity?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumCeremonyStatusFieldUpdateOperationsInput | $Enums.CeremonyStatus
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type CeremonyCreateManyEventInput = {
   id?: string
   name: string
@@ -882,6 +1014,7 @@ export type CeremonyUpdateWithoutEventInput = {
   status?: Prisma.EnumCeremonyStatusFieldUpdateOperationsInput | $Enums.CeremonyStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  programItems?: Prisma.CeremonyProgramItemUpdateManyWithoutCeremonyNestedInput
 }
 
 export type CeremonyUncheckedUpdateWithoutEventInput = {
@@ -903,6 +1036,7 @@ export type CeremonyUncheckedUpdateWithoutEventInput = {
   status?: Prisma.EnumCeremonyStatusFieldUpdateOperationsInput | $Enums.CeremonyStatus
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  programItems?: Prisma.CeremonyProgramItemUncheckedUpdateManyWithoutCeremonyNestedInput
 }
 
 export type CeremonyUncheckedUpdateManyWithoutEventInput = {
@@ -927,6 +1061,35 @@ export type CeremonyUncheckedUpdateManyWithoutEventInput = {
 }
 
 
+/**
+ * Count Type CeremonyCountOutputType
+ */
+
+export type CeremonyCountOutputType = {
+  programItems: number
+}
+
+export type CeremonyCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  programItems?: boolean | CeremonyCountOutputTypeCountProgramItemsArgs
+}
+
+/**
+ * CeremonyCountOutputType without action
+ */
+export type CeremonyCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CeremonyCountOutputType
+   */
+  select?: Prisma.CeremonyCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * CeremonyCountOutputType without action
+ */
+export type CeremonyCountOutputTypeCountProgramItemsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CeremonyProgramItemWhereInput
+}
+
 
 export type CeremonySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -949,6 +1112,8 @@ export type CeremonySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   createdAt?: boolean
   updatedAt?: boolean
   event?: boolean | Prisma.EventDefaultArgs<ExtArgs>
+  programItems?: boolean | Prisma.Ceremony$programItemsArgs<ExtArgs>
+  _count?: boolean | Prisma.CeremonyCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["ceremony"]>
 
 export type CeremonySelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1022,6 +1187,8 @@ export type CeremonySelectScalar = {
 export type CeremonyOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "eventId" | "name" | "ceremonyType" | "description" | "location" | "address" | "latitude" | "longitude" | "instructions" | "dressCode" | "notes" | "capacity" | "startAt" | "endAt" | "timezone" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["ceremony"]>
 export type CeremonyInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   event?: boolean | Prisma.EventDefaultArgs<ExtArgs>
+  programItems?: boolean | Prisma.Ceremony$programItemsArgs<ExtArgs>
+  _count?: boolean | Prisma.CeremonyCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type CeremonyIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   event?: boolean | Prisma.EventDefaultArgs<ExtArgs>
@@ -1034,6 +1201,7 @@ export type $CeremonyPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   name: "Ceremony"
   objects: {
     event: Prisma.$EventPayload<ExtArgs>
+    programItems: Prisma.$CeremonyProgramItemPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1450,6 +1618,7 @@ readonly fields: CeremonyFieldRefs;
 export interface Prisma__CeremonyClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   event<T extends Prisma.EventDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.EventDefaultArgs<ExtArgs>>): Prisma.Prisma__EventClient<runtime.Types.Result.GetResult<Prisma.$EventPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  programItems<T extends Prisma.Ceremony$programItemsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Ceremony$programItemsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CeremonyProgramItemPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1896,6 +2065,30 @@ export type CeremonyDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Limit how many Ceremonies to delete.
    */
   limit?: number
+}
+
+/**
+ * Ceremony.programItems
+ */
+export type Ceremony$programItemsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CeremonyProgramItem
+   */
+  select?: Prisma.CeremonyProgramItemSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CeremonyProgramItem
+   */
+  omit?: Prisma.CeremonyProgramItemOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CeremonyProgramItemInclude<ExtArgs> | null
+  where?: Prisma.CeremonyProgramItemWhereInput
+  orderBy?: Prisma.CeremonyProgramItemOrderByWithRelationInput | Prisma.CeremonyProgramItemOrderByWithRelationInput[]
+  cursor?: Prisma.CeremonyProgramItemWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CeremonyProgramItemScalarFieldEnum | Prisma.CeremonyProgramItemScalarFieldEnum[]
 }
 
 /**

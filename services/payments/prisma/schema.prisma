@@ -26,13 +26,32 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum PaymentOrderType {
+  CREDIT_PURCHASE
+  AGENCY_SUBSCRIPTION
+}
+
 model PaymentOrder {
   id                String        @id @default(uuid()) @db.Uuid
+  orderType         PaymentOrderType @default(CREDIT_PURCHASE) @map("order_type")
+  businessReference String?       @map("business_reference") @db.VarChar(255)
+  metadata          Json?          @db.JsonB
   ownerSubject      String        @map("owner_subject") @db.VarChar(255)
   packId            String        @map("pack_id") @db.Uuid
   packKey           String        @map("pack_key") @db.VarChar(60)
   packName          String        @map("pack_name") @db.VarChar(100)
   credits           Int
+  unitCredits       Int           @map("unit_credits")
+  quantity          Int           @default(1)
+  unitPriceMinor    Int           @map("unit_price_minor")
+  discountMinor     Int           @default(0) @map("discount_minor")
+  discountRule      String?       @map("discount_rule") @db.VarChar(120)
+  taxEnabled        Boolean       @default(false) @map("tax_enabled")
+  taxRule           String?       @map("tax_rule") @db.VarChar(80)
+  taxRateBps        Int           @default(0) @map("tax_rate_bps")
+  taxMinor          Int           @default(0) @map("tax_minor")
+  subtotalMinor     Int           @map("subtotal_minor")
+  totalMinor        Int           @map("total_minor")
   amountMinor       Int           @map("amount_minor")
   currency          String        @db.Char(3)
   priceScheduleId   String        @map("price_schedule_id") @db.Uuid

@@ -37,9 +37,23 @@ model DesignTemplate {
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   designs     Design[]
+  versions    DesignTemplateVersion[]
 
   @@index([category, isActive, name], map: "design_templates_catalog_idx")
   @@map("design_templates")
+}
+
+model DesignTemplateVersion {
+  templateId   String   @map("template_id") @db.Uuid
+  version      Int
+  ceremonyTypes String[] @map("ceremony_types")
+  document     Json
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  template     DesignTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@id([templateId, version], map: "design_template_versions_pkey")
+  @@index([ceremonyTypes], type: Gin, map: "design_template_versions_ceremony_types_idx")
+  @@map("design_template_versions")
 }
 
 model Design {

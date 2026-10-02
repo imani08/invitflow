@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requestOwnProfile } from '@/lib/profile-api';
+import { isExpectedOrigin } from '@/lib/same-origin.mjs';
 
 export const runtime = 'nodejs';
 
@@ -12,8 +13,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const expectedOrigin = process.env['WEB_ORIGIN'] ?? 'http://localhost:3000';
-  if (request.headers.get('origin') !== expectedOrigin)
+  if (!isExpectedOrigin(request.headers.get('origin'), process.env['WEB_ORIGIN'] ?? 'http://localhost:3000'))
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
     return NextResponse.json({ error: 'unsupported_media_type' }, { status: 415 });

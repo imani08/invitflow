@@ -10,5 +10,12 @@
  */
 export type * from './models/Event.js'
 export type * from './models/Ceremony.js'
+export type * from './models/CeremonyProgramItem.js'
 export type * from './models/OutboxMessage.js'
+export type * from './models/AgencyWorkspace.js'
+export type * from './models/AgencyMembership.js'
+export type * from './models/AgencyClient.js'
+export type * from './models/AgencyClientEvent.js'
+export type * from './models/AgencySubscription.js'
+export type * from './models/AgencyQuotaReservation.js'
 export type * from './commonInputTypes.js'

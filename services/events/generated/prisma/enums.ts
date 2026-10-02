@@ -26,3 +26,48 @@ export const CeremonyStatus = {
 } as const
 
 export type CeremonyStatus = (typeof CeremonyStatus)[keyof typeof CeremonyStatus]
+
+
+export const AgencyRole = {
+  OWNER: 'OWNER',
+  ADMIN: 'ADMIN',
+  MEMBER: 'MEMBER'
+} as const
+
+export type AgencyRole = (typeof AgencyRole)[keyof typeof AgencyRole]
+
+
+export const AgencyMemberStatus = {
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED'
+} as const
+
+export type AgencyMemberStatus = (typeof AgencyMemberStatus)[keyof typeof AgencyMemberStatus]
+
+
+export const AgencyWorkspaceStatus = {
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED'
+} as const
+
+export type AgencyWorkspaceStatus = (typeof AgencyWorkspaceStatus)[keyof typeof AgencyWorkspaceStatus]
+
+
+export const AgencySubscriptionStatus = {
+  PENDING: 'PENDING',
+  ACTIVE: 'ACTIVE',
+  PAST_DUE: 'PAST_DUE',
+  SUSPENDED: 'SUSPENDED',
+  CANCELLED: 'CANCELLED'
+} as const
+
+export type AgencySubscriptionStatus = (typeof AgencySubscriptionStatus)[keyof typeof AgencySubscriptionStatus]
+
+
+export const AgencyQuotaReservationStatus = {
+  RESERVED: 'RESERVED',
+  CONSUMED: 'CONSUMED',
+  RELEASED: 'RELEASED'
+} as const
+
+export type AgencyQuotaReservationStatus = (typeof AgencyQuotaReservationStatus)[keyof typeof AgencyQuotaReservationStatus]

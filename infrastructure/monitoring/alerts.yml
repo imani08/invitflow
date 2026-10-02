@@ -67,6 +67,26 @@ groups:
           summary: PostgreSQL approche de sa limite de connexions
           description: Les connexions PostgreSQL dépassent 95 % de max_connections depuis deux minutes.
 
+      - alert: InvitaFlowRedisExporterUnavailable
+        expr: up{job="redis-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: Prometheus ne peut plus joindre l’exporter Redis
+          description: La cible de métriques Redis est indisponible depuis deux minutes.
+
+      - alert: InvitaFlowRedisUnavailable
+        expr: redis_up{job="redis-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: L’exporter ne peut plus joindre Redis
+          description: Redis ne répond plus aux collectes de métriques depuis deux minutes.
+
       - alert: InvitaFlowGatewayHighHttpErrorRate
         expr: |
           sum(rate(invitaflow_http_requests_total{status_code=~"5.."}[5m]))

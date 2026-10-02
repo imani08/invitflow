@@ -8,6 +8,7 @@
     "build": "pnpm prisma:generate && tsc -p tsconfig.json",
     "start": "pnpm prisma:migrate:deploy && node dist/main.js",
     "lint": "eslint --ignore-pattern generated/** --ignore-pattern dist/** --ext .ts .",
+    "test": "tsx --test src/*.spec.ts",
     "typecheck": "pnpm prisma:generate && tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy"

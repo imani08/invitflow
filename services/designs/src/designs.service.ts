@@ -45,13 +45,21 @@ export class DesignsService {
 
   private async event(eventId: string, authorization: string) {
     if (!uuidPattern.test(eventId)) throw new NotFoundException('Événement introuvable.');
-    await this.events.assertOwnerEvent(eventId, authorization);
+    return this.events.assertOwnerEvent(eventId, authorization);
+  }
+
+  private templateMatchesEvent(templateTypes: string[], eventTypes: string[]) {
+    return templateTypes.includes('UNIVERSAL') || templateTypes.some((type) => eventTypes.includes(type));
   }
 
   async listTemplates(eventId: string, authorization: string, rawCategory?: string) {
-    await this.event(eventId, authorization);
+    const event = await this.event(eventId, authorization);
     if (rawCategory && !categories.has(rawCategory))
       throw new BadRequestException('Catégorie de template invalide.');
+    const ceremonyTypes = [...new Set((event.ceremonies ?? [])
+      .map((ceremony) => typeof ceremony.ceremonyType === 'string' ? ceremony.ceremonyType.toUpperCase() : '')
+      .map((type) => type === 'OTHER' ? 'CUSTOM' : type)
+      .filter((type) => ['CIVIL', 'RELIGIOUS', 'RECEPTION', 'DOT', 'TRADITIONAL', 'CUSTOM'].includes(type)))];
     const items = await this.prisma.designTemplate.findMany({
       where: {
         isActive: true,
@@ -68,13 +76,18 @@ export class DesignsService {
         style: true,
         tags: true,
         preview: true,
+        versions: { select: { version: true, ceremonyTypes: true } },
       },
     });
-    return { items };
+    return { items: items.flatMap(({ versions, ...template }) => {
+      const current = versions.find((version) => version.version === template.version);
+      if (!current || (!current.ceremonyTypes.includes('UNIVERSAL') && !current.ceremonyTypes.some((type) => ceremonyTypes.includes(type)))) return [];
+      return [{ ...template, ceremonyTypes: current.ceremonyTypes }];
+    }) };
   }
 
   async getTemplate(eventId: string, authorization: string, templateId: string) {
-    await this.event(eventId, authorization);
+    const event = await this.event(eventId, authorization);
     if (!uuidPattern.test(templateId)) throw new NotFoundException('Template introuvable.');
     const template = await this.prisma.designTemplate.findFirst({
       where: { id: templateId, isActive: true },
@@ -89,10 +102,17 @@ export class DesignsService {
         tags: true,
         preview: true,
         document: true,
+        versions: { select: { version: true, ceremonyTypes: true, document: true } },
       },
     });
     if (!template) throw new NotFoundException('Template introuvable.');
-    return template;
+    const version = template.versions.find((item) => item.version === template.version);
+    if (!version) throw new NotFoundException('Version du template introuvable.');
+    const eventTypes = (event.ceremonies ?? []).map((item) => typeof item.ceremonyType === 'string' ? item.ceremonyType.toUpperCase() : '').map((type) => type === 'OTHER' ? 'CUSTOM' : type);
+    if (!this.templateMatchesEvent(version.ceremonyTypes, eventTypes)) throw new NotFoundException('Template indisponible pour les cérémonies de cet événement.');
+    const { versions: _versions, ...metadata } = template;
+    void _versions;
+    return { ...metadata, ceremonyTypes: version.ceremonyTypes, document: version.document };
   }
 
   async list(
@@ -154,7 +174,7 @@ export class DesignsService {
   }
 
   async create(eventId: string, ownerSubject: string, authorization: string, body: unknown) {
-    await this.event(eventId, authorization);
+    const event = await this.event(eventId, authorization);
     const input = object(body, 'Le design');
     if (Object.keys(input).some((key) => !['templateId', 'name'].includes(key)))
       throw new BadRequestException('Champs non pris en charge.');
@@ -164,9 +184,14 @@ export class DesignsService {
       throw new BadRequestException('Choisissez un template enregistré.');
     const template = await this.prisma.designTemplate.findFirst({
       where: { id: templateId, isActive: true },
+      include: { versions: { select: { version: true, ceremonyTypes: true, document: true } } },
     });
     if (!template) throw new NotFoundException('Template introuvable.');
-    const document = validateDesignDocument(template.document);
+    const templateVersion = template.versions.find((item) => item.version === template.version);
+    if (!templateVersion) throw new NotFoundException('Version du template introuvable.');
+    const eventTypes = (event.ceremonies ?? []).map((item) => typeof item.ceremonyType === 'string' ? item.ceremonyType.toUpperCase() : '').map((type) => type === 'OTHER' ? 'CUSTOM' : type);
+    if (!this.templateMatchesEvent(templateVersion.ceremonyTypes, eventTypes)) throw new NotFoundException('Template indisponible pour les cérémonies de cet événement.');
+    const document = validateDesignDocument(templateVersion.document);
     const version = await this.prisma.$transaction(async (tx) => {
       const design = await tx.design.create({
         data: {

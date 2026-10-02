@@ -65,7 +65,7 @@ test('creates one pending deletion request and publishes its request event trans
   assert.equal(events[0]?.eventType, 'profile.account_deletion.requested.v1');
 });
 
-test('cancels the pending request and appends a cancellation event', async () => {
+test('cancels the pending request and appends a cancellation event at the persisted time', async () => {
   const { controller, events, current } = fixture();
   await controller.requestDeletion(identityRequest);
   const result = await controller.cancelDeletion(identityRequest);
@@ -75,6 +75,8 @@ test('cancels the pending request and appends a cancellation event', async () =>
     events.map((event) => event.eventType),
     ['profile.account_deletion.requested.v1', 'profile.account_deletion.cancelled.v1'],
   );
+  const cancellationPayload = events[1]?.payload as { cancelledAt: string };
+  assert.equal(cancellationPayload.cancelledAt, current()?.cancelledAt?.toISOString());
 });
 
 test('reports no cancellation when there is no pending request', async () => {

@@ -19,7 +19,7 @@ export class WalletInternalController {
   @Post('/credits') credit(@Param('ownerSubject') owner: string, @Headers('idempotency-key') key: string, @Body() body: unknown) { return this.wallet.credit(owner, key, body); }
   @Post('/reservations') reserve(@Param('ownerSubject') owner: string, @Headers('idempotency-key') key: string, @Body() body: unknown) { return this.wallet.reserve(owner, key, body); }
   @Post('/reservations/:referenceId/consume') consume(@Param('ownerSubject') owner: string, @Param('referenceId') reference: string, @Headers('idempotency-key') key: string) { return this.wallet.finalizeReservation(owner, reference, key, 'CONSUMED'); }
-  @Post('/reservations/:referenceId/release') release(@Param('ownerSubject') owner: string, @Param('referenceId') reference: string, @Headers('idempotency-key') key: string) { return this.wallet.finalizeReservation(owner, reference, key, 'RELEASED'); }
+  @Post('/reservations/:referenceId/release') release(@Param('ownerSubject') owner: string, @Param('referenceId') reference: string, @Headers('idempotency-key') key: string, @Body() body: unknown) { return this.wallet.finalizeReservation(owner, reference, key, 'RELEASED', body); }
   @Post('/reservations/:referenceId/settle') settle(@Param('ownerSubject') owner: string, @Param('referenceId') reference: string, @Headers('idempotency-key') key: string, @Body() body: unknown) { return this.wallet.settleReservation(owner, reference, key, body); }
   @Post('/entries/:entryId/reverse') reverse(@Param('ownerSubject') owner: string, @Param('entryId') entry: string, @Headers('idempotency-key') key: string) { return this.wallet.reverse(owner, entry, key); }
 }

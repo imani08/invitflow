@@ -56,6 +56,26 @@ function ceremonyCapacity(value: unknown): number | null | undefined {
   return value;
 }
 
+function programDuration(value: unknown): number | null | undefined {
+  if (value === undefined || value === null) return value;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 1440) throw new BadRequestException('durationMinutes must be an integer from 1 to 1440');
+  return value;
+}
+
+function mapProgramItem(input: unknown, creating: boolean) {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !['title', 'description', 'startsAt', 'durationMinutes', 'location'].includes(key))) throw new BadRequestException('Unsupported program item fields');
+  const body = input as { title?: unknown; description?: unknown; startsAt?: unknown; durationMinutes?: unknown; location?: unknown };
+  const title = optionalText(body.title, 'title', 120);
+  const description = optionalText(body.description, 'description', 1000);
+  const startsAt = timestamp(body.startsAt, 'startsAt', false);
+  const durationMinutes = programDuration(body.durationMinutes);
+  const location = optionalText(body.location, 'location', 300);
+  if (title === null) throw new BadRequestException('title cannot be null');
+  if (creating && typeof title !== 'string') throw new BadRequestException('title is required');
+  if (!creating && Object.keys(body).length === 0) throw new BadRequestException('Provide at least one program item field');
+  return { ...(title !== undefined ? { title } : {}), ...(description !== undefined ? { description } : {}), ...(startsAt !== undefined ? { startsAt } : {}), ...(durationMinutes !== undefined ? { durationMinutes } : {}), ...(location !== undefined ? { location } : {}) };
+}
+
 function mapEvent(input: EventInput, creating: boolean): EventFields | CreateEventFields {
   if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !['name', 'description', 'eventType', 'startAt', 'endAt', 'timezone'].includes(key))) {
     throw new BadRequestException('Unsupported event fields');
@@ -128,14 +148,15 @@ export class EventsController {
 
   @Post() create(@Req() request: AuthRequest, @Body() body: EventInput) { return this.events.create(request.identity.subject, mapEvent(body ?? {}, true) as CreateEventFields); }
 
-  @Get() list(@Req() request: AuthRequest, @Query('cursor') cursor?: string, @Query('limit') rawLimit?: string) {
+  @Get() list(@Req() request: AuthRequest, @Query('cursor') cursor?: string, @Query('limit') rawLimit?: string, @Query('scope') scope?: string) {
     const limit = rawLimit === undefined ? 20 : Number(rawLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new BadRequestException('limit must be from 1 to 100');
     if (cursor && !/^[0-9a-f-]{36}$/i.test(cursor)) throw new BadRequestException('cursor must be an event UUID');
-    return this.events.list(request.identity.subject, limit, cursor);
+    if (scope !== undefined && scope !== 'agency') throw new BadRequestException('scope must be agency when specified');
+    return this.events.list(request.identity.subject, limit, cursor, scope === 'agency');
   }
 
-  @Get('/:eventId') get(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.get(request.identity.subject, eventId); }
+  @Get('/:eventId') get(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.get(request.identity.subject, eventId, true); }
 
   @Patch('/:eventId') update(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Body() body: EventInput) {
     if (!body || Object.keys(body).length === 0) throw new BadRequestException('Provide at least one event field');
@@ -186,5 +207,22 @@ export class EventsController {
 
   @Delete('/:eventId/ceremonies/:ceremonyId') removeCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string) {
     return this.events.removeCeremony(request.identity.subject, eventId, ceremonyId);
+  }
+
+  @Post('/:eventId/ceremonies/:ceremonyId/program') addProgramItem(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Body() body: unknown) {
+    return this.events.addProgramItem(request.identity.subject, eventId, ceremonyId, mapProgramItem(body, true) as { title: string; description?: string | null; startsAt?: Date | null; durationMinutes?: number | null; location?: string | null });
+  }
+
+  @Patch('/:eventId/ceremonies/:ceremonyId/program/:itemId') updateProgramItem(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Param('itemId') itemId: string, @Body() body: unknown) {
+    return this.events.updateProgramItem(request.identity.subject, eventId, ceremonyId, itemId, mapProgramItem(body, false));
+  }
+
+  @Patch('/:eventId/ceremonies/:ceremonyId/program/order') reorderProgram(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Body() body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1 || !Array.isArray((body as { itemIds?: unknown }).itemIds) || (body as { itemIds: unknown[] }).itemIds.some((id) => typeof id !== 'string')) throw new BadRequestException('itemIds must be an ordered array of program item IDs');
+    return this.events.reorderProgramItems(request.identity.subject, eventId, ceremonyId, (body as { itemIds: string[] }).itemIds);
+  }
+
+  @Delete('/:eventId/ceremonies/:ceremonyId/program/:itemId') removeProgramItem(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Param('itemId') itemId: string) {
+    return this.events.removeProgramItem(request.identity.subject, eventId, ceremonyId, itemId);
   }
 }

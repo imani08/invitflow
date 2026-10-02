@@ -191,6 +191,33 @@ class EventsProxyController {
   }
 }
 
+@Controller('/v1/agencies')
+class AgenciesProxyController {
+  @All()
+  root(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/:workspaceId/:resource')
+  resource(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/:workspaceId/:resource/:resourceId')
+  resourceItem(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/:workspaceId/:resource/:resourceId/:action')
+  resourceAction(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+
+  private async proxy(request: FastifyRequest, reply: FastifyReply) {
+    const authorization = request.headers['authorization'];
+    if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization)) throw new UnauthorizedException();
+    reply.header('Cache-Control', 'private, no-store');
+    try {
+      const upstream = await fetchWithRequestContext(request, `${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, {
+        method: request.method,
+        headers: { authorization, ...(request.body !== undefined ? { 'content-type': 'application/json' } : {}) },
+        ...(request.body !== undefined ? { body: JSON.stringify(request.body) } : {}),
+        cache: 'no-store', signal: AbortSignal.timeout(5_000),
+      });
+      return reply.code(upstream.status).send(await upstream.json().catch(() => ({ error: 'invalid_upstream_response' })));
+    } catch { return reply.code(503).send({ error: 'events_service_unavailable' }); }
+  }
+}
+
 @Controller('/v1/assets')
 class MediaProxyController {
   @All()
@@ -1145,6 +1172,7 @@ class ModerationProxyController {
     AccessProxyController,
     ProfileProxyController,
     EventsProxyController,
+    AgenciesProxyController,
     MediaProxyController,
     GuestsProxyController,
     SeatingProxyController,

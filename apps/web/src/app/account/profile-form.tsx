@@ -13,12 +13,14 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const [deletionStatus, setDeletionStatus] = useState<
     'PENDING' | 'CANCELLED' | 'COMPLETED' | null
   >(null);
+  const [deletionStatusLoaded, setDeletionStatusLoaded] = useState(false);
+  const [deletionStatusError, setDeletionStatusError] = useState(false);
   const [deletionBusy, setDeletionBusy] = useState(false);
 
   useEffect(() => {
     void fetch('/api/profile/deletion-request', { cache: 'no-store' })
       .then(async (response) => {
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('deletion_status_unavailable');
         const value: unknown = await response.json();
         if (value && typeof value === 'object' && 'request' in value) {
           const deletion = (value as { request?: { status?: unknown } | null }).request;
@@ -31,7 +33,11 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           }
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        setDeletionStatusError(true);
+        setMessage('Impossible de charger le statut de suppression du compte.');
+      })
+      .finally(() => setDeletionStatusLoaded(true));
     return undefined;
   }, []);
 
@@ -53,8 +59,17 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       const value: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error('request_failed');
       if (method === 'DELETE') {
-        setDeletionStatus('CANCELLED');
-        setMessage('La demande en attente a été annulée.');
+        const cancelled =
+          value && typeof value === 'object' && 'cancelled' in value
+            ? (value as { cancelled?: unknown }).cancelled === true
+            : false;
+        if (cancelled) {
+          setDeletionStatus('CANCELLED');
+          setMessage('La demande en attente a été annulée.');
+        } else {
+          setDeletionStatus(null);
+          setMessage('Aucune demande en attente à annuler.');
+        }
       } else if (value && typeof value === 'object' && 'request' in value) {
         const deletion = (value as { request?: { status?: unknown } }).request;
         if (deletion?.status === 'PENDING' || deletion?.status === 'COMPLETED') {
@@ -176,7 +191,11 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </button>
       <section className="account-deletion" aria-labelledby="account-deletion-title">
         <h2 id="account-deletion-title">Suppression du compte</h2>
-        {deletionStatus === 'PENDING' ? (
+        {!deletionStatusLoaded ? (
+          <p role="status">Chargement du statut…</p>
+        ) : deletionStatusError ? (
+          <p role="status">Impossible de charger le statut de suppression du compte.</p>
+        ) : deletionStatus === 'PENDING' ? (
           <>
             <p>
               Une demande est enregistrée et attend son traitement. Vos données ne sont pas encore
@@ -186,7 +205,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
               className="logout-button"
               type="button"
               onClick={() => void changeDeletionRequest('DELETE')}
-              disabled={deletionBusy}
+              disabled={deletionBusy || !deletionStatusLoaded}
             >
               {deletionBusy ? 'Mise à jour…' : 'Annuler la demande'}
             </button>
@@ -203,7 +222,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
               className="logout-button"
               type="button"
               onClick={() => void changeDeletionRequest('POST')}
-              disabled={deletionBusy}
+              disabled={deletionBusy || !deletionStatusLoaded}
             >
               {deletionBusy ? 'Envoi…' : 'Demander la suppression du compte'}
             </button>

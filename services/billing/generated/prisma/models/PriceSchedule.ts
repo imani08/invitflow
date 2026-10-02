@@ -28,10 +28,12 @@ export type AggregatePriceSchedule = {
 
 export type PriceScheduleAvgAggregateOutputType = {
   version: number | null
+  taxRateBps: number | null
 }
 
 export type PriceScheduleSumAggregateOutputType = {
   version: number | null
+  taxRateBps: number | null
 }
 
 export type PriceScheduleMinAggregateOutputType = {
@@ -39,6 +41,10 @@ export type PriceScheduleMinAggregateOutputType = {
   version: number | null
   effectiveAt: Date | null
   createdBy: string | null
+  changeReason: string | null
+  taxPolicyEnabled: boolean | null
+  taxRuleCode: string | null
+  taxRateBps: number | null
   idempotencyKey: string | null
   createdAt: Date | null
 }
@@ -48,6 +54,10 @@ export type PriceScheduleMaxAggregateOutputType = {
   version: number | null
   effectiveAt: Date | null
   createdBy: string | null
+  changeReason: string | null
+  taxPolicyEnabled: boolean | null
+  taxRuleCode: string | null
+  taxRateBps: number | null
   idempotencyKey: string | null
   createdAt: Date | null
 }
@@ -57,6 +67,10 @@ export type PriceScheduleCountAggregateOutputType = {
   version: number
   effectiveAt: number
   createdBy: number
+  changeReason: number
+  taxPolicyEnabled: number
+  taxRuleCode: number
+  taxRateBps: number
   idempotencyKey: number
   createdAt: number
   _all: number
@@ -65,10 +79,12 @@ export type PriceScheduleCountAggregateOutputType = {
 
 export type PriceScheduleAvgAggregateInputType = {
   version?: true
+  taxRateBps?: true
 }
 
 export type PriceScheduleSumAggregateInputType = {
   version?: true
+  taxRateBps?: true
 }
 
 export type PriceScheduleMinAggregateInputType = {
@@ -76,6 +92,10 @@ export type PriceScheduleMinAggregateInputType = {
   version?: true
   effectiveAt?: true
   createdBy?: true
+  changeReason?: true
+  taxPolicyEnabled?: true
+  taxRuleCode?: true
+  taxRateBps?: true
   idempotencyKey?: true
   createdAt?: true
 }
@@ -85,6 +105,10 @@ export type PriceScheduleMaxAggregateInputType = {
   version?: true
   effectiveAt?: true
   createdBy?: true
+  changeReason?: true
+  taxPolicyEnabled?: true
+  taxRuleCode?: true
+  taxRateBps?: true
   idempotencyKey?: true
   createdAt?: true
 }
@@ -94,6 +118,10 @@ export type PriceScheduleCountAggregateInputType = {
   version?: true
   effectiveAt?: true
   createdBy?: true
+  changeReason?: true
+  taxPolicyEnabled?: true
+  taxRuleCode?: true
+  taxRateBps?: true
   idempotencyKey?: true
   createdAt?: true
   _all?: true
@@ -190,6 +218,10 @@ export type PriceScheduleGroupByOutputType = {
   version: number
   effectiveAt: Date
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled: boolean
+  taxRuleCode: string | null
+  taxRateBps: number
   idempotencyKey: string
   createdAt: Date
   _count: PriceScheduleCountAggregateOutputType | null
@@ -222,6 +254,10 @@ export type PriceScheduleWhereInput = {
   version?: Prisma.IntFilter<"PriceSchedule"> | number
   effectiveAt?: Prisma.DateTimeFilter<"PriceSchedule"> | Date | string
   createdBy?: Prisma.StringFilter<"PriceSchedule"> | string
+  changeReason?: Prisma.StringFilter<"PriceSchedule"> | string
+  taxPolicyEnabled?: Prisma.BoolFilter<"PriceSchedule"> | boolean
+  taxRuleCode?: Prisma.StringNullableFilter<"PriceSchedule"> | string | null
+  taxRateBps?: Prisma.IntFilter<"PriceSchedule"> | number
   idempotencyKey?: Prisma.StringFilter<"PriceSchedule"> | string
   createdAt?: Prisma.DateTimeFilter<"PriceSchedule"> | Date | string
   packs?: Prisma.CreditPackListRelationFilter
@@ -233,6 +269,10 @@ export type PriceScheduleOrderByWithRelationInput = {
   version?: Prisma.SortOrder
   effectiveAt?: Prisma.SortOrder
   createdBy?: Prisma.SortOrder
+  changeReason?: Prisma.SortOrder
+  taxPolicyEnabled?: Prisma.SortOrder
+  taxRuleCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   packs?: Prisma.CreditPackOrderByRelationAggregateInput
@@ -248,6 +288,10 @@ export type PriceScheduleWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.PriceScheduleWhereInput | Prisma.PriceScheduleWhereInput[]
   effectiveAt?: Prisma.DateTimeFilter<"PriceSchedule"> | Date | string
   createdBy?: Prisma.StringFilter<"PriceSchedule"> | string
+  changeReason?: Prisma.StringFilter<"PriceSchedule"> | string
+  taxPolicyEnabled?: Prisma.BoolFilter<"PriceSchedule"> | boolean
+  taxRuleCode?: Prisma.StringNullableFilter<"PriceSchedule"> | string | null
+  taxRateBps?: Prisma.IntFilter<"PriceSchedule"> | number
   createdAt?: Prisma.DateTimeFilter<"PriceSchedule"> | Date | string
   packs?: Prisma.CreditPackListRelationFilter
   rules?: Prisma.PriceRuleListRelationFilter
@@ -258,6 +302,10 @@ export type PriceScheduleOrderByWithAggregationInput = {
   version?: Prisma.SortOrder
   effectiveAt?: Prisma.SortOrder
   createdBy?: Prisma.SortOrder
+  changeReason?: Prisma.SortOrder
+  taxPolicyEnabled?: Prisma.SortOrder
+  taxRuleCode?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.PriceScheduleCountOrderByAggregateInput
@@ -275,6 +323,10 @@ export type PriceScheduleScalarWhereWithAggregatesInput = {
   version?: Prisma.IntWithAggregatesFilter<"PriceSchedule"> | number
   effectiveAt?: Prisma.DateTimeWithAggregatesFilter<"PriceSchedule"> | Date | string
   createdBy?: Prisma.StringWithAggregatesFilter<"PriceSchedule"> | string
+  changeReason?: Prisma.StringWithAggregatesFilter<"PriceSchedule"> | string
+  taxPolicyEnabled?: Prisma.BoolWithAggregatesFilter<"PriceSchedule"> | boolean
+  taxRuleCode?: Prisma.StringNullableWithAggregatesFilter<"PriceSchedule"> | string | null
+  taxRateBps?: Prisma.IntWithAggregatesFilter<"PriceSchedule"> | number
   idempotencyKey?: Prisma.StringWithAggregatesFilter<"PriceSchedule"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"PriceSchedule"> | Date | string
 }
@@ -284,6 +336,10 @@ export type PriceScheduleCreateInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   packs?: Prisma.CreditPackCreateNestedManyWithoutScheduleInput
@@ -295,6 +351,10 @@ export type PriceScheduleUncheckedCreateInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   packs?: Prisma.CreditPackUncheckedCreateNestedManyWithoutScheduleInput
@@ -306,6 +366,10 @@ export type PriceScheduleUpdateInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   packs?: Prisma.CreditPackUpdateManyWithoutScheduleNestedInput
@@ -317,6 +381,10 @@ export type PriceScheduleUncheckedUpdateInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   packs?: Prisma.CreditPackUncheckedUpdateManyWithoutScheduleNestedInput
@@ -328,6 +396,10 @@ export type PriceScheduleCreateManyInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
 }
@@ -337,6 +409,10 @@ export type PriceScheduleUpdateManyMutationInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -346,6 +422,10 @@ export type PriceScheduleUncheckedUpdateManyInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -355,12 +435,17 @@ export type PriceScheduleCountOrderByAggregateInput = {
   version?: Prisma.SortOrder
   effectiveAt?: Prisma.SortOrder
   createdBy?: Prisma.SortOrder
+  changeReason?: Prisma.SortOrder
+  taxPolicyEnabled?: Prisma.SortOrder
+  taxRuleCode?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type PriceScheduleAvgOrderByAggregateInput = {
   version?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
 }
 
 export type PriceScheduleMaxOrderByAggregateInput = {
@@ -368,6 +453,10 @@ export type PriceScheduleMaxOrderByAggregateInput = {
   version?: Prisma.SortOrder
   effectiveAt?: Prisma.SortOrder
   createdBy?: Prisma.SortOrder
+  changeReason?: Prisma.SortOrder
+  taxPolicyEnabled?: Prisma.SortOrder
+  taxRuleCode?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
@@ -377,12 +466,17 @@ export type PriceScheduleMinOrderByAggregateInput = {
   version?: Prisma.SortOrder
   effectiveAt?: Prisma.SortOrder
   createdBy?: Prisma.SortOrder
+  changeReason?: Prisma.SortOrder
+  taxPolicyEnabled?: Prisma.SortOrder
+  taxRuleCode?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
   idempotencyKey?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type PriceScheduleSumOrderByAggregateInput = {
   version?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
 }
 
 export type PriceScheduleScalarRelationFilter = {
@@ -404,6 +498,14 @@ export type IntFieldUpdateOperationsInput = {
 
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
+}
+
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
 }
 
 export type PriceScheduleCreateNestedOneWithoutPacksInput = {
@@ -439,6 +541,10 @@ export type PriceScheduleCreateWithoutPacksInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   rules?: Prisma.PriceRuleCreateNestedManyWithoutScheduleInput
@@ -449,6 +555,10 @@ export type PriceScheduleUncheckedCreateWithoutPacksInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   rules?: Prisma.PriceRuleUncheckedCreateNestedManyWithoutScheduleInput
@@ -475,6 +585,10 @@ export type PriceScheduleUpdateWithoutPacksInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   rules?: Prisma.PriceRuleUpdateManyWithoutScheduleNestedInput
@@ -485,6 +599,10 @@ export type PriceScheduleUncheckedUpdateWithoutPacksInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   rules?: Prisma.PriceRuleUncheckedUpdateManyWithoutScheduleNestedInput
@@ -495,6 +613,10 @@ export type PriceScheduleCreateWithoutRulesInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   packs?: Prisma.CreditPackCreateNestedManyWithoutScheduleInput
@@ -505,6 +627,10 @@ export type PriceScheduleUncheckedCreateWithoutRulesInput = {
   version: number
   effectiveAt: Date | string
   createdBy: string
+  changeReason: string
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: string | null
+  taxRateBps?: number
   idempotencyKey: string
   createdAt?: Date | string
   packs?: Prisma.CreditPackUncheckedCreateNestedManyWithoutScheduleInput
@@ -531,6 +657,10 @@ export type PriceScheduleUpdateWithoutRulesInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   packs?: Prisma.CreditPackUpdateManyWithoutScheduleNestedInput
@@ -541,6 +671,10 @@ export type PriceScheduleUncheckedUpdateWithoutRulesInput = {
   version?: Prisma.IntFieldUpdateOperationsInput | number
   effectiveAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   createdBy?: Prisma.StringFieldUpdateOperationsInput | string
+  changeReason?: Prisma.StringFieldUpdateOperationsInput | string
+  taxPolicyEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRuleCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
   idempotencyKey?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   packs?: Prisma.CreditPackUncheckedUpdateManyWithoutScheduleNestedInput
@@ -591,6 +725,10 @@ export type PriceScheduleSelect<ExtArgs extends runtime.Types.Extensions.Interna
   version?: boolean
   effectiveAt?: boolean
   createdBy?: boolean
+  changeReason?: boolean
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: boolean
+  taxRateBps?: boolean
   idempotencyKey?: boolean
   createdAt?: boolean
   packs?: boolean | Prisma.PriceSchedule$packsArgs<ExtArgs>
@@ -603,6 +741,10 @@ export type PriceScheduleSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   version?: boolean
   effectiveAt?: boolean
   createdBy?: boolean
+  changeReason?: boolean
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: boolean
+  taxRateBps?: boolean
   idempotencyKey?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["priceSchedule"]>
@@ -612,6 +754,10 @@ export type PriceScheduleSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   version?: boolean
   effectiveAt?: boolean
   createdBy?: boolean
+  changeReason?: boolean
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: boolean
+  taxRateBps?: boolean
   idempotencyKey?: boolean
   createdAt?: boolean
 }, ExtArgs["result"]["priceSchedule"]>
@@ -621,11 +767,15 @@ export type PriceScheduleSelectScalar = {
   version?: boolean
   effectiveAt?: boolean
   createdBy?: boolean
+  changeReason?: boolean
+  taxPolicyEnabled?: boolean
+  taxRuleCode?: boolean
+  taxRateBps?: boolean
   idempotencyKey?: boolean
   createdAt?: boolean
 }
 
-export type PriceScheduleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "version" | "effectiveAt" | "createdBy" | "idempotencyKey" | "createdAt", ExtArgs["result"]["priceSchedule"]>
+export type PriceScheduleOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "version" | "effectiveAt" | "createdBy" | "changeReason" | "taxPolicyEnabled" | "taxRuleCode" | "taxRateBps" | "idempotencyKey" | "createdAt", ExtArgs["result"]["priceSchedule"]>
 export type PriceScheduleInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   packs?: boolean | Prisma.PriceSchedule$packsArgs<ExtArgs>
   rules?: boolean | Prisma.PriceSchedule$rulesArgs<ExtArgs>
@@ -645,6 +795,10 @@ export type $PriceSchedulePayload<ExtArgs extends runtime.Types.Extensions.Inter
     version: number
     effectiveAt: Date
     createdBy: string
+    changeReason: string
+    taxPolicyEnabled: boolean
+    taxRuleCode: string | null
+    taxRateBps: number
     idempotencyKey: string
     createdAt: Date
   }, ExtArgs["result"]["priceSchedule"]>
@@ -1076,6 +1230,10 @@ export interface PriceScheduleFieldRefs {
   readonly version: Prisma.FieldRef<"PriceSchedule", 'Int'>
   readonly effectiveAt: Prisma.FieldRef<"PriceSchedule", 'DateTime'>
   readonly createdBy: Prisma.FieldRef<"PriceSchedule", 'String'>
+  readonly changeReason: Prisma.FieldRef<"PriceSchedule", 'String'>
+  readonly taxPolicyEnabled: Prisma.FieldRef<"PriceSchedule", 'Boolean'>
+  readonly taxRuleCode: Prisma.FieldRef<"PriceSchedule", 'String'>
+  readonly taxRateBps: Prisma.FieldRef<"PriceSchedule", 'Int'>
   readonly idempotencyKey: Prisma.FieldRef<"PriceSchedule", 'String'>
   readonly createdAt: Prisma.FieldRef<"PriceSchedule", 'DateTime'>
 }

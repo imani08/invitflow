@@ -1,13 +1,13 @@
 # Local observability
 
-The observability profile includes Prometheus, Grafana, Loki, Tempo, the OpenTelemetry Collector and a PostgreSQL exporter. Start the stack with:
+The observability profile includes Prometheus, Grafana, Loki, Tempo, the OpenTelemetry Collector and PostgreSQL/Redis exporters. Start the stack with:
 
 ```powershell
 docker compose --profile observability up -d
 ```
 
-Prometheus scrapes Gateway, RabbitMQ and PostgreSQL over private Docker networks. PostgreSQL metrics remain internal; no exporter port is published on the host. The exporter uses a dedicated `postgres_exporter` login with the built-in `pg_monitor` role. Set a unique `POSTGRES_EXPORTER_PASSWORD` in `.env` before enabling the profile. The idempotent `postgres-exporter-db-init` job provisions the login on both new and existing Postgres volumes.
+Prometheus scrapes Gateway, RabbitMQ, PostgreSQL and Redis over private Docker networks. Exporter ports are not published on the host. PostgreSQL uses a dedicated `postgres_exporter` login with the built-in `pg_monitor` role. Redis creates a separate `exporter` ACL user with the command permissions required by redis_exporter; application clients continue using the default Redis user. Set unique `POSTGRES_EXPORTER_PASSWORD` and `REDIS_EXPORTER_PASSWORD` values in `.env` before enabling the profile. Redis keyspace hit ratio, used memory and connected clients appear on the Grafana dashboard.
 
-The Grafana dashboard at `infrastructure/monitoring/grafana/dashboards/gateway-overview.json` includes request latency by registered route and PostgreSQL exporter/collection availability. Alert rules report unavailable telemetry targets, database collection failures and RabbitMQ backlog/DLQ conditions.
+The Grafana dashboard at `infrastructure/monitoring/grafana/dashboards/gateway-overview.json` includes request latency by registered route, PostgreSQL connection saturation and Redis keyspace hit ratio, memory and client count. Alert rules report unavailable telemetry targets, database/Redis collection failures, PostgreSQL connection saturation and RabbitMQ backlog/DLQ conditions.
 
-Static checks are included in CI: Prometheus validates its configuration and alert rules, and Trivy scans the pinned exporter image. Runtime startup, credentials and metric collection still require a working Docker engine. CPU, disk, Redis metrics, business metrics and per-service application instrumentation are not provided yet.
+Static checks are included in CI: Prometheus validates its configuration and alert rules, and Trivy scans the pinned exporter images. Runtime startup, ACL authentication and metric collection still require a working Docker engine. Host/container CPU, memory and disk metrics, payment/business metrics and per-service application instrumentation are not provided yet.

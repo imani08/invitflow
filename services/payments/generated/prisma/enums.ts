@@ -32,3 +32,11 @@ export const OrderStatus = {
 } as const
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus]
+
+
+export const PaymentOrderType = {
+  CREDIT_PURCHASE: 'CREDIT_PURCHASE',
+  AGENCY_SUBSCRIPTION: 'AGENCY_SUBSCRIPTION'
+} as const
+
+export type PaymentOrderType = (typeof PaymentOrderType)[keyof typeof PaymentOrderType]

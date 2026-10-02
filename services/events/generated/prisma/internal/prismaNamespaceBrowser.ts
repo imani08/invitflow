@@ -53,7 +53,14 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   Event: 'Event',
   Ceremony: 'Ceremony',
-  OutboxMessage: 'OutboxMessage'
+  CeremonyProgramItem: 'CeremonyProgramItem',
+  OutboxMessage: 'OutboxMessage',
+  AgencyWorkspace: 'AgencyWorkspace',
+  AgencyMembership: 'AgencyMembership',
+  AgencyClient: 'AgencyClient',
+  AgencyClientEvent: 'AgencyClientEvent',
+  AgencySubscription: 'AgencySubscription',
+  AgencyQuotaReservation: 'AgencyQuotaReservation'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -83,7 +90,8 @@ export const EventScalarFieldEnum = {
   endAt: 'endAt',
   timezone: 'timezone',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  agencyWorkspaceId: 'agencyWorkspaceId'
 } as const
 
 export type EventScalarFieldEnum = (typeof EventScalarFieldEnum)[keyof typeof EventScalarFieldEnum]
@@ -114,6 +122,22 @@ export const CeremonyScalarFieldEnum = {
 export type CeremonyScalarFieldEnum = (typeof CeremonyScalarFieldEnum)[keyof typeof CeremonyScalarFieldEnum]
 
 
+export const CeremonyProgramItemScalarFieldEnum = {
+  id: 'id',
+  ceremonyId: 'ceremonyId',
+  position: 'position',
+  title: 'title',
+  description: 'description',
+  location: 'location',
+  startsAt: 'startsAt',
+  durationMinutes: 'durationMinutes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CeremonyProgramItemScalarFieldEnum = (typeof CeremonyProgramItemScalarFieldEnum)[keyof typeof CeremonyProgramItemScalarFieldEnum]
+
+
 export const OutboxMessageScalarFieldEnum = {
   id: 'id',
   eventType: 'eventType',
@@ -125,6 +149,95 @@ export const OutboxMessageScalarFieldEnum = {
 } as const
 
 export type OutboxMessageScalarFieldEnum = (typeof OutboxMessageScalarFieldEnum)[keyof typeof OutboxMessageScalarFieldEnum]
+
+
+export const AgencyWorkspaceScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  ownerSubject: 'ownerSubject',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgencyWorkspaceScalarFieldEnum = (typeof AgencyWorkspaceScalarFieldEnum)[keyof typeof AgencyWorkspaceScalarFieldEnum]
+
+
+export const AgencyMembershipScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  subject: 'subject',
+  role: 'role',
+  status: 'status',
+  addedBy: 'addedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgencyMembershipScalarFieldEnum = (typeof AgencyMembershipScalarFieldEnum)[keyof typeof AgencyMembershipScalarFieldEnum]
+
+
+export const AgencyClientScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  name: 'name',
+  email: 'email',
+  phone: 'phone',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgencyClientScalarFieldEnum = (typeof AgencyClientScalarFieldEnum)[keyof typeof AgencyClientScalarFieldEnum]
+
+
+export const AgencyClientEventScalarFieldEnum = {
+  workspaceId: 'workspaceId',
+  clientId: 'clientId',
+  eventId: 'eventId',
+  createdAt: 'createdAt'
+} as const
+
+export type AgencyClientEventScalarFieldEnum = (typeof AgencyClientEventScalarFieldEnum)[keyof typeof AgencyClientEventScalarFieldEnum]
+
+
+export const AgencySubscriptionScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  planPackId: 'planPackId',
+  planKey: 'planKey',
+  planName: 'planName',
+  quotaCredits: 'quotaCredits',
+  priceMinor: 'priceMinor',
+  currency: 'currency',
+  priceScheduleId: 'priceScheduleId',
+  priceScheduleVersion: 'priceScheduleVersion',
+  status: 'status',
+  paymentOrderId: 'paymentOrderId',
+  paymentId: 'paymentId',
+  billingPeriodStart: 'billingPeriodStart',
+  billingPeriodEnd: 'billingPeriodEnd',
+  startsAt: 'startsAt',
+  endsAt: 'endsAt',
+  createdAt: 'createdAt'
+} as const
+
+export type AgencySubscriptionScalarFieldEnum = (typeof AgencySubscriptionScalarFieldEnum)[keyof typeof AgencySubscriptionScalarFieldEnum]
+
+
+export const AgencyQuotaReservationScalarFieldEnum = {
+  id: 'id',
+  subscriptionId: 'subscriptionId',
+  workspaceId: 'workspaceId',
+  eventId: 'eventId',
+  referenceKey: 'referenceKey',
+  credits: 'credits',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type AgencyQuotaReservationScalarFieldEnum = (typeof AgencyQuotaReservationScalarFieldEnum)[keyof typeof AgencyQuotaReservationScalarFieldEnum]
 
 
 export const SortOrder = {

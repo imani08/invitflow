@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { WalletService } from './wallet.service.js';
+import { walletPaymentCommand } from './payment-event-routing.js';
 
 type QueueMessage = { payload?: string; properties?: { headers?: Record<string, unknown> } };
 type Envelope = { eventType?: unknown; payload?: unknown };
@@ -37,18 +38,16 @@ export class PaymentConsumer implements OnModuleInit, OnModuleDestroy {
       if (typeof message.payload !== 'string' || message.payload.length > 250_000) continue;
       let envelope: Envelope;
       try { envelope = JSON.parse(message.payload) as Envelope; } catch { continue; }
-      if (!['payment.succeeded.v1', 'payment.refunded.v1'].includes(String(envelope.eventType)) || !envelope.payload || typeof envelope.payload !== 'object') continue;
-      const payload = envelope.payload as Record<string, unknown>;
-      const paymentId = payload['paymentId']; const ownerSubject = payload['ownerSubject']; const credits = payload['credits'];
-      if (typeof paymentId !== 'string' || !/^[0-9a-f-]{36}$/i.test(paymentId) || typeof ownerSubject !== 'string' || ownerSubject.length > 255 || !Number.isSafeInteger(credits) || (credits as number) < 1) continue;
+      const command = walletPaymentCommand(envelope.eventType, envelope.payload);
+      if (!command) continue;
       try {
-        if (envelope.eventType === 'payment.succeeded.v1') await this.wallet.credit(ownerSubject, `payment:${paymentId}:purchase`, { type: 'PURCHASE', referenceId: paymentId, credits });
-        else await this.wallet.reversePurchase(ownerSubject, paymentId, `payment:${paymentId}:refund`);
+        if (command.kind === 'CREDIT') await this.wallet.credit(command.ownerSubject, `payment:${command.paymentId}:purchase`, { type: 'PURCHASE', referenceId: command.paymentId, credits: command.credits });
+        else await this.wallet.reversePurchase(command.ownerSubject, command.paymentId, `payment:${command.paymentId}:refund`);
       } catch {
         const rawAttempts = message.properties?.headers?.['x-invitaflow-retry'];
         const parsedAttempts = typeof rawAttempts === 'number' ? rawAttempts : typeof rawAttempts === 'string' && /^\d{1,3}$/.test(rawAttempts) ? Number(rawAttempts) : 0;
         const attempts = Number.isSafeInteger(parsedAttempts) && parsedAttempts >= 0 ? parsedAttempts : 0;
-        const isRefund = envelope.eventType === 'payment.refunded.v1';
+        const isRefund = command.kind === 'REFUND';
         if (attempts >= 10) await this.republish(message.payload, 'invitaflow.dlx', 'wallet.payment-events.dead', message.properties?.headers);
         else await this.republish(message.payload, 'amq.default', isRefund ? 'wallet.payment-refunds.retry' : 'wallet.payment-events.retry', message.properties?.headers);
       }

@@ -29,11 +29,13 @@ export type AggregateCreditPack = {
 export type CreditPackAvgAggregateOutputType = {
   credits: number | null
   priceMinor: number | null
+  displayOrder: number | null
 }
 
 export type CreditPackSumAggregateOutputType = {
   credits: number | null
   priceMinor: number | null
+  displayOrder: number | null
 }
 
 export type CreditPackMinAggregateOutputType = {
@@ -44,6 +46,13 @@ export type CreditPackMinAggregateOutputType = {
   credits: number | null
   priceMinor: number | null
   currency: string | null
+  description: string | null
+  segment: string | null
+  displayOrder: number | null
+  badge: string | null
+  validFrom: Date | null
+  validUntil: Date | null
+  visible: boolean | null
   createdAt: Date | null
 }
 
@@ -55,6 +64,13 @@ export type CreditPackMaxAggregateOutputType = {
   credits: number | null
   priceMinor: number | null
   currency: string | null
+  description: string | null
+  segment: string | null
+  displayOrder: number | null
+  badge: string | null
+  validFrom: Date | null
+  validUntil: Date | null
+  visible: boolean | null
   createdAt: Date | null
 }
 
@@ -66,6 +82,13 @@ export type CreditPackCountAggregateOutputType = {
   credits: number
   priceMinor: number
   currency: number
+  description: number
+  segment: number
+  displayOrder: number
+  badge: number
+  validFrom: number
+  validUntil: number
+  visible: number
   createdAt: number
   _all: number
 }
@@ -74,11 +97,13 @@ export type CreditPackCountAggregateOutputType = {
 export type CreditPackAvgAggregateInputType = {
   credits?: true
   priceMinor?: true
+  displayOrder?: true
 }
 
 export type CreditPackSumAggregateInputType = {
   credits?: true
   priceMinor?: true
+  displayOrder?: true
 }
 
 export type CreditPackMinAggregateInputType = {
@@ -89,6 +114,13 @@ export type CreditPackMinAggregateInputType = {
   credits?: true
   priceMinor?: true
   currency?: true
+  description?: true
+  segment?: true
+  displayOrder?: true
+  badge?: true
+  validFrom?: true
+  validUntil?: true
+  visible?: true
   createdAt?: true
 }
 
@@ -100,6 +132,13 @@ export type CreditPackMaxAggregateInputType = {
   credits?: true
   priceMinor?: true
   currency?: true
+  description?: true
+  segment?: true
+  displayOrder?: true
+  badge?: true
+  validFrom?: true
+  validUntil?: true
+  visible?: true
   createdAt?: true
 }
 
@@ -111,6 +150,13 @@ export type CreditPackCountAggregateInputType = {
   credits?: true
   priceMinor?: true
   currency?: true
+  description?: true
+  segment?: true
+  displayOrder?: true
+  badge?: true
+  validFrom?: true
+  validUntil?: true
+  visible?: true
   createdAt?: true
   _all?: true
 }
@@ -209,6 +255,13 @@ export type CreditPackGroupByOutputType = {
   credits: number
   priceMinor: number
   currency: string
+  description: string
+  segment: string
+  displayOrder: number
+  badge: string | null
+  validFrom: Date | null
+  validUntil: Date | null
+  visible: boolean
   createdAt: Date
   _count: CreditPackCountAggregateOutputType | null
   _avg: CreditPackAvgAggregateOutputType | null
@@ -243,6 +296,13 @@ export type CreditPackWhereInput = {
   credits?: Prisma.IntFilter<"CreditPack"> | number
   priceMinor?: Prisma.IntFilter<"CreditPack"> | number
   currency?: Prisma.StringFilter<"CreditPack"> | string
+  description?: Prisma.StringFilter<"CreditPack"> | string
+  segment?: Prisma.StringFilter<"CreditPack"> | string
+  displayOrder?: Prisma.IntFilter<"CreditPack"> | number
+  badge?: Prisma.StringNullableFilter<"CreditPack"> | string | null
+  validFrom?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  validUntil?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  visible?: Prisma.BoolFilter<"CreditPack"> | boolean
   createdAt?: Prisma.DateTimeFilter<"CreditPack"> | Date | string
   schedule?: Prisma.XOR<Prisma.PriceScheduleScalarRelationFilter, Prisma.PriceScheduleWhereInput>
 }
@@ -255,6 +315,13 @@ export type CreditPackOrderByWithRelationInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
+  description?: Prisma.SortOrder
+  segment?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
+  badge?: Prisma.SortOrderInput | Prisma.SortOrder
+  validFrom?: Prisma.SortOrderInput | Prisma.SortOrder
+  validUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  visible?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   schedule?: Prisma.PriceScheduleOrderByWithRelationInput
 }
@@ -271,6 +338,13 @@ export type CreditPackWhereUniqueInput = Prisma.AtLeast<{
   credits?: Prisma.IntFilter<"CreditPack"> | number
   priceMinor?: Prisma.IntFilter<"CreditPack"> | number
   currency?: Prisma.StringFilter<"CreditPack"> | string
+  description?: Prisma.StringFilter<"CreditPack"> | string
+  segment?: Prisma.StringFilter<"CreditPack"> | string
+  displayOrder?: Prisma.IntFilter<"CreditPack"> | number
+  badge?: Prisma.StringNullableFilter<"CreditPack"> | string | null
+  validFrom?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  validUntil?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  visible?: Prisma.BoolFilter<"CreditPack"> | boolean
   createdAt?: Prisma.DateTimeFilter<"CreditPack"> | Date | string
   schedule?: Prisma.XOR<Prisma.PriceScheduleScalarRelationFilter, Prisma.PriceScheduleWhereInput>
 }, "id" | "scheduleId_key">
@@ -283,6 +357,13 @@ export type CreditPackOrderByWithAggregationInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
+  description?: Prisma.SortOrder
+  segment?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
+  badge?: Prisma.SortOrderInput | Prisma.SortOrder
+  validFrom?: Prisma.SortOrderInput | Prisma.SortOrder
+  validUntil?: Prisma.SortOrderInput | Prisma.SortOrder
+  visible?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.CreditPackCountOrderByAggregateInput
   _avg?: Prisma.CreditPackAvgOrderByAggregateInput
@@ -302,6 +383,13 @@ export type CreditPackScalarWhereWithAggregatesInput = {
   credits?: Prisma.IntWithAggregatesFilter<"CreditPack"> | number
   priceMinor?: Prisma.IntWithAggregatesFilter<"CreditPack"> | number
   currency?: Prisma.StringWithAggregatesFilter<"CreditPack"> | string
+  description?: Prisma.StringWithAggregatesFilter<"CreditPack"> | string
+  segment?: Prisma.StringWithAggregatesFilter<"CreditPack"> | string
+  displayOrder?: Prisma.IntWithAggregatesFilter<"CreditPack"> | number
+  badge?: Prisma.StringNullableWithAggregatesFilter<"CreditPack"> | string | null
+  validFrom?: Prisma.DateTimeNullableWithAggregatesFilter<"CreditPack"> | Date | string | null
+  validUntil?: Prisma.DateTimeNullableWithAggregatesFilter<"CreditPack"> | Date | string | null
+  visible?: Prisma.BoolWithAggregatesFilter<"CreditPack"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"CreditPack"> | Date | string
 }
 
@@ -312,6 +400,13 @@ export type CreditPackCreateInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
   schedule: Prisma.PriceScheduleCreateNestedOneWithoutPacksInput
 }
@@ -324,6 +419,13 @@ export type CreditPackUncheckedCreateInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
 }
 
@@ -334,6 +436,13 @@ export type CreditPackUpdateInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   schedule?: Prisma.PriceScheduleUpdateOneRequiredWithoutPacksNestedInput
 }
@@ -346,6 +455,13 @@ export type CreditPackUncheckedUpdateInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -357,6 +473,13 @@ export type CreditPackCreateManyInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
 }
 
@@ -367,6 +490,13 @@ export type CreditPackUpdateManyMutationInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -378,6 +508,13 @@ export type CreditPackUncheckedUpdateManyInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -404,12 +541,20 @@ export type CreditPackCountOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
+  description?: Prisma.SortOrder
+  segment?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
+  badge?: Prisma.SortOrder
+  validFrom?: Prisma.SortOrder
+  validUntil?: Prisma.SortOrder
+  visible?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type CreditPackAvgOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
 }
 
 export type CreditPackMaxOrderByAggregateInput = {
@@ -420,6 +565,13 @@ export type CreditPackMaxOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
+  description?: Prisma.SortOrder
+  segment?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
+  badge?: Prisma.SortOrder
+  validFrom?: Prisma.SortOrder
+  validUntil?: Prisma.SortOrder
+  visible?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -431,12 +583,20 @@ export type CreditPackMinOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
+  description?: Prisma.SortOrder
+  segment?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
+  badge?: Prisma.SortOrder
+  validFrom?: Prisma.SortOrder
+  validUntil?: Prisma.SortOrder
+  visible?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
 export type CreditPackSumOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
+  displayOrder?: Prisma.SortOrder
 }
 
 export type CreditPackCreateNestedManyWithoutScheduleInput = {
@@ -481,6 +641,10 @@ export type CreditPackUncheckedUpdateManyWithoutScheduleNestedInput = {
   deleteMany?: Prisma.CreditPackScalarWhereInput | Prisma.CreditPackScalarWhereInput[]
 }
 
+export type NullableDateTimeFieldUpdateOperationsInput = {
+  set?: Date | string | null
+}
+
 export type CreditPackCreateWithoutScheduleInput = {
   id?: string
   key: string
@@ -488,6 +652,13 @@ export type CreditPackCreateWithoutScheduleInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
 }
 
@@ -498,6 +669,13 @@ export type CreditPackUncheckedCreateWithoutScheduleInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
 }
 
@@ -538,6 +716,13 @@ export type CreditPackScalarWhereInput = {
   credits?: Prisma.IntFilter<"CreditPack"> | number
   priceMinor?: Prisma.IntFilter<"CreditPack"> | number
   currency?: Prisma.StringFilter<"CreditPack"> | string
+  description?: Prisma.StringFilter<"CreditPack"> | string
+  segment?: Prisma.StringFilter<"CreditPack"> | string
+  displayOrder?: Prisma.IntFilter<"CreditPack"> | number
+  badge?: Prisma.StringNullableFilter<"CreditPack"> | string | null
+  validFrom?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  validUntil?: Prisma.DateTimeNullableFilter<"CreditPack"> | Date | string | null
+  visible?: Prisma.BoolFilter<"CreditPack"> | boolean
   createdAt?: Prisma.DateTimeFilter<"CreditPack"> | Date | string
 }
 
@@ -548,6 +733,13 @@ export type CreditPackCreateManyScheduleInput = {
   credits: number
   priceMinor: number
   currency: string
+  description?: string
+  segment?: string
+  displayOrder?: number
+  badge?: string | null
+  validFrom?: Date | string | null
+  validUntil?: Date | string | null
+  visible?: boolean
   createdAt?: Date | string
 }
 
@@ -558,6 +750,13 @@ export type CreditPackUpdateWithoutScheduleInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -568,6 +767,13 @@ export type CreditPackUncheckedUpdateWithoutScheduleInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -578,6 +784,13 @@ export type CreditPackUncheckedUpdateManyWithoutScheduleInput = {
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  segment?: Prisma.StringFieldUpdateOperationsInput | string
+  displayOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  badge?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  validFrom?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  validUntil?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  visible?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -591,6 +804,13 @@ export type CreditPackSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   credits?: boolean
   priceMinor?: boolean
   currency?: boolean
+  description?: boolean
+  segment?: boolean
+  displayOrder?: boolean
+  badge?: boolean
+  validFrom?: boolean
+  validUntil?: boolean
+  visible?: boolean
   createdAt?: boolean
   schedule?: boolean | Prisma.PriceScheduleDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["creditPack"]>
@@ -603,6 +823,13 @@ export type CreditPackSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   credits?: boolean
   priceMinor?: boolean
   currency?: boolean
+  description?: boolean
+  segment?: boolean
+  displayOrder?: boolean
+  badge?: boolean
+  validFrom?: boolean
+  validUntil?: boolean
+  visible?: boolean
   createdAt?: boolean
   schedule?: boolean | Prisma.PriceScheduleDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["creditPack"]>
@@ -615,6 +842,13 @@ export type CreditPackSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   credits?: boolean
   priceMinor?: boolean
   currency?: boolean
+  description?: boolean
+  segment?: boolean
+  displayOrder?: boolean
+  badge?: boolean
+  validFrom?: boolean
+  validUntil?: boolean
+  visible?: boolean
   createdAt?: boolean
   schedule?: boolean | Prisma.PriceScheduleDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["creditPack"]>
@@ -627,10 +861,17 @@ export type CreditPackSelectScalar = {
   credits?: boolean
   priceMinor?: boolean
   currency?: boolean
+  description?: boolean
+  segment?: boolean
+  displayOrder?: boolean
+  badge?: boolean
+  validFrom?: boolean
+  validUntil?: boolean
+  visible?: boolean
   createdAt?: boolean
 }
 
-export type CreditPackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scheduleId" | "key" | "name" | "credits" | "priceMinor" | "currency" | "createdAt", ExtArgs["result"]["creditPack"]>
+export type CreditPackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "scheduleId" | "key" | "name" | "credits" | "priceMinor" | "currency" | "description" | "segment" | "displayOrder" | "badge" | "validFrom" | "validUntil" | "visible" | "createdAt", ExtArgs["result"]["creditPack"]>
 export type CreditPackInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   schedule?: boolean | Prisma.PriceScheduleDefaultArgs<ExtArgs>
 }
@@ -654,6 +895,13 @@ export type $CreditPackPayload<ExtArgs extends runtime.Types.Extensions.Internal
     credits: number
     priceMinor: number
     currency: string
+    description: string
+    segment: string
+    displayOrder: number
+    badge: string | null
+    validFrom: Date | null
+    validUntil: Date | null
+    visible: boolean
     createdAt: Date
   }, ExtArgs["result"]["creditPack"]>
   composites: {}
@@ -1086,6 +1334,13 @@ export interface CreditPackFieldRefs {
   readonly credits: Prisma.FieldRef<"CreditPack", 'Int'>
   readonly priceMinor: Prisma.FieldRef<"CreditPack", 'Int'>
   readonly currency: Prisma.FieldRef<"CreditPack", 'String'>
+  readonly description: Prisma.FieldRef<"CreditPack", 'String'>
+  readonly segment: Prisma.FieldRef<"CreditPack", 'String'>
+  readonly displayOrder: Prisma.FieldRef<"CreditPack", 'Int'>
+  readonly badge: Prisma.FieldRef<"CreditPack", 'String'>
+  readonly validFrom: Prisma.FieldRef<"CreditPack", 'DateTime'>
+  readonly validUntil: Prisma.FieldRef<"CreditPack", 'DateTime'>
+  readonly visible: Prisma.FieldRef<"CreditPack", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"CreditPack", 'DateTime'>
 }
     

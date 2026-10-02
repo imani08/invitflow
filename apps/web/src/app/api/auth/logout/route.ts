@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { destroySession, cookieOptions, sessionCookieName } from '@/lib/auth-session';
+import { isExpectedOrigin } from '@/lib/same-origin.mjs';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
-  const expectedOrigin = process.env['WEB_ORIGIN'] ?? 'http://localhost:3000';
-  if (request.headers.get('origin') !== expectedOrigin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  if (!isExpectedOrigin(request.headers.get('origin'), process.env['WEB_ORIGIN'] ?? 'http://localhost:3000'))
+    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(sessionCookieName())?.value;
   try {

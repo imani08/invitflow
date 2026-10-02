@@ -74,6 +74,11 @@ model InvitationBatch {
   status BatchStatus @default(RESERVING)
   idempotencyKey String @map("idempotency_key") @db.VarChar(255)
   reservationReference String @unique @map("reservation_reference") @db.VarChar(255)
+  agencyReservationReference String? @unique @map("agency_reservation_reference") @db.VarChar(255)
+  agencyWorkspaceId String? @map("agency_workspace_id") @db.Uuid
+  agencyReservedCredits Int @default(0) @map("agency_reserved_credits")
+  walletReservedCredits Int @default(0) @map("wallet_reserved_credits")
+  reservationReleasePending Boolean @default(false) @map("reservation_release_pending")
   totalItems Int @map("total_items")
   completedItems Int @default(0) @map("completed_items")
   failedItems Int @default(0) @map("failed_items")

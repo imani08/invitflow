@@ -29,7 +29,7 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
       const response = await fetch(`${this.api.replace(/\/$/, '')}/api/exchanges/%2F/invitaflow.events/publish`, {
         method: 'POST',
         headers: { authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ properties: { delivery_mode: 2, message_id: message.id, content_type: 'application/json', type: message.eventType }, routing_key: message.eventType, payload: JSON.stringify({ eventId: message.id, eventType: message.eventType, eventVersion: 1, occurredAt: message.createdAt.toISOString(), producer: 'payments-service', correlationId: null, causationId: message.aggregateId, payload: message.payload }), payload_encoding: 'string' }),
+        body: JSON.stringify({ properties: { delivery_mode: 2, message_id: message.id, content_type: 'application/json', type: message.eventType }, routing_key: message.eventType, payload: JSON.stringify({ eventId: message.id, eventType: message.eventType, eventVersion: message.eventType.endsWith('.v2') ? 2 : 1, occurredAt: message.createdAt.toISOString(), producer: 'payments-service', correlationId: null, causationId: message.aggregateId, payload: message.payload }), payload_encoding: 'string' }),
         signal: AbortSignal.timeout(4_000),
       });
       if (!response.ok) throw new Error('RabbitMQ rejected an outbox event');

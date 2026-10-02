@@ -1016,6 +1016,11 @@ export const InvitationBatchScalarFieldEnum = {
   status: 'status',
   idempotencyKey: 'idempotencyKey',
   reservationReference: 'reservationReference',
+  agencyReservationReference: 'agencyReservationReference',
+  agencyWorkspaceId: 'agencyWorkspaceId',
+  agencyReservedCredits: 'agencyReservedCredits',
+  walletReservedCredits: 'walletReservedCredits',
+  reservationReleasePending: 'reservationReleasePending',
   totalItems: 'totalItems',
   completedItems: 'completedItems',
   failedItems: 'failedItems',
@@ -1208,6 +1213,13 @@ export type EnumBatchStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Pris
  * Reference to a field of type 'BatchStatus[]'
  */
 export type ListEnumBatchStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BatchStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 

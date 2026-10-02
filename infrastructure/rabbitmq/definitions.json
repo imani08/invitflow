@@ -84,6 +84,34 @@
       }
     },
     {
+      "name": "agencies.payment-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "invitaflow.dlx",
+        "x-dead-letter-routing-key": "agencies.payment-events.dead"
+      }
+    },
+    {
+      "name": "agencies.payment-events.retry",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-message-ttl": 30000,
+        "x-dead-letter-exchange": "invitaflow.events",
+        "x-dead-letter-routing-key": "payment.succeeded.v2"
+      }
+    },
+    {
+      "name": "agencies.payment-events.dead",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "wallet.payment-events.retry",
       "vhost": "/",
       "durable": true,
@@ -284,9 +312,33 @@
     {
       "source": "invitaflow.events",
       "vhost": "/",
+      "destination": "agencies.payment-events",
+      "destination_type": "queue",
+      "routing_key": "payment.succeeded.v2",
+      "arguments": {}
+    },
+    {
+      "source": "invitaflow.events",
+      "vhost": "/",
       "destination": "wallet.payment-events",
       "destination_type": "queue",
       "routing_key": "payment.refunded.v1",
+      "arguments": {}
+    },
+    {
+      "source": "invitaflow.events",
+      "vhost": "/",
+      "destination": "wallet.payment-events",
+      "destination_type": "queue",
+      "routing_key": "payment.succeeded.v2",
+      "arguments": {}
+    },
+    {
+      "source": "invitaflow.events",
+      "vhost": "/",
+      "destination": "wallet.payment-events",
+      "destination_type": "queue",
+      "routing_key": "payment.refunded.v2",
       "arguments": {}
     },
     {

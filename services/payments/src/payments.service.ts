@@ -6,8 +6,14 @@ import { PrismaService } from './prisma.service.js';
 import { MockPaymentProvider, selectedProvider, type PaymentProvider, type PaymentSnapshot, type ProviderConfirmation } from './payment-provider.js';
 
 const keyPattern = /^[A-Za-z0-9._:@/-]{1,200}$/;
-type CatalogPack = { id: string; key: string; name: string; credits: number; priceMinor: number; currency: string };
-type Catalog = { scheduleId: string; version: number; effectiveAt: string; packs: CatalogPack[] };
+const POSTGRES_INT_MAX = 2_147_483_647;
+type CheckoutQuote = {
+  orderType: 'CREDIT_PURCHASE' | 'AGENCY_SUBSCRIPTION';
+  packId: string; packKey: string; packName: string; quantity: number; unitCredits: number; credits: number;
+  currency: string; unitPriceMinor: number; discountMinor: number; discountRule: string | null;
+  taxEnabled: boolean; taxRule: string | null; taxRateBps: number; taxMinor: number;
+  subtotalMinor: number; totalMinor: number; priceScheduleId: string; priceScheduleVersion: number;
+};
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('Le corps de la requête est invalide.');
@@ -26,39 +32,75 @@ export class PaymentsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  private async catalog(authorization: string): Promise<Catalog> {
-    const response = await fetch(`${this.billingUrl.replace(/\/$/, '')}/v1/pricing`, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(5_000) }).catch(() => { throw new ServiceUnavailableException('La grille tarifaire est momentanément indisponible.'); });
+  private async checkoutQuote(authorization: string, packId: string, quantity: number, orderType: CheckoutQuote['orderType']): Promise<CheckoutQuote> {
+    const response = await fetch(`${this.billingUrl.replace(/\/$/, '')}/v1/checkout-quotes`, {
+      method: 'POST', headers: { authorization, 'content-type': 'application/json' },
+      body: JSON.stringify({ packId, quantity, orderType }), cache: 'no-store', signal: AbortSignal.timeout(5_000),
+    }).catch(() => { throw new ServiceUnavailableException('Billing est momentanément indisponible.'); });
     const result: unknown = await response.json().catch(() => null);
-    if (!response.ok || !result || typeof result !== 'object' || !Array.isArray((result as { packs?: unknown }).packs)) throw new BadGatewayException('La grille tarifaire n’a pas pu être vérifiée.');
-    const catalog = result as Catalog;
-    if (!Number.isInteger(catalog.version) || typeof catalog.effectiveAt !== 'string') throw new BadGatewayException('La grille tarifaire a un format invalide.');
-    return catalog;
+    if (!response.ok) throw new BadGatewayException('Billing n’a pas pu établir le devis de commande.');
+    if (!result || typeof result !== 'object' || Array.isArray(result)) throw new BadGatewayException('Le devis Billing est invalide.');
+    const quote = result as CheckoutQuote;
+    const integerFields = [quote.quantity, quote.unitCredits, quote.credits, quote.unitPriceMinor, quote.discountMinor, quote.taxRateBps, quote.taxMinor, quote.subtotalMinor, quote.totalMinor, quote.priceScheduleVersion];
+    const expectedTax = quote.taxEnabled ? Math.round(quote.subtotalMinor * quote.taxRateBps / 10_000) : 0;
+    if (
+      quote.orderType !== orderType || quote.packId !== packId || quote.quantity !== quantity || !integerFields.every(Number.isSafeInteger) ||
+      quote.unitCredits < 1 || quote.credits !== quote.unitCredits * quote.quantity ||
+      quote.unitPriceMinor < 1 || quote.discountMinor < 0 || quote.discountMinor > quote.unitPriceMinor * quote.quantity ||
+      quote.subtotalMinor !== quote.unitPriceMinor * quote.quantity - quote.discountMinor ||
+      quote.taxMinor !== expectedTax || quote.totalMinor !== quote.subtotalMinor + quote.taxMinor ||
+      [quote.credits, quote.unitPriceMinor, quote.subtotalMinor, quote.taxMinor, quote.totalMinor].some((value) => value > POSTGRES_INT_MAX) ||
+      !/^[A-Z]{3}$/.test(quote.currency) || !/^[0-9a-f-]{36}$/i.test(quote.priceScheduleId) || quote.priceScheduleVersion < 1 ||
+      typeof quote.taxEnabled !== 'boolean' ||
+      (quote.taxEnabled && (typeof quote.taxRule !== 'string' || !quote.taxRule || quote.taxRateBps < 1 || quote.taxRateBps > 10_000)) ||
+      (!quote.taxEnabled && (quote.taxRule !== null || quote.taxRateBps !== 0 || quote.taxMinor !== 0)) ||
+      (quote.discountMinor > 0 && (typeof quote.discountRule !== 'string' || !quote.discountRule)) ||
+      (quote.discountMinor === 0 && quote.discountRule !== null)
+    ) throw new BadGatewayException('Le devis Billing ne respecte pas les invariants de calcul.');
+    return quote;
   }
 
   async create(ownerSubject: string, authorization: string, rawKey: string, body: unknown) {
     const idempotencyKey = key(rawKey); const input = object(body);
-    if (Object.keys(input).some((field) => field !== 'packId')) throw new BadRequestException('Seul le pack tarifaire peut être choisi.');
+    if (Object.keys(input).some((field) => !['packId', 'quantity', 'orderType', 'businessReference', 'expectedPriceScheduleId', 'expectedPriceScheduleVersion'].includes(field))) throw new BadRequestException('Champs de commande non autorisés.');
     if (typeof input['packId'] !== 'string') throw new BadRequestException('Le pack demandé est invalide.');
+    const orderType = input['orderType'] === undefined ? 'CREDIT_PURCHASE' : input['orderType'];
+    if (orderType !== 'CREDIT_PURCHASE' && orderType !== 'AGENCY_SUBSCRIPTION') throw new BadRequestException('Le type de commande est invalide.');
+    const businessReference: string | null = typeof input['businessReference'] === 'string' ? input['businessReference'] : null;
+    if (orderType === 'AGENCY_SUBSCRIPTION' && (!businessReference || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(businessReference))) throw new BadRequestException('La souscription agence référencée est invalide.');
+    if (orderType === 'CREDIT_PURCHASE' && input['businessReference'] !== undefined) throw new BadRequestException('Une commande de crédits ne peut pas référencer une souscription agence.');
+    const expectedScheduleId = input['expectedPriceScheduleId'];
+    const expectedScheduleVersion = input['expectedPriceScheduleVersion'];
+    if (orderType === 'AGENCY_SUBSCRIPTION' && (typeof expectedScheduleId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(expectedScheduleId) || !Number.isSafeInteger(expectedScheduleVersion) || (expectedScheduleVersion as number) < 1)) throw new BadRequestException('Agency checkout must identify the published price snapshot');
     const packId = validUuid(input['packId'], 'Le pack');
+    const quantity = input['quantity'] === undefined ? 1 : input['quantity'];
+    if (!Number.isSafeInteger(quantity) || (quantity as number) < 1 || (quantity as number) > 100) throw new BadRequestException('La quantité doit être comprise entre 1 et 100.');
     let order = await this.prisma.paymentOrder.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject, idempotencyKey } }, include: { payment: true } });
-    if (order && order.packId !== packId) throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour un autre pack.');
+    if (order && (order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion)))) throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre commande.');
     if (!order) {
-      const catalog = await this.catalog(authorization);
-      if (!Number.isInteger(catalog.version) || typeof catalog.effectiveAt !== 'string') throw new BadGatewayException('La grille tarifaire a un format invalide.');
-      const pack = catalog.packs.find((entry) => entry.id === packId);
-      if (!pack || !Number.isSafeInteger(pack.credits) || pack.credits < 1 || !Number.isSafeInteger(pack.priceMinor) || pack.priceMinor < 1 || !/^[A-Z]{3}$/.test(pack.currency)) throw new NotFoundException('Ce pack n’est plus disponible dans la grille tarifaire active.');
-      this.provider.validateCheckout?.(pack.priceMinor, pack.currency);
+      const quote = await this.checkoutQuote(authorization, packId, quantity as number, orderType);
+      if (orderType === 'AGENCY_SUBSCRIPTION' && (quote.priceScheduleId !== expectedScheduleId || quote.priceScheduleVersion !== expectedScheduleVersion)) throw new ConflictException('Agency plan pricing changed; reload the plan before checkout');
+      this.provider.validateCheckout?.(quote.totalMinor, quote.currency);
       try {
         order = await this.prisma.$transaction(async (tx) => {
-          const createdOrder = await tx.paymentOrder.create({ data: { ownerSubject, packId, packKey: pack.key, packName: pack.name, credits: pack.credits, amountMinor: pack.priceMinor, currency: pack.currency, priceScheduleId: validUuid(catalog.scheduleId, 'La grille tarifaire'), priceScheduleVersion: catalog.version, idempotencyKey } });
+          const createdOrder = await tx.paymentOrder.create({ data: {
+            orderType, businessReference: businessReference ?? null, ownerSubject, packId, packKey: quote.packKey, packName: quote.packName, credits: quote.credits,
+            metadata: { packId: quote.packId, packKey: quote.packKey, orderType, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion },
+            unitCredits: quote.unitCredits, quantity: quote.quantity, unitPriceMinor: quote.unitPriceMinor,
+            discountMinor: quote.discountMinor, discountRule: quote.discountRule,
+            taxEnabled: quote.taxEnabled, taxRule: quote.taxRule, taxRateBps: quote.taxRateBps, taxMinor: quote.taxMinor,
+            subtotalMinor: quote.subtotalMinor, totalMinor: quote.totalMinor, amountMinor: quote.totalMinor,
+            currency: quote.currency, priceScheduleId: validUuid(quote.priceScheduleId, 'La grille tarifaire'),
+            priceScheduleVersion: quote.priceScheduleVersion, idempotencyKey,
+          } });
           const payment = await tx.payment.create({ data: { orderId: createdOrder.id, provider: this.provider.name, status: 'CREATED' } });
-          await tx.outboxMessage.create({ data: { eventType: 'payment.created.v1', aggregateId: createdOrder.id, payload: { orderId: createdOrder.id, paymentId: payment.id, ownerSubject, packId, packKey: pack.key, credits: pack.credits, amountMinor: pack.priceMinor, currency: pack.currency, priceScheduleVersion: catalog.version } } });
+          await tx.outboxMessage.create({ data: { eventType: 'payment.created.v1', aggregateId: createdOrder.id, payload: { orderId: createdOrder.id, paymentId: payment.id, ownerSubject, ...quote } } });
           return tx.paymentOrder.findUniqueOrThrow({ where: { id: createdOrder.id }, include: { payment: true } });
         });
       } catch (error) {
         if (!duplicate(error)) throw error;
         order = await this.prisma.paymentOrder.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject, idempotencyKey } }, include: { payment: true } });
-        if (!order || order.packId !== packId) throw new ConflictException('La clé de commande existe déjà.');
+        if (!order || order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion))) throw new ConflictException('La clé de commande existe déjà.');
       }
     }
     if (!order?.payment) throw new ConflictException('La commande ne possède pas de paiement associé.');
@@ -103,8 +145,8 @@ export class PaymentsService {
     return this.present(order, order.payment);
   }
 
-  private present(order: { id: string; packId: string; packKey: string; packName: string; credits: number; amountMinor: number; currency: string; priceScheduleVersion: number; status: string; createdAt: Date }, payment: { id: string; provider: string; status: string; checkoutUrl: string | null; providerTransactionId: string | null; providerRefundId: string | null; failureCode: string | null; paidAt: Date | null; createdAt: Date }) {
-    return { id: payment.id, status: payment.status, provider: payment.provider, checkoutUrl: payment.checkoutUrl, providerTransactionId: payment.providerTransactionId, providerRefundId: payment.providerRefundId, failureCode: payment.failureCode, paidAt: payment.paidAt, createdAt: payment.createdAt, order: { id: order.id, status: order.status, packId: order.packId, packKey: order.packKey, packName: order.packName, credits: order.credits, amountMinor: order.amountMinor, currency: order.currency, priceScheduleVersion: order.priceScheduleVersion, createdAt: order.createdAt }, mockConfirmationAvailable: payment.provider === 'mock' && process.env['NODE_ENV'] !== 'production' && ['PENDING', 'PROCESSING'].includes(payment.status) };
+  private present(order: { id: string; orderType: string; packId: string; packKey: string; packName: string; credits: number; unitCredits: number; quantity: number; unitPriceMinor: number; discountMinor: number; discountRule: string | null; taxEnabled: boolean; taxRule: string | null; taxRateBps: number; taxMinor: number; subtotalMinor: number; totalMinor: number; amountMinor: number; currency: string; priceScheduleId: string; priceScheduleVersion: number; status: string; createdAt: Date }, payment: { id: string; provider: string; status: string; checkoutUrl: string | null; providerTransactionId: string | null; providerRefundId: string | null; failureCode: string | null; paidAt: Date | null; createdAt: Date }) {
+    return { id: payment.id, status: payment.status, provider: payment.provider, checkoutUrl: payment.checkoutUrl, providerTransactionId: payment.providerTransactionId, providerRefundId: payment.providerRefundId, failureCode: payment.failureCode, paidAt: payment.paidAt, createdAt: payment.createdAt, order: { id: order.id, orderType: order.orderType, status: order.status, packId: order.packId, packKey: order.packKey, packName: order.packName, credits: order.credits, unitCredits: order.unitCredits, quantity: order.quantity, unitPriceMinor: order.unitPriceMinor, discountMinor: order.discountMinor, discountRule: order.discountRule, taxEnabled: order.taxEnabled, taxRule: order.taxRule, taxRateBps: order.taxRateBps, taxMinor: order.taxMinor, subtotalMinor: order.subtotalMinor, totalMinor: order.totalMinor, amountMinor: order.amountMinor, currency: order.currency, priceScheduleId: order.priceScheduleId, priceScheduleVersion: order.priceScheduleVersion, createdAt: order.createdAt }, mockConfirmationAvailable: payment.provider === 'mock' && process.env['NODE_ENV'] !== 'production' && ['PENDING', 'PROCESSING'].includes(payment.status) };
   }
 
   async mockConfirm(ownerSubject: string, paymentId: string) {
@@ -144,7 +186,9 @@ export class PaymentsService {
       await tx.payment.update({ where: { id }, data: { status: result.status, providerRefundId: result.providerRefundId } });
       if (result.status === 'REFUNDED') {
         await tx.paymentOrder.update({ where: { id: current.orderId }, data: { status: 'REFUNDED' } });
-        await tx.outboxMessage.create({ data: { eventType: 'payment.refunded.v1', aggregateId: id, payload: { paymentId: id, orderId: current.orderId, ownerSubject: current.order.ownerSubject, credits: current.order.credits, amountMinor: current.order.amountMinor, currency: current.order.currency, provider: current.provider, providerRefundId: result.providerRefundId } } });
+        const payload = { paymentId: id, orderId: current.orderId, orderType: current.order.orderType, ownerSubject: current.order.ownerSubject, customerSubject: current.order.ownerSubject, credits: current.order.credits, amountMinor: current.order.amountMinor, currency: current.order.currency, provider: current.provider, providerRefundId: result.providerRefundId, metadata: { packId: current.order.packId, packKey: current.order.packKey, priceScheduleId: current.order.priceScheduleId, priceScheduleVersion: current.order.priceScheduleVersion } };
+        if (current.order.orderType === 'CREDIT_PURCHASE') await tx.outboxMessage.create({ data: { eventType: 'payment.refunded.v1', aggregateId: id, payload } });
+        await tx.outboxMessage.create({ data: { eventType: 'payment.refunded.v2', aggregateId: id, payload } });
       }
       return tx.payment.findUniqueOrThrow({ where: { id }, include: { order: true } });
     });
@@ -204,7 +248,9 @@ export class PaymentsService {
         await tx.payment.update({ where: { id: paymentId }, data: { status: newStatus, providerTransactionId: newStatus === 'SUCCEEDED' ? confirmation.transactionId : payment.providerTransactionId, paidAt: newStatus === 'SUCCEEDED' ? (payment.paidAt ?? now) : null, failureCode: newStatus === 'FAILED' ? 'provider_declined' : null } });
         if (newStatus === 'SUCCEEDED') {
           await tx.paymentOrder.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
-          await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v1', aggregateId: payment.id, payload: { paymentId: payment.id, orderId: payment.orderId, ownerSubject: payment.order.ownerSubject, credits: payment.order.credits, amountMinor: payment.order.amountMinor, currency: payment.order.currency, provider: providerName, providerTransactionId: confirmation.transactionId, priceScheduleVersion: payment.order.priceScheduleVersion } } });
+          const payload = { paymentId: payment.id, orderId: payment.orderId, orderType: payment.order.orderType, businessReference: payment.order.businessReference, ownerSubject: payment.order.ownerSubject, customerSubject: payment.order.ownerSubject, credits: payment.order.credits, amountMinor: payment.order.amountMinor, currency: payment.order.currency, provider: providerName, providerTransactionId: confirmation.transactionId, metadata: payment.order.metadata };
+          if (payment.order.orderType === 'CREDIT_PURCHASE') await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v1', aggregateId: payment.id, payload } });
+          await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v2', aggregateId: payment.id, payload } });
         } else if (newStatus === 'FAILED') {
           await tx.outboxMessage.create({ data: { eventType: 'payment.failed.v1', aggregateId: payment.id, payload: { paymentId: payment.id, orderId: payment.orderId, ownerSubject: payment.order.ownerSubject, failureCode: 'provider_declined' } } });
         }

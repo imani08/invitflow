@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { requiredEnv } from './env.js';
 
-type EventReference = { id: string };
+type EventReference = { id: string; ceremonies?: { ceremonyType?: unknown }[] };
 
 @Injectable()
 export class EventsClient {
@@ -17,6 +17,8 @@ export class EventsClient {
     if (!response.ok) throw new ServiceUnavailableException('Events service request failed');
     const value: unknown = await response.json();
     if (!value || typeof value !== 'object' || (value as EventReference).id !== eventId) throw new ServiceUnavailableException('Events service returned an invalid event');
-    return value as EventReference;
+    const event = value as EventReference;
+    if (event.ceremonies !== undefined && (!Array.isArray(event.ceremonies) || event.ceremonies.some((item) => !item || typeof item !== 'object'))) throw new ServiceUnavailableException('Events service returned invalid ceremony data');
+    return event;
   }
 }

@@ -15,7 +15,7 @@ import {
   RsvpStatus,
 } from '../generated/prisma/client.js';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PrismaService } from './prisma.service.js';
@@ -31,6 +31,36 @@ const esc = (s: unknown) =>
     /[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
+const safeGuestFilename = (value: unknown) => {
+  const base = String(value ?? 'invite')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase()
+    .slice(0, 80);
+  return base || 'invite';
+};
+async function renderStaticPdf(html: string) {
+  const dir = await mkdtemp(join(tmpdir(), 'invitaflow-readme-'));
+  const input = join(dir, 'readme.html');
+  const output = join(dir, 'LISEZ-MOI.pdf');
+  try {
+    await writeFile(input, html, 'utf8');
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(process.env['CHROMIUM_PATH'] ?? '/usr/bin/chromium-browser', [
+        '--headless', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+        `--print-to-pdf=${output}`, `file://${input}`,
+      ], { stdio: 'ignore' });
+      const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Readme PDF render timeout')); }, 30_000);
+      child.once('error', (error) => { clearTimeout(timer); reject(error); });
+      child.once('exit', (code) => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error('Readme PDF render failed')); });
+    });
+    const pdf = await readFile(output);
+    if (!pdf.subarray(0, 5).equals(Buffer.from('%PDF-'))) throw new Error('Readme PDF output is invalid');
+    return pdf;
+  } finally { await rm(dir, { recursive: true, force: true }); }
+}
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
@@ -168,10 +198,30 @@ export class InvitationService implements OnModuleInit {
       where: { ownerSubject_idempotencyKey: { ownerSubject: owner, idempotencyKey } },
       include: { items: true },
     });
-    if (prior) return prior;
+    if (prior) {
+      const requestedGuests = [...new Set(validatedGuestIds)].sort();
+      const priorGuests = [...new Set(prior.items.map((item) => item.guestId))].sort();
+      if (
+        prior.eventId !== eventId ||
+        prior.designId !== designId ||
+        (requestedGuests.length > 0 &&
+          (requestedGuests.length !== priorGuests.length ||
+            requestedGuests.some((guestId, index) => guestId !== priorGuests[index])))
+      )
+        throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre demande de génération.');
+      return prior;
+    }
     const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization);
     const batchId = randomUUID();
     const ref = `invitation-batch/${batchId}`;
+    const eventsUrl = requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '');
+    const agencyWorkspaceId = typeof snapshot.event?.agencyWorkspaceId === 'string' ? snapshot.event.agencyWorkspaceId : null;
+    let agencyReservedCredits = 0;
+    let agencyReference: string | null = null;
+    if (agencyWorkspaceId) {
+      agencyReference = `agency-invitation-batch/${batchId}`;
+    }
+    let walletReservedCredits = snapshot.guests.length;
     await this.prisma.$transaction(async (tx) => {
       const created = await tx.invitationBatch.create({
         data: {
@@ -182,6 +232,10 @@ export class InvitationService implements OnModuleInit {
           designVersion: snapshot.design.version,
           idempotencyKey,
           reservationReference: ref,
+          agencyReservationReference: agencyReference,
+          agencyWorkspaceId,
+          agencyReservedCredits,
+          walletReservedCredits,
           totalItems: snapshot.guests.length,
         },
       });
@@ -237,6 +291,17 @@ export class InvitationService implements OnModuleInit {
       return created;
     });
     try {
+      if (agencyReference && agencyWorkspaceId) {
+        const quotaReservation = await fetch(`${eventsUrl}/v1/agencies/${encodeURIComponent(agencyWorkspaceId)}/quota/reservations`, { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': `reserve-${batchId}` }, body: JSON.stringify({ eventId, referenceKey: agencyReference, credits: snapshot.guests.length, allowPartial: true }), signal: AbortSignal.timeout(10_000) });
+        const reservation: unknown = await quotaReservation.json().catch(() => null);
+        const reserved = reservation && typeof reservation === 'object' ? (reservation as Record<string, unknown>)['reservedCredits'] : undefined;
+        if (!quotaReservation.ok || !Number.isSafeInteger(reserved) || (reserved as number) < 0 || (reserved as number) > snapshot.guests.length) throw new Error(`agency quota reservation failed ${quotaReservation.status}`);
+        agencyReservedCredits = reserved as number;
+        walletReservedCredits = snapshot.guests.length - agencyReservedCredits;
+        if (agencyReservedCredits === 0) agencyReference = null;
+        await this.prisma.invitationBatch.update({ where: { id: batchId }, data: { agencyReservationReference: agencyReference, agencyReservedCredits, walletReservedCredits } });
+      }
+      if (walletReservedCredits > 0) {
       const response = await fetch(
         `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations`,
         {
@@ -246,11 +311,12 @@ export class InvitationService implements OnModuleInit {
             'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
             'idempotency-key': `reserve-${batchId}`,
           },
-          body: JSON.stringify({ credits: snapshot.guests.length, referenceId: ref }),
+          body: JSON.stringify({ credits: walletReservedCredits, referenceId: ref }),
           signal: AbortSignal.timeout(10000),
         },
       );
       if (!response.ok) throw new Error(`wallet reservation failed ${response.status}`);
+      }
       await this.prisma.$transaction(async (tx) => {
         await tx.invitationBatch.update({
           where: { id: batchId },
@@ -265,27 +331,20 @@ export class InvitationService implements OnModuleInit {
         });
       });
     } catch {
-      await fetch(
-        `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations/${encodeURIComponent(ref)}/release`,
-        {
-          method: 'POST',
-          headers: {
-            'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
-            'idempotency-key': `release-${ref}`,
-          },
-          signal: AbortSignal.timeout(10000),
-        },
-      ).catch(() => undefined);
-      await this.prisma.$transaction([
-        this.prisma.invitationBatch.update({
+      const [walletReleased, agencyReleased] = await Promise.all([
+        walletReservedCredits > 0 ? this.releaseReservation(owner, ref, walletReservedCredits) : Promise.resolve(true),
+        agencyReference && agencyWorkspaceId ? this.releaseAgencyQuota(agencyWorkspaceId, agencyReference, authorization) : Promise.resolve(true),
+      ]);
+      await this.prisma.$transaction(async (tx) => {
+        await tx.invitationBatch.update({
           where: { id: batchId },
-          data: { status: BatchStatus.FAILED },
-        }),
-        this.prisma.batchItem.updateMany({
+          data: { status: BatchStatus.FAILED, reservationReleasePending: !walletReleased || !agencyReleased },
+        });
+        await tx.batchItem.updateMany({
           where: { batchId },
           data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' },
-        }),
-      ]);
+        });
+      });
       throw new ConflictException('Les crédits n’ont pas pu être réservés; le lot a été arrêté.');
     }
     return this.getBatch(owner, batchId);
@@ -385,9 +444,21 @@ export class InvitationService implements OnModuleInit {
     return this.getBatch(owner, id);
   }
   private async settle(
-    batch: { ownerSubject: string; reservationReference: string },
+    batch: { ownerSubject: string; reservationReference: string; agencyWorkspaceId: string | null; agencyReservationReference: string | null; agencyReservedCredits: number; walletReservedCredits: number },
     consumedCredits: number,
   ) {
+    const agencyReserved = batch.agencyReservedCredits ?? 0;
+    const walletReserved = batch.walletReservedCredits ?? Math.max(0, consumedCredits);
+    const agencyConsumed = Math.min(consumedCredits, agencyReserved);
+    if (batch.agencyWorkspaceId && batch.agencyReservationReference) {
+      const agencyResponse = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/internal/agencies/${encodeURIComponent(batch.agencyWorkspaceId)}/quota/${encodeURIComponent(batch.agencyReservationReference)}/settle`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'idempotency-key': `agency-settle-${batch.agencyReservationReference}` },
+        body: JSON.stringify({ consumedCredits: agencyConsumed }), signal: AbortSignal.timeout(10_000),
+      });
+      if (!agencyResponse.ok) throw new Error('Agency quota settlement failed');
+    }
+    const walletConsumed = Math.min(walletReserved, Math.max(0, consumedCredits - agencyReserved));
+    if (walletReserved < 1) return;
     const response = await fetch(
       `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(batch.ownerSubject)}/reservations/${encodeURIComponent(batch.reservationReference)}/settle`,
       {
@@ -397,11 +468,65 @@ export class InvitationService implements OnModuleInit {
           'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
           'idempotency-key': `settle-${batch.reservationReference}`,
         },
-        body: JSON.stringify({ consumedCredits }),
+        body: JSON.stringify({ consumedCredits: walletConsumed }),
         signal: AbortSignal.timeout(10000),
       },
     );
     if (!response.ok) throw new Error('Wallet settlement failed');
+  }
+  private async releaseReservation(owner: string, reference: string, credits: number) {
+    try {
+      const response = await fetch(
+        `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations/${encodeURIComponent(reference)}/release`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
+            'idempotency-key': `release-${reference}`,
+          },
+          body: JSON.stringify({ credits }),
+          signal: AbortSignal.timeout(10000),
+        },
+      );
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+  private async releaseAgencyQuota(workspaceId: string, reference: string, authorization: string) {
+    try {
+      const response = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/agencies/${encodeURIComponent(workspaceId)}/quota/${encodeURIComponent(reference)}/release`, { method: 'POST', headers: { authorization }, signal: AbortSignal.timeout(10_000) });
+      return response.ok;
+    } catch { return false; }
+  }
+  private async retryPendingReservationReleases() {
+    const batches = await this.prisma.invitationBatch.findMany({
+      where: { status: BatchStatus.FAILED, reservationReleasePending: true },
+      orderBy: { updatedAt: 'asc' },
+      take: 20,
+      select: { id: true, ownerSubject: true, reservationReference: true, totalItems: true, walletReservedCredits: true, agencyWorkspaceId: true, agencyReservationReference: true },
+      });
+      for (const batch of batches) {
+        // Rows created before the agency quota split are fully backed by Wallet.
+        const walletReservedCredits = batch.walletReservedCredits ?? batch.totalItems;
+        const [walletReleased, agencyReleased] = await Promise.all([
+          walletReservedCredits > 0 ? this.releaseReservation(batch.ownerSubject, batch.reservationReference, walletReservedCredits) : Promise.resolve(true),
+        batch.agencyWorkspaceId && batch.agencyReservationReference ? this.releaseAgencyQuotaInternal(batch.agencyWorkspaceId, batch.agencyReservationReference) : Promise.resolve(true),
+      ]);
+      if (walletReleased && agencyReleased) {
+        await this.prisma.invitationBatch.updateMany({
+          where: { id: batch.id, status: BatchStatus.FAILED, reservationReleasePending: true },
+          data: { reservationReleasePending: false },
+        });
+      }
+    }
+  }
+  private async releaseAgencyQuotaInternal(workspaceId: string, reference: string) {
+    try {
+      const response = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/internal/agencies/${encodeURIComponent(workspaceId)}/quota/${encodeURIComponent(reference)}/release`, { method: 'POST', headers: { 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN') }, signal: AbortSignal.timeout(10_000) });
+      return response.ok;
+    } catch { return false; }
   }
   async download(owner: string, batchId: string, itemId?: string) {
     const batch = await this.prisma.invitationBatch.findFirst({
@@ -680,6 +805,7 @@ export class InvitationService implements OnModuleInit {
     if (this.busy) return;
     this.busy = true;
     try {
+      await this.retryPendingReservationReleases();
       await this.consumeRenderQueue();
       await this.prisma.batchItem.updateMany({
         where: {
@@ -859,13 +985,15 @@ export class InvitationService implements OnModuleInit {
           made.flatMap((i) => (i.objectKey ? [this.storage.delete(i.objectKey)] : [])),
         );
       if (!failed && made.length) {
+        const event = object(object(made[0]!.snapshot).eventSnapshot);
+        const readme = await renderStaticPdf(`<!doctype html><html lang="fr"><meta charset="utf-8"><style>@page{size:A4;margin:22mm}body{font:12pt Arial,sans-serif;color:#29251f;line-height:1.55}h1{font: bold 26pt Georgia;color:#684d3e;margin:0 0 8mm}h2{font: bold 15pt Georgia;color:#684d3e;margin:9mm 0 3mm}.meta{color:#655d57;border-bottom:1px solid #d8cabc;padding-bottom:5mm}.box{background:#f7f1e7;padding:5mm;border-radius:3mm}li{margin:2mm 0}small{color:#675f59}</style><h1>Votre lot d’invitations</h1><p class="meta">${esc(event.name ?? 'Événement')} · ${made.length} invitation${made.length > 1 ? 's' : ''}</p><div class="box">Cette archive contient les invitations personnalisées au format PDF. Chaque fichier correspond à un invité et inclut son code QR privé lorsque celui-ci est activé pour l’invitation.</div><h2>Ouvrir les invitations</h2><ol><li>Décompressez le fichier ZIP sur votre téléphone ou ordinateur.</li><li>Ouvrez le dossier <b>invitations</b>.</li><li>Chaque PDF porte le nom de l’invité. Vous pouvez ensuite l’imprimer ou le partager individuellement.</li></ol><h2>Réponses des invités</h2><p>Les invités peuvent utiliser le code QR de leur PDF pour consulter l’invitation et répondre en ligne. Conservez les PDF privés et transmettez chacun uniquement à la personne concernée.</p><h2>Besoin d’aide ?</h2><p>Retrouvez le lot dans InvitaFlow, dans la page des invitations de l’événement. Le ZIP n’est disponible qu’après la fin complète du rendu.</p><small>Document généré automatiquement par InvitaFlow.</small></html>`);
         const zip = createZip(
           await Promise.all(
             made.map(async (i) => ({
-              name: `${i.guestId}.pdf`,
+              name: `invitations/${safeGuestFilename(object(object(i.snapshot).guestSnapshot).fullName)}--${i.guestId.slice(0, 8)}.pdf`,
               bytes: await this.storage.get(i.objectKey!),
             })),
-          ),
+          ).then((files) => [...files, { name: 'LISEZ-MOI.pdf', bytes: readme }]),
         );
         await this.storage.put(`batches/${id}.zip`, zip, 'application/zip');
       }

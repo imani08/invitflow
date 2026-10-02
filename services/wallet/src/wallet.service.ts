@@ -107,9 +107,11 @@ export class WalletService {
     try {
       await this.prisma.$transaction(async (tx) => {
         const wallet = await this.ensureWallet(tx, ownerSubject);
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM wallets WHERE id = ${wallet.id}::uuid FOR UPDATE`);
         const previous = await tx.walletReservation.findUnique({ where: { walletId_referenceId: { walletId: wallet.id, referenceId } } });
         if (previous) {
           if (previous.credits !== credits) throw new ConflictException('Cette référence est déjà réservée pour un autre montant.');
+          if (previous.status !== ReservationStatus.RESERVED) throw new ConflictException('Cette référence de crédits a déjà été finalisée.');
           return;
         }
         const usedKey = await tx.walletEntry.findUnique({ where: { idempotencyKey: key } });
@@ -131,20 +133,39 @@ export class WalletService {
     return { ...reservation, ...(await this.summary(ownerSubject)) };
   }
 
-  async finalizeReservation(owner: string, rawReference: string, rawKey: string, finalStatus: FinalStatus) {
+  async finalizeReservation(owner: string, rawReference: string, rawKey: string, finalStatus: FinalStatus, rawBody?: unknown) {
     const ownerSubject = validOwner(owner); const referenceId = validReference(rawReference); const key = validKey(rawKey);
+    let releaseCredits: number | undefined;
+    if (rawBody !== undefined) {
+      const input = record(rawBody);
+      if (Object.keys(input).some((name) => name !== 'credits')) throw new BadRequestException('Champs de libération non autorisés.');
+      if (input['credits'] !== undefined) releaseCredits = positiveCredits(input['credits']);
+    }
+    if (finalStatus === 'RELEASED' && releaseCredits === undefined) throw new BadRequestException('La libération exige le nombre de crédits à clôturer.');
+    if (finalStatus === 'CONSUMED' && rawBody !== undefined) throw new BadRequestException('La consommation directe ne prend pas de corps.');
     const final = finalStatus === 'CONSUMED' ? ReservationStatus.CONSUMED : ReservationStatus.RELEASED;
     const type = finalStatus === 'CONSUMED' ? WalletEntryType.CONSUMPTION : WalletEntryType.RELEASE;
     const eventType = finalStatus === 'CONSUMED' ? 'credits.consumed.v1' : 'credits.released.v1';
     const wallet = await this.getWallet(ownerSubject);
     const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM wallets WHERE id = ${wallet.id}::uuid FOR UPDATE`);
       const prior = await tx.walletEntry.findUnique({ where: { idempotencyKey: key } });
       if (prior) {
         if (prior.walletId !== wallet.id || prior.referenceId !== referenceId || prior.type !== type) throw new ConflictException('La clé d’idempotence a déjà été utilisée pour une autre opération.');
         return tx.walletReservation.findUniqueOrThrow({ where: { walletId_referenceId: { walletId: wallet.id, referenceId } } });
       }
+      const priorReservation = await tx.walletReservation.findUnique({ where: { idempotencyKey: key } });
+      if (priorReservation) {
+        if (finalStatus === 'RELEASED' && priorReservation.walletId === wallet.id && priorReservation.referenceId === referenceId && priorReservation.status === ReservationStatus.RELEASED && priorReservation.credits === releaseCredits) return priorReservation;
+        throw new ConflictException('La clé d’idempotence a déjà été utilisée pour une autre opération.');
+      }
       const reservation = await tx.walletReservation.findUnique({ where: { walletId_referenceId: { walletId: wallet.id, referenceId } } });
-      if (!reservation) throw new NotFoundException('Réservation de crédits introuvable.');
+      if (!reservation) {
+        if (finalStatus !== 'RELEASED' || releaseCredits === undefined) throw new NotFoundException('Réservation de crédits introuvable.');
+        const tombstone = await tx.walletReservation.create({ data: { walletId: wallet.id, referenceId, credits: releaseCredits, status: ReservationStatus.RELEASED, idempotencyKey: key, completedAt: new Date() } });
+        await tx.outboxMessage.create({ data: { eventType: 'credits.release-confirmed-without-reservation.v1', aggregateId: wallet.id, payload: { walletId: wallet.id, ownerSubject, referenceId, releasedCredits: releaseCredits, entryId: null } } });
+        return tombstone;
+      }
       if (reservation.status !== ReservationStatus.RESERVED) throw new ConflictException('Cette réservation a déjà été finalisée.');
       const updated = await tx.walletReservation.updateMany({ where: { id: reservation.id, status: ReservationStatus.RESERVED }, data: { status: final, completedAt: new Date() } });
       if (!updated.count) throw new ConflictException('Cette réservation a déjà été finalisée.');

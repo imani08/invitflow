@@ -196,6 +196,63 @@
       ],
       "title": "Utilisation de la capacité de connexions PostgreSQL",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "invitaflow-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 46 },
+      "id": 10,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(redis_keyspace_hits_total{job=\"redis-exporter\"}[5m])) / (sum(rate(redis_keyspace_hits_total{job=\"redis-exporter\"}[5m])) + sum(rate(redis_keyspace_misses_total{job=\"redis-exporter\"}[5m])))",
+          "legendFormat": "Hit ratio",
+          "refId": "A"
+        }
+      ],
+      "title": "Ratio de hits Redis",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "invitaflow-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 46 },
+      "id": 11,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes{job=\"redis-exporter\"}",
+          "legendFormat": "Mémoire utilisée",
+          "refId": "A"
+        }
+      ],
+      "title": "Mémoire Redis utilisée",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "invitaflow-prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 46 },
+      "id": 12,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "expr": "redis_connected_clients{job=\"redis-exporter\"}",
+          "legendFormat": "Clients connectés",
+          "refId": "A"
+        }
+      ],
+      "title": "Clients connectés à Redis",
+      "type": "timeseries"
     }
   ],
   "refresh": "30s",

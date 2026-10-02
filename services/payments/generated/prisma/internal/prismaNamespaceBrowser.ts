@@ -76,11 +76,25 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 
 export const PaymentOrderScalarFieldEnum = {
   id: 'id',
+  orderType: 'orderType',
+  businessReference: 'businessReference',
+  metadata: 'metadata',
   ownerSubject: 'ownerSubject',
   packId: 'packId',
   packKey: 'packKey',
   packName: 'packName',
   credits: 'credits',
+  unitCredits: 'unitCredits',
+  quantity: 'quantity',
+  unitPriceMinor: 'unitPriceMinor',
+  discountMinor: 'discountMinor',
+  discountRule: 'discountRule',
+  taxEnabled: 'taxEnabled',
+  taxRule: 'taxRule',
+  taxRateBps: 'taxRateBps',
+  taxMinor: 'taxMinor',
+  subtotalMinor: 'subtotalMinor',
+  totalMinor: 'totalMinor',
   amountMinor: 'amountMinor',
   currency: 'currency',
   priceScheduleId: 'priceScheduleId',
@@ -159,6 +173,14 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
 export const JsonNullValueInput = {
   JsonNull: JsonNull
 } as const
@@ -174,14 +196,6 @@ export const QueryMode = {
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
 
 
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
 export const JsonNullValueFilter = {
   DbNull: DbNull,
   JsonNull: JsonNull,
@@ -189,4 +203,12 @@ export const JsonNullValueFilter = {
 } as const
 
 export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 

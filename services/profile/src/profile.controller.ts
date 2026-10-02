@@ -124,10 +124,11 @@ export class ProfileController {
     });
     if (!current) return { cancelled: false };
 
+    const cancelledAt = new Date();
     const result = await this.prisma.$transaction(async (tx) => {
       const changed = await tx.accountDeletionRequest.updateMany({
         where: { id: current.id, status: 'PENDING' },
-        data: { status: 'CANCELLED', cancelledAt: new Date() },
+        data: { status: 'CANCELLED', cancelledAt },
       });
       if (!changed.count) return false;
       await tx.outboxMessage.create({
@@ -137,7 +138,7 @@ export class ProfileController {
           payload: {
             requestId: current.id,
             identitySubject,
-            cancelledAt: new Date().toISOString(),
+            cancelledAt: cancelledAt.toISOString(),
             schemaVersion: 1,
           },
         },

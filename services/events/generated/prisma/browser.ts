@@ -28,7 +28,42 @@ export type Event = Prisma.EventModel
  */
 export type Ceremony = Prisma.CeremonyModel
 /**
+ * Model CeremonyProgramItem
+ * 
+ */
+export type CeremonyProgramItem = Prisma.CeremonyProgramItemModel
+/**
  * Model OutboxMessage
  * 
  */
 export type OutboxMessage = Prisma.OutboxMessageModel
+/**
+ * Model AgencyWorkspace
+ * 
+ */
+export type AgencyWorkspace = Prisma.AgencyWorkspaceModel
+/**
+ * Model AgencyMembership
+ * 
+ */
+export type AgencyMembership = Prisma.AgencyMembershipModel
+/**
+ * Model AgencyClient
+ * 
+ */
+export type AgencyClient = Prisma.AgencyClientModel
+/**
+ * Model AgencyClientEvent
+ * 
+ */
+export type AgencyClientEvent = Prisma.AgencyClientEventModel
+/**
+ * Model AgencySubscription
+ * 
+ */
+export type AgencySubscription = Prisma.AgencySubscriptionModel
+/**
+ * Model AgencyQuotaReservation
+ * 
+ */
+export type AgencyQuotaReservation = Prisma.AgencyQuotaReservationModel

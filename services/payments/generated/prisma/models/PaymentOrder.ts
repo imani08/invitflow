@@ -28,23 +28,52 @@ export type AggregatePaymentOrder = {
 
 export type PaymentOrderAvgAggregateOutputType = {
   credits: number | null
+  unitCredits: number | null
+  quantity: number | null
+  unitPriceMinor: number | null
+  discountMinor: number | null
+  taxRateBps: number | null
+  taxMinor: number | null
+  subtotalMinor: number | null
+  totalMinor: number | null
   amountMinor: number | null
   priceScheduleVersion: number | null
 }
 
 export type PaymentOrderSumAggregateOutputType = {
   credits: number | null
+  unitCredits: number | null
+  quantity: number | null
+  unitPriceMinor: number | null
+  discountMinor: number | null
+  taxRateBps: number | null
+  taxMinor: number | null
+  subtotalMinor: number | null
+  totalMinor: number | null
   amountMinor: number | null
   priceScheduleVersion: number | null
 }
 
 export type PaymentOrderMinAggregateOutputType = {
   id: string | null
+  orderType: $Enums.PaymentOrderType | null
+  businessReference: string | null
   ownerSubject: string | null
   packId: string | null
   packKey: string | null
   packName: string | null
   credits: number | null
+  unitCredits: number | null
+  quantity: number | null
+  unitPriceMinor: number | null
+  discountMinor: number | null
+  discountRule: string | null
+  taxEnabled: boolean | null
+  taxRule: string | null
+  taxRateBps: number | null
+  taxMinor: number | null
+  subtotalMinor: number | null
+  totalMinor: number | null
   amountMinor: number | null
   currency: string | null
   priceScheduleId: string | null
@@ -57,11 +86,24 @@ export type PaymentOrderMinAggregateOutputType = {
 
 export type PaymentOrderMaxAggregateOutputType = {
   id: string | null
+  orderType: $Enums.PaymentOrderType | null
+  businessReference: string | null
   ownerSubject: string | null
   packId: string | null
   packKey: string | null
   packName: string | null
   credits: number | null
+  unitCredits: number | null
+  quantity: number | null
+  unitPriceMinor: number | null
+  discountMinor: number | null
+  discountRule: string | null
+  taxEnabled: boolean | null
+  taxRule: string | null
+  taxRateBps: number | null
+  taxMinor: number | null
+  subtotalMinor: number | null
+  totalMinor: number | null
   amountMinor: number | null
   currency: string | null
   priceScheduleId: string | null
@@ -74,11 +116,25 @@ export type PaymentOrderMaxAggregateOutputType = {
 
 export type PaymentOrderCountAggregateOutputType = {
   id: number
+  orderType: number
+  businessReference: number
+  metadata: number
   ownerSubject: number
   packId: number
   packKey: number
   packName: number
   credits: number
+  unitCredits: number
+  quantity: number
+  unitPriceMinor: number
+  discountMinor: number
+  discountRule: number
+  taxEnabled: number
+  taxRule: number
+  taxRateBps: number
+  taxMinor: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: number
   priceScheduleId: number
@@ -93,23 +149,52 @@ export type PaymentOrderCountAggregateOutputType = {
 
 export type PaymentOrderAvgAggregateInputType = {
   credits?: true
+  unitCredits?: true
+  quantity?: true
+  unitPriceMinor?: true
+  discountMinor?: true
+  taxRateBps?: true
+  taxMinor?: true
+  subtotalMinor?: true
+  totalMinor?: true
   amountMinor?: true
   priceScheduleVersion?: true
 }
 
 export type PaymentOrderSumAggregateInputType = {
   credits?: true
+  unitCredits?: true
+  quantity?: true
+  unitPriceMinor?: true
+  discountMinor?: true
+  taxRateBps?: true
+  taxMinor?: true
+  subtotalMinor?: true
+  totalMinor?: true
   amountMinor?: true
   priceScheduleVersion?: true
 }
 
 export type PaymentOrderMinAggregateInputType = {
   id?: true
+  orderType?: true
+  businessReference?: true
   ownerSubject?: true
   packId?: true
   packKey?: true
   packName?: true
   credits?: true
+  unitCredits?: true
+  quantity?: true
+  unitPriceMinor?: true
+  discountMinor?: true
+  discountRule?: true
+  taxEnabled?: true
+  taxRule?: true
+  taxRateBps?: true
+  taxMinor?: true
+  subtotalMinor?: true
+  totalMinor?: true
   amountMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -122,11 +207,24 @@ export type PaymentOrderMinAggregateInputType = {
 
 export type PaymentOrderMaxAggregateInputType = {
   id?: true
+  orderType?: true
+  businessReference?: true
   ownerSubject?: true
   packId?: true
   packKey?: true
   packName?: true
   credits?: true
+  unitCredits?: true
+  quantity?: true
+  unitPriceMinor?: true
+  discountMinor?: true
+  discountRule?: true
+  taxEnabled?: true
+  taxRule?: true
+  taxRateBps?: true
+  taxMinor?: true
+  subtotalMinor?: true
+  totalMinor?: true
   amountMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -139,11 +237,25 @@ export type PaymentOrderMaxAggregateInputType = {
 
 export type PaymentOrderCountAggregateInputType = {
   id?: true
+  orderType?: true
+  businessReference?: true
+  metadata?: true
   ownerSubject?: true
   packId?: true
   packKey?: true
   packName?: true
   credits?: true
+  unitCredits?: true
+  quantity?: true
+  unitPriceMinor?: true
+  discountMinor?: true
+  discountRule?: true
+  taxEnabled?: true
+  taxRule?: true
+  taxRateBps?: true
+  taxMinor?: true
+  subtotalMinor?: true
+  totalMinor?: true
   amountMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -243,11 +355,25 @@ export type PaymentOrderGroupByArgs<ExtArgs extends runtime.Types.Extensions.Int
 
 export type PaymentOrderGroupByOutputType = {
   id: string
+  orderType: $Enums.PaymentOrderType
+  businessReference: string | null
+  metadata: runtime.JsonValue | null
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity: number
+  unitPriceMinor: number
+  discountMinor: number
+  discountRule: string | null
+  taxEnabled: boolean
+  taxRule: string | null
+  taxRateBps: number
+  taxMinor: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -283,11 +409,25 @@ export type PaymentOrderWhereInput = {
   OR?: Prisma.PaymentOrderWhereInput[]
   NOT?: Prisma.PaymentOrderWhereInput | Prisma.PaymentOrderWhereInput[]
   id?: Prisma.UuidFilter<"PaymentOrder"> | string
+  orderType?: Prisma.EnumPaymentOrderTypeFilter<"PaymentOrder"> | $Enums.PaymentOrderType
+  businessReference?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  metadata?: Prisma.JsonNullableFilter<"PaymentOrder">
   ownerSubject?: Prisma.StringFilter<"PaymentOrder"> | string
   packId?: Prisma.UuidFilter<"PaymentOrder"> | string
   packKey?: Prisma.StringFilter<"PaymentOrder"> | string
   packName?: Prisma.StringFilter<"PaymentOrder"> | string
   credits?: Prisma.IntFilter<"PaymentOrder"> | number
+  unitCredits?: Prisma.IntFilter<"PaymentOrder"> | number
+  quantity?: Prisma.IntFilter<"PaymentOrder"> | number
+  unitPriceMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  discountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  discountRule?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  taxEnabled?: Prisma.BoolFilter<"PaymentOrder"> | boolean
+  taxRule?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  taxRateBps?: Prisma.IntFilter<"PaymentOrder"> | number
+  taxMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  subtotalMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  totalMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   amountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   currency?: Prisma.StringFilter<"PaymentOrder"> | string
   priceScheduleId?: Prisma.UuidFilter<"PaymentOrder"> | string
@@ -301,11 +441,25 @@ export type PaymentOrderWhereInput = {
 
 export type PaymentOrderOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  orderType?: Prisma.SortOrder
+  businessReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   ownerSubject?: Prisma.SortOrder
   packId?: Prisma.SortOrder
   packKey?: Prisma.SortOrder
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  discountRule?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxEnabled?: Prisma.SortOrder
+  taxRule?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -323,11 +477,25 @@ export type PaymentOrderWhereUniqueInput = Prisma.AtLeast<{
   AND?: Prisma.PaymentOrderWhereInput | Prisma.PaymentOrderWhereInput[]
   OR?: Prisma.PaymentOrderWhereInput[]
   NOT?: Prisma.PaymentOrderWhereInput | Prisma.PaymentOrderWhereInput[]
+  orderType?: Prisma.EnumPaymentOrderTypeFilter<"PaymentOrder"> | $Enums.PaymentOrderType
+  businessReference?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  metadata?: Prisma.JsonNullableFilter<"PaymentOrder">
   ownerSubject?: Prisma.StringFilter<"PaymentOrder"> | string
   packId?: Prisma.UuidFilter<"PaymentOrder"> | string
   packKey?: Prisma.StringFilter<"PaymentOrder"> | string
   packName?: Prisma.StringFilter<"PaymentOrder"> | string
   credits?: Prisma.IntFilter<"PaymentOrder"> | number
+  unitCredits?: Prisma.IntFilter<"PaymentOrder"> | number
+  quantity?: Prisma.IntFilter<"PaymentOrder"> | number
+  unitPriceMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  discountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  discountRule?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  taxEnabled?: Prisma.BoolFilter<"PaymentOrder"> | boolean
+  taxRule?: Prisma.StringNullableFilter<"PaymentOrder"> | string | null
+  taxRateBps?: Prisma.IntFilter<"PaymentOrder"> | number
+  taxMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  subtotalMinor?: Prisma.IntFilter<"PaymentOrder"> | number
+  totalMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   amountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   currency?: Prisma.StringFilter<"PaymentOrder"> | string
   priceScheduleId?: Prisma.UuidFilter<"PaymentOrder"> | string
@@ -341,11 +509,25 @@ export type PaymentOrderWhereUniqueInput = Prisma.AtLeast<{
 
 export type PaymentOrderOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  orderType?: Prisma.SortOrder
+  businessReference?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   ownerSubject?: Prisma.SortOrder
   packId?: Prisma.SortOrder
   packKey?: Prisma.SortOrder
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  discountRule?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxEnabled?: Prisma.SortOrder
+  taxRule?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -366,11 +548,25 @@ export type PaymentOrderScalarWhereWithAggregatesInput = {
   OR?: Prisma.PaymentOrderScalarWhereWithAggregatesInput[]
   NOT?: Prisma.PaymentOrderScalarWhereWithAggregatesInput | Prisma.PaymentOrderScalarWhereWithAggregatesInput[]
   id?: Prisma.UuidWithAggregatesFilter<"PaymentOrder"> | string
+  orderType?: Prisma.EnumPaymentOrderTypeWithAggregatesFilter<"PaymentOrder"> | $Enums.PaymentOrderType
+  businessReference?: Prisma.StringNullableWithAggregatesFilter<"PaymentOrder"> | string | null
+  metadata?: Prisma.JsonNullableWithAggregatesFilter<"PaymentOrder">
   ownerSubject?: Prisma.StringWithAggregatesFilter<"PaymentOrder"> | string
   packId?: Prisma.UuidWithAggregatesFilter<"PaymentOrder"> | string
   packKey?: Prisma.StringWithAggregatesFilter<"PaymentOrder"> | string
   packName?: Prisma.StringWithAggregatesFilter<"PaymentOrder"> | string
   credits?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  unitCredits?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  quantity?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  unitPriceMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  discountMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  discountRule?: Prisma.StringNullableWithAggregatesFilter<"PaymentOrder"> | string | null
+  taxEnabled?: Prisma.BoolWithAggregatesFilter<"PaymentOrder"> | boolean
+  taxRule?: Prisma.StringNullableWithAggregatesFilter<"PaymentOrder"> | string | null
+  taxRateBps?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  taxMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  subtotalMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  totalMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   amountMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   currency?: Prisma.StringWithAggregatesFilter<"PaymentOrder"> | string
   priceScheduleId?: Prisma.UuidWithAggregatesFilter<"PaymentOrder"> | string
@@ -383,11 +579,25 @@ export type PaymentOrderScalarWhereWithAggregatesInput = {
 
 export type PaymentOrderCreateInput = {
   id?: string
+  orderType?: $Enums.PaymentOrderType
+  businessReference?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity?: number
+  unitPriceMinor: number
+  discountMinor?: number
+  discountRule?: string | null
+  taxEnabled?: boolean
+  taxRule?: string | null
+  taxRateBps?: number
+  taxMinor?: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -401,11 +611,25 @@ export type PaymentOrderCreateInput = {
 
 export type PaymentOrderUncheckedCreateInput = {
   id?: string
+  orderType?: $Enums.PaymentOrderType
+  businessReference?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity?: number
+  unitPriceMinor: number
+  discountMinor?: number
+  discountRule?: string | null
+  taxEnabled?: boolean
+  taxRule?: string | null
+  taxRateBps?: number
+  taxMinor?: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -419,11 +643,25 @@ export type PaymentOrderUncheckedCreateInput = {
 
 export type PaymentOrderUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -437,11 +675,25 @@ export type PaymentOrderUpdateInput = {
 
 export type PaymentOrderUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -455,11 +707,25 @@ export type PaymentOrderUncheckedUpdateInput = {
 
 export type PaymentOrderCreateManyInput = {
   id?: string
+  orderType?: $Enums.PaymentOrderType
+  businessReference?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity?: number
+  unitPriceMinor: number
+  discountMinor?: number
+  discountRule?: string | null
+  taxEnabled?: boolean
+  taxRule?: string | null
+  taxRateBps?: number
+  taxMinor?: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -472,11 +738,25 @@ export type PaymentOrderCreateManyInput = {
 
 export type PaymentOrderUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -489,11 +769,25 @@ export type PaymentOrderUpdateManyMutationInput = {
 
 export type PaymentOrderUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -511,11 +805,25 @@ export type PaymentOrderOwnerSubjectIdempotencyKeyCompoundUniqueInput = {
 
 export type PaymentOrderCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  orderType?: Prisma.SortOrder
+  businessReference?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
   ownerSubject?: Prisma.SortOrder
   packId?: Prisma.SortOrder
   packKey?: Prisma.SortOrder
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  discountRule?: Prisma.SortOrder
+  taxEnabled?: Prisma.SortOrder
+  taxRule?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -528,17 +836,38 @@ export type PaymentOrderCountOrderByAggregateInput = {
 
 export type PaymentOrderAvgOrderByAggregateInput = {
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   priceScheduleVersion?: Prisma.SortOrder
 }
 
 export type PaymentOrderMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  orderType?: Prisma.SortOrder
+  businessReference?: Prisma.SortOrder
   ownerSubject?: Prisma.SortOrder
   packId?: Prisma.SortOrder
   packKey?: Prisma.SortOrder
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  discountRule?: Prisma.SortOrder
+  taxEnabled?: Prisma.SortOrder
+  taxRule?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -551,11 +880,24 @@ export type PaymentOrderMaxOrderByAggregateInput = {
 
 export type PaymentOrderMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  orderType?: Prisma.SortOrder
+  businessReference?: Prisma.SortOrder
   ownerSubject?: Prisma.SortOrder
   packId?: Prisma.SortOrder
   packKey?: Prisma.SortOrder
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  discountRule?: Prisma.SortOrder
+  taxEnabled?: Prisma.SortOrder
+  taxRule?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -568,6 +910,14 @@ export type PaymentOrderMinOrderByAggregateInput = {
 
 export type PaymentOrderSumOrderByAggregateInput = {
   credits?: Prisma.SortOrder
+  unitCredits?: Prisma.SortOrder
+  quantity?: Prisma.SortOrder
+  unitPriceMinor?: Prisma.SortOrder
+  discountMinor?: Prisma.SortOrder
+  taxRateBps?: Prisma.SortOrder
+  taxMinor?: Prisma.SortOrder
+  subtotalMinor?: Prisma.SortOrder
+  totalMinor?: Prisma.SortOrder
   amountMinor?: Prisma.SortOrder
   priceScheduleVersion?: Prisma.SortOrder
 }
@@ -581,12 +931,24 @@ export type StringFieldUpdateOperationsInput = {
   set?: string
 }
 
+export type EnumPaymentOrderTypeFieldUpdateOperationsInput = {
+  set?: $Enums.PaymentOrderType
+}
+
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
 export type IntFieldUpdateOperationsInput = {
   set?: number
   increment?: number
   decrement?: number
   multiply?: number
   divide?: number
+}
+
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 export type EnumOrderStatusFieldUpdateOperationsInput = {
@@ -613,11 +975,25 @@ export type PaymentOrderUpdateOneRequiredWithoutPaymentNestedInput = {
 
 export type PaymentOrderCreateWithoutPaymentInput = {
   id?: string
+  orderType?: $Enums.PaymentOrderType
+  businessReference?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity?: number
+  unitPriceMinor: number
+  discountMinor?: number
+  discountRule?: string | null
+  taxEnabled?: boolean
+  taxRule?: string | null
+  taxRateBps?: number
+  taxMinor?: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -630,11 +1006,25 @@ export type PaymentOrderCreateWithoutPaymentInput = {
 
 export type PaymentOrderUncheckedCreateWithoutPaymentInput = {
   id?: string
+  orderType?: $Enums.PaymentOrderType
+  businessReference?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject: string
   packId: string
   packKey: string
   packName: string
   credits: number
+  unitCredits: number
+  quantity?: number
+  unitPriceMinor: number
+  discountMinor?: number
+  discountRule?: string | null
+  taxEnabled?: boolean
+  taxRule?: string | null
+  taxRateBps?: number
+  taxMinor?: number
+  subtotalMinor: number
+  totalMinor: number
   amountMinor: number
   currency: string
   priceScheduleId: string
@@ -663,11 +1053,25 @@ export type PaymentOrderUpdateToOneWithWhereWithoutPaymentInput = {
 
 export type PaymentOrderUpdateWithoutPaymentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -680,11 +1084,25 @@ export type PaymentOrderUpdateWithoutPaymentInput = {
 
 export type PaymentOrderUncheckedUpdateWithoutPaymentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  orderType?: Prisma.EnumPaymentOrderTypeFieldUpdateOperationsInput | $Enums.PaymentOrderType
+  businessReference?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
   packId?: Prisma.StringFieldUpdateOperationsInput | string
   packKey?: Prisma.StringFieldUpdateOperationsInput | string
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
+  unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  quantity?: Prisma.IntFieldUpdateOperationsInput | number
+  unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  discountRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  taxRule?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  taxRateBps?: Prisma.IntFieldUpdateOperationsInput | number
+  taxMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  subtotalMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  totalMinor?: Prisma.IntFieldUpdateOperationsInput | number
   amountMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -699,11 +1117,25 @@ export type PaymentOrderUncheckedUpdateWithoutPaymentInput = {
 
 export type PaymentOrderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  orderType?: boolean
+  businessReference?: boolean
+  metadata?: boolean
   ownerSubject?: boolean
   packId?: boolean
   packKey?: boolean
   packName?: boolean
   credits?: boolean
+  unitCredits?: boolean
+  quantity?: boolean
+  unitPriceMinor?: boolean
+  discountMinor?: boolean
+  discountRule?: boolean
+  taxEnabled?: boolean
+  taxRule?: boolean
+  taxRateBps?: boolean
+  taxMinor?: boolean
+  subtotalMinor?: boolean
+  totalMinor?: boolean
   amountMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -717,11 +1149,25 @@ export type PaymentOrderSelect<ExtArgs extends runtime.Types.Extensions.Internal
 
 export type PaymentOrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  orderType?: boolean
+  businessReference?: boolean
+  metadata?: boolean
   ownerSubject?: boolean
   packId?: boolean
   packKey?: boolean
   packName?: boolean
   credits?: boolean
+  unitCredits?: boolean
+  quantity?: boolean
+  unitPriceMinor?: boolean
+  discountMinor?: boolean
+  discountRule?: boolean
+  taxEnabled?: boolean
+  taxRule?: boolean
+  taxRateBps?: boolean
+  taxMinor?: boolean
+  subtotalMinor?: boolean
+  totalMinor?: boolean
   amountMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -734,11 +1180,25 @@ export type PaymentOrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
 
 export type PaymentOrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  orderType?: boolean
+  businessReference?: boolean
+  metadata?: boolean
   ownerSubject?: boolean
   packId?: boolean
   packKey?: boolean
   packName?: boolean
   credits?: boolean
+  unitCredits?: boolean
+  quantity?: boolean
+  unitPriceMinor?: boolean
+  discountMinor?: boolean
+  discountRule?: boolean
+  taxEnabled?: boolean
+  taxRule?: boolean
+  taxRateBps?: boolean
+  taxMinor?: boolean
+  subtotalMinor?: boolean
+  totalMinor?: boolean
   amountMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -751,11 +1211,25 @@ export type PaymentOrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
 
 export type PaymentOrderSelectScalar = {
   id?: boolean
+  orderType?: boolean
+  businessReference?: boolean
+  metadata?: boolean
   ownerSubject?: boolean
   packId?: boolean
   packKey?: boolean
   packName?: boolean
   credits?: boolean
+  unitCredits?: boolean
+  quantity?: boolean
+  unitPriceMinor?: boolean
+  discountMinor?: boolean
+  discountRule?: boolean
+  taxEnabled?: boolean
+  taxRule?: boolean
+  taxRateBps?: boolean
+  taxMinor?: boolean
+  subtotalMinor?: boolean
+  totalMinor?: boolean
   amountMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -766,7 +1240,7 @@ export type PaymentOrderSelectScalar = {
   updatedAt?: boolean
 }
 
-export type PaymentOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "packId" | "packKey" | "packName" | "credits" | "amountMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "idempotencyKey" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["paymentOrder"]>
+export type PaymentOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderType" | "businessReference" | "metadata" | "ownerSubject" | "packId" | "packKey" | "packName" | "credits" | "unitCredits" | "quantity" | "unitPriceMinor" | "discountMinor" | "discountRule" | "taxEnabled" | "taxRule" | "taxRateBps" | "taxMinor" | "subtotalMinor" | "totalMinor" | "amountMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "idempotencyKey" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["paymentOrder"]>
 export type PaymentOrderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   payment?: boolean | Prisma.PaymentOrder$paymentArgs<ExtArgs>
 }
@@ -780,11 +1254,25 @@ export type $PaymentOrderPayload<ExtArgs extends runtime.Types.Extensions.Intern
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
+    orderType: $Enums.PaymentOrderType
+    businessReference: string | null
+    metadata: runtime.JsonValue | null
     ownerSubject: string
     packId: string
     packKey: string
     packName: string
     credits: number
+    unitCredits: number
+    quantity: number
+    unitPriceMinor: number
+    discountMinor: number
+    discountRule: string | null
+    taxEnabled: boolean
+    taxRule: string | null
+    taxRateBps: number
+    taxMinor: number
+    subtotalMinor: number
+    totalMinor: number
     amountMinor: number
     currency: string
     priceScheduleId: string
@@ -1218,11 +1706,25 @@ export interface Prisma__PaymentOrderClient<T, Null = never, ExtArgs extends run
  */
 export interface PaymentOrderFieldRefs {
   readonly id: Prisma.FieldRef<"PaymentOrder", 'String'>
+  readonly orderType: Prisma.FieldRef<"PaymentOrder", 'PaymentOrderType'>
+  readonly businessReference: Prisma.FieldRef<"PaymentOrder", 'String'>
+  readonly metadata: Prisma.FieldRef<"PaymentOrder", 'Json'>
   readonly ownerSubject: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly packId: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly packKey: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly packName: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly credits: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly unitCredits: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly quantity: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly unitPriceMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly discountMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly discountRule: Prisma.FieldRef<"PaymentOrder", 'String'>
+  readonly taxEnabled: Prisma.FieldRef<"PaymentOrder", 'Boolean'>
+  readonly taxRule: Prisma.FieldRef<"PaymentOrder", 'String'>
+  readonly taxRateBps: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly taxMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly subtotalMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly totalMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly amountMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly currency: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly priceScheduleId: Prisma.FieldRef<"PaymentOrder", 'String'>
