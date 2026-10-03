@@ -1233,15 +1233,7 @@ async function bootstrap() {
       bodyLimit: 6 * 1024 * 1024,
     }),
   );
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .addContentTypeParser(
-      'application/x-www-form-urlencoded',
-      { parseAs: 'string' },
-      (_request, body, done) => done(null, body),
-    );
-  await app.register(multipart, {
+await app.register(multipart, {
     limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0, parts: 1 },
   });
   app.enableCors({

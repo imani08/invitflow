@@ -248,6 +248,23 @@
       "arguments": {}
     },
     {
+      "name": "media.background-removal.jobs",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "invitaflow.dlx",
+        "x-dead-letter-routing-key": "media.background-removal.jobs.dead"
+      }
+    },
+    {
+      "name": "media.background-removal.jobs.dead",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "audit.events",
       "vhost": "/",
       "durable": true,
@@ -443,6 +460,14 @@
       "destination": "invitation.render.jobs",
       "destination_type": "queue",
       "routing_key": "render.requested",
+      "arguments": {}
+    },
+    {
+      "source": "invitaflow.events",
+      "vhost": "/",
+      "destination": "media.background-removal.jobs",
+      "destination_type": "queue",
+      "routing_key": "media.background-removal.requested.v1",
       "arguments": {}
     },
     {

@@ -1,0 +1,28 @@
+.template-poster { cursor: default; }
+.saved-list .saved-design {
+  display: grid;
+  grid-template-columns: 35px minmax(0, 1fr);
+  gap: 8px 11px;
+  align-items: center;
+  border-bottom: 1px solid #eee8df;
+  padding: 12px 0;
+  color: #4c463e;
+}
+.saved-design > span:nth-child(2) { min-width: 0; display: grid; gap: 5px; }
+.saved-design strong { font-size: 11px; overflow-wrap: anywhere; }
+.saved-design small { color: #938a7f; font-size: 9px; line-height: 1.5; }
+.saved-design > button {
+  grid-column: 2;
+  justify-self: start;
+  border: 1px solid #e6dfd5;
+  background: #fffdfa;
+  padding: 8px 10px;
+  color: #5a405f;
+  font: 500 10px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.saved-design > button:focus-visible,
+.template-choose:focus-visible { outline: 3px solid #725080; outline-offset: 2px; }
+.layer-icon.qr { background: #efe7f2; color: #32163a; }
+.template-capabilities { display: flex; flex-wrap: wrap; gap: 5px; margin: 11px 0; }
+.template-capabilities span { border-radius: 999px; background: #f2ede5; padding: 5px 8px; color: #695c6e; font-size: 9px; }

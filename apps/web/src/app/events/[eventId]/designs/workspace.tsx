@@ -1,12 +1,13 @@
 'use client';
 
-import { BrandLogo } from '@/components/brand-logo';
+import AppNavbar from '@/components/AppNavbar';
+import Link from 'next/link';
 import { resolveGuestPreviewValues } from '@/lib/design-guest-preview.mjs';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type Layer = Record<string, unknown> & { id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
-type Document = { schemaVersion: 1; metadata: Record<string, unknown>; canvas: { width: number; height: number; unit: 'px' }; theme: { category: string; style: string; palette: string[]; tokens: { primary: string; secondary: string; background: string; font: string } }; assets: Record<string, unknown>[]; elements: Layer[]; variables: { key: string; label: string; type: 'TEXT'; defaultValue: string; required: boolean }[]; constraints: { safeMargin: number; allowOverflow: boolean }; layouts: { id: string; name: string; width: number; height: number }[]; ceremonyRules: Record<string, unknown>[]; exportProfiles: { id: string; width: number; height: number; unit: 'px' }[]; version: number };
+type Layer = Record<string, unknown> & { id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE' | 'IMAGE' | 'QR'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; source?: 'guest_access_token'; assetId?: string; originalAssetId?: string; derivedAssetId?: string; sourceWidth?: number; sourceHeight?: number; fit?: 'cover' | 'contain'; cropX?: number; cropY?: number; cropScale?: number; opacity?: number; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
+type Document = { schemaVersion: 1; metadata: Record<string, unknown>; canvas: { width: number; height: number; unit: 'px' }; theme: { category: string; style: string; palette: string[]; tokens: { primary: string; secondary: string; background: string; font: string } }; assets: Record<string, unknown>[]; elements: Layer[]; variables: { key: string; label: string; type: 'TEXT'; defaultValue: string; required: boolean }[]; constraints: { safeMargin: number | { top: number; right: number; bottom: number; left: number }; allowOverflow: boolean }; layouts: { id: string; name: string; width: number; height: number }[]; ceremonyRules: Record<string, unknown>[]; exportProfiles: { id: string; width: number; height: number; unit: 'px' }[]; version: number };
 type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
 type PreviewGuest = { id: string; fullName: string; email: string | null; phone: string | null };
 type Template = { id: string; slug: string; version: number; name: string; description: string; category: string; style: string; tags: string[]; ceremonyTypes: string[]; preview: { background: string; accent: string; style: string } };
@@ -50,6 +51,62 @@ function svgRect(layer: Layer, scale: number, key: string) {
   return <rect key={key} x={layer.x * scale} y={layer.y * scale} width={layer.width * scale} height={layer.height * scale} fill={layer.fill === 'transparent' ? 'none' : layer.fill} stroke={layer.stroke} strokeWidth={(layer.strokeWidth ?? 0) * scale} />;
 }
 
+function imageBounds(layer: Layer) {
+  const sourceWidth = layer.sourceWidth ?? layer.width;
+  const sourceHeight = layer.sourceHeight ?? layer.height;
+  const ratio = sourceWidth / sourceHeight;
+  const boxRatio = layer.width / layer.height;
+  const baseWidth = (layer.fit ?? 'cover') === 'cover'
+    ? (ratio > boxRatio ? layer.height * ratio : layer.width)
+    : (ratio > boxRatio ? layer.width : layer.height * ratio);
+  const baseHeight = baseWidth / ratio;
+  const scale = Math.max(1, layer.cropScale ?? 1);
+  const width = baseWidth * scale;
+  const height = baseHeight * scale;
+  return {
+    x: layer.x + (layer.width - width) * ((layer.cropX ?? 50) / 100),
+    y: layer.y + (layer.height - height) * ((layer.cropY ?? 50) / 100),
+    width,
+    height,
+  };
+}
+
+function ImageInspector({ layer, canvas, uploading, backgroundStatus, backgroundDerivedAssetId, onRemoveBackground, onUseOriginal, onUseDerived, onRetryBackground, onReplace, onDelete, onChange }: {
+  layer: Layer;
+  canvas: Document['canvas'];
+  uploading: boolean;
+  backgroundStatus: 'NONE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+  backgroundDerivedAssetId?: string | undefined;
+  onRemoveBackground: () => void;
+  onUseOriginal: () => void;
+  onUseDerived: () => void;
+  onRetryBackground: () => void;
+  onReplace: () => void;
+  onDelete: () => void;
+  onChange: (change: (target: Layer) => void) => void;
+}) {
+  return <div className="inspector-fields">
+    <p className="inspector-note">La photo est stockée comme média WebP privé.</p>
+    <button className="ai-apply-action" disabled={uploading} onClick={onReplace}>{uploading ? 'Téléversement…' : 'Remplacer la photo'}</button>
+    <div className="background-removal-tools"><button disabled={uploading || backgroundStatus === 'PENDING' || backgroundStatus === 'PROCESSING' || backgroundStatus === 'READY'} onClick={backgroundStatus === 'FAILED' ? onRetryBackground : onRemoveBackground}>{backgroundStatus === 'PENDING' || backgroundStatus === 'PROCESSING' ? 'Suppression de l’arrière-plan en cours…' : backgroundStatus === 'FAILED' ? 'Réessayer' : 'Supprimer l’arrière-plan'}</button><div><button disabled={!layer.originalAssetId || layer.assetId === layer.originalAssetId} onClick={onUseOriginal}>Utiliser l’original</button><button disabled={backgroundStatus !== 'READY' || !backgroundDerivedAssetId || layer.assetId === backgroundDerivedAssetId} onClick={onUseDerived}>Sans arrière-plan</button></div>{backgroundStatus === 'FAILED' && <p role="status">La suppression de l’arrière-plan a échoué. Votre photo originale est toujours disponible.</p>}</div>
+    <div className="inspector-pair">
+      <label>Largeur<input type="number" min="1" max={canvas.width - layer.x} value={Math.round(layer.width)} onChange={(eventChange) => onChange((target) => { target.width = Number(eventChange.target.value); })} /></label>
+      <label>Hauteur<input type="number" min="1" max={canvas.height - layer.y} value={Math.round(layer.height)} onChange={(eventChange) => onChange((target) => { target.height = Number(eventChange.target.value); })} /></label>
+    </div>
+    <label>Recadrage<select value={layer.fit ?? 'cover'} onChange={(eventChange) => onChange((target) => { target.fit = eventChange.target.value as 'cover' | 'contain'; })}><option value="cover">Remplir le cadre</option><option value="contain">Afficher toute la photo</option></select></label>
+    <label>Zoom · {Number(layer.cropScale ?? 1).toFixed(1)}×<input type="range" min="1" max="3" step="0.05" value={layer.cropScale ?? 1} onChange={(eventChange) => onChange((target) => { target.cropScale = Number(eventChange.target.value); })} /></label>
+    <label>Recadrage horizontal<input type="range" min="0" max="100" value={layer.cropX ?? 50} onChange={(eventChange) => onChange((target) => { target.cropX = Number(eventChange.target.value); })} /></label>
+    <label>Recadrage vertical<input type="range" min="0" max="100" value={layer.cropY ?? 50} onChange={(eventChange) => onChange((target) => { target.cropY = Number(eventChange.target.value); })} /></label>
+    <label>Opacité<input type="range" min="0" max="1" step="0.05" value={layer.opacity ?? 1} onChange={(eventChange) => onChange((target) => { target.opacity = Number(eventChange.target.value); })} /></label>
+    <div className="inspector-pair">
+      <label>Rotation<input type="number" min="-360" max="360" value={layer.rotation} onChange={(eventChange) => onChange((target) => { target.rotation = Number(eventChange.target.value); })} /></label>
+      <label>Position X<input type="number" min="0" max={canvas.width - layer.width} value={Math.round(layer.x)} onChange={(eventChange) => onChange((target) => { target.x = Number(eventChange.target.value); })} /></label>
+    </div>
+    <label className="position-fields">Position Y<input type="number" min="0" max={canvas.height - layer.height} value={Math.round(layer.y)} onChange={(eventChange) => onChange((target) => { target.y = Number(eventChange.target.value); })} /></label>
+    <button className="danger-action" onClick={onDelete}>Supprimer cette photo</button>
+  </div>;
+}
+
 export function DesignsWorkspace({ event }: { event: Event }) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [designs, setDesigns] = useState<Design[]>([]);
@@ -73,11 +130,20 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [previewGuests, setPreviewGuests] = useState<PreviewGuest[]>([]);
   const [previewGuest, setPreviewGuest] = useState<PreviewGuest | null>(null);
+  const [previewTableName, setPreviewTableName] = useState('');
   const [previewGuestSearch, setPreviewGuestSearch] = useState('');
   const [previewGuestError, setPreviewGuestError] = useState('');
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [backgroundJobs, setBackgroundJobs] = useState<Record<string, { status: 'NONE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; derivedAssetId?: string }>>({});
+  const [imageUploading, setImageUploading] = useState(false);
+  const [showSafeMargins, setShowSafeMargins] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const imageReplaceLayerId = useRef<string | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef<{ id: number; layerId: string; x: number; y: number; moved: boolean; start: Document } | null>(null);
   const openLayer = selected?.document.elements.find((layer) => layer.id === activeLayerId) ?? null;
+  const selectedImageIds = selected?.document.elements.filter((layer) => layer.type === 'IMAGE' && typeof layer.assetId === 'string').map((layer) => layer.assetId!).join(',') ?? '';
+  const sourceImageIds = selected?.document.elements.filter((layer) => layer.type === 'IMAGE').map((layer) => layer.originalAssetId ?? layer.assetId).filter((assetId): assetId is string => typeof assetId === 'string').join(',') ?? '';
   const dirty = !!selected && !!savedDocument && (selected.name !== savedName || JSON.stringify(selected.document) !== JSON.stringify(savedDocument));
   const eventCeremonyTypes = useMemo(() => [...new Set(event.ceremonies.map((ceremony) => ceremony.ceremonyType.toUpperCase() === 'OTHER' ? 'CUSTOM' : ceremony.ceremonyType.toUpperCase()))], [event.ceremonies]);
   const filteredTemplates = useMemo(() => templates.filter((template) => (category === 'ALL' || template.category === category) && (ceremonyType === 'ALL' || template.ceremonyTypes.includes('UNIVERSAL') || template.ceremonyTypes.includes(ceremonyType))), [templates, category, ceremonyType]);
@@ -94,6 +160,40 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   }, [event.id]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const assetIds = selectedImageIds ? [...new Set(selectedImageIds.split(','))] : [];
+    if (!assetIds.length) { setImageUrls({}); return; }
+    void Promise.all(assetIds.map(async (assetId) => {
+      try {
+        const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/download-url?variant=preview`, { cache: 'no-store' });
+        const payload = await response.json() as { download?: { url?: string } };
+        return [assetId, response.ok && typeof payload.download?.url === 'string' ? payload.download.url : ''] as const;
+      } catch { return [assetId, ''] as const; }
+    })).then((entries) => {
+      if (!cancelled) setImageUrls(Object.fromEntries(entries));
+    });
+    return () => { cancelled = true; };
+  }, [selected?.id, selectedImageIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = sourceImageIds ? [...new Set(sourceImageIds.split(','))] : [];
+    const poll = async () => {
+      const entries = await Promise.all(ids.map(async (assetId) => {
+        try {
+          const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/background-removal`, { cache: 'no-store' });
+          const result = await response.json() as { status?: 'NONE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; derivedAssetId?: string };
+          return [assetId, { status: response.ok ? result.status ?? 'NONE' : 'FAILED', ...(result.derivedAssetId ? { derivedAssetId: result.derivedAssetId } : {}) }] as const;
+        } catch { return [assetId, { status: 'NONE' as const }] as const; }
+      }));
+      if (!cancelled) setBackgroundJobs((jobs) => ({ ...jobs, ...Object.fromEntries(entries) }));
+    };
+    void poll();
+    const timer = ids.length ? setInterval(() => void poll(), 2500) : undefined;
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
+  }, [event.id, sourceImageIds]);
 
   useEffect(() => {
     if (!selected) return;
@@ -113,6 +213,34 @@ export function DesignsWorkspace({ event }: { event: Event }) {
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [event.id, previewGuestSearch, selected?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selected || !previewGuest) { setPreviewTableName(''); return; }
+    const loadTableNames = async () => {
+      const names = await Promise.all(event.ceremonies.map(async (ceremony) => {
+        const root = `/api/events/${encodeURIComponent(event.id)}/ceremonies/${encodeURIComponent(ceremony.id)}/seating`;
+        try {
+          const planResponse = await fetch(root, { cache: 'no-store' });
+          if (!planResponse.ok) return '';
+          const plan = await planResponse.json() as { mode?: string };
+          if (plan.mode !== 'TABLE') return '';
+          const [assignmentsResponse, tablesResponse] = await Promise.all([
+            fetch(`${root}/assignments`, { cache: 'no-store' }),
+            fetch(`${root}/tables`, { cache: 'no-store' }),
+          ]);
+          if (!assignmentsResponse.ok || !tablesResponse.ok) return '';
+          const assignments = await assignmentsResponse.json() as { guestId?: string; tableId?: string | null }[];
+          const tables = await tablesResponse.json() as { id?: string; name?: string }[];
+          const tableId = assignments.find((assignment) => assignment.guestId === previewGuest.id)?.tableId;
+          return tables.find((table) => table.id === tableId)?.name ?? '';
+        } catch { return ''; }
+      }));
+      if (!cancelled) setPreviewTableName([...new Set(names.filter(Boolean))].join(' · '));
+    };
+    void loadTableNames();
+    return () => { cancelled = true; };
+  }, [event.ceremonies, event.id, previewGuest?.id, selected?.id]);
 
   useEffect(() => {
     if (!aiJob || !selected || aiJob.status === 'PROPOSED' || aiJob.status === 'FAILED' || aiJob.status === 'CANCELLED') return;
@@ -198,8 +326,8 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   async function createFromTemplate(template: Template) {
     setBusy(true); setMessage('');
     try {
-      const design = await api<Design>(event.id, '', 'POST', { templateId: template.id, name: `${template.name} · ${event.name}` });
-      await refresh(); await selectDesign(design); setMessage('Le design a été créé et enregistré.');
+      await api<Design>(event.id, '', 'POST', { templateId: template.id, name: `${template.name} · ${event.name}` });
+      await refresh(); setMessage(`« ${template.name} » est choisi. Retrouvez-le dans Vos créations pour le personnaliser.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Création impossible.'); }
     finally { setBusy(false); }
   }
@@ -284,6 +412,96 @@ export function DesignsWorkspace({ event }: { event: Event }) {
     editDocument((document) => { document.elements.push(layer); }); setActiveLayerId(id);
   }
 
+  function addQr() {
+    if (!selected || selected.document.elements.some((layer) => layer.type === 'QR')) return;
+    const size = Math.min(156, selected.document.canvas.width - 96, selected.document.canvas.height - 96);
+    const id = `custom-${crypto.randomUUID().slice(0, 8)}`;
+    const layer: Layer = { id, type: 'QR', source: 'guest_access_token', name: 'QR individuel', x: selected.document.canvas.width - size - 48, y: selected.document.canvas.height - size - 48, width: size, height: size, rotation: 0, locked: false, editable: true, zIndex: Math.max(...selected.document.elements.map((entry) => entry.zIndex), 0) + 1 };
+    editDocument((document) => { document.elements.push(layer); }); setActiveLayerId(id);
+  }
+
+  async function uploadCouplePhoto(eventChange: React.ChangeEvent<HTMLInputElement>) {
+    const file = eventChange.target.files?.[0];
+    eventChange.target.value = '';
+    if (!file || !selected) return;
+    const replaceId = imageReplaceLayerId.current;
+    imageReplaceLayerId.current = null;
+    if (!replaceId && selected.document.elements.length >= 100) { setMessage('Ce design a déjà atteint sa limite de 100 calques.'); return; }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size < 1 || file.size > 5 * 1024 * 1024) {
+      setMessage('Choisissez une image JPG, PNG ou WebP de 5 Mio maximum.');
+      return;
+    }
+    setImageUploading(true); setMessage('Téléversement et validation de la photo…');
+    let assetId = '';
+    try {
+      const createdResponse = await fetch('/api/assets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ filename: file.name, mimeType: file.type, sizeBytes: file.size, purpose: 'PHOTO' }), cache: 'no-store' });
+      const created = await createdResponse.json() as { id?: string; message?: string };
+      if (!createdResponse.ok || typeof created.id !== 'string') throw new Error(created.message ?? 'Impossible de réserver le téléversement.');
+      assetId = created.id;
+      const uploadResponse = await fetch(`/api/assets/${encodeURIComponent(assetId)}/upload-url`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' });
+      const uploadPayload = await uploadResponse.json() as { upload?: { url?: string; method?: string; fields?: Record<string, string> }; message?: string };
+      if (!uploadResponse.ok || typeof uploadPayload.upload?.url !== 'string' || uploadPayload.upload.method !== 'POST' || !uploadPayload.upload.fields) throw new Error(uploadPayload.message ?? 'Impossible de préparer le téléversement.');
+      const form = new FormData();
+      for (const [key, value] of Object.entries(uploadPayload.upload.fields)) form.append(key, value);
+      form.append('file', file, file.name);
+      const uploaded = await fetch(uploadPayload.upload.url, { method: 'POST', body: form });
+      if (!uploaded.ok) throw new Error('Le stockage a refusé la photo. Réessayez.');
+      const completeResponse = await fetch(`/api/assets/${encodeURIComponent(assetId)}/complete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' });
+      const asset = await completeResponse.json() as { id?: string; status?: string; width?: number; height?: number; message?: string };
+      if (!completeResponse.ok || asset.status !== 'READY' || !Number.isInteger(asset.width) || !Number.isInteger(asset.height)) throw new Error(asset.message ?? 'La photo n’a pas passé la validation.');
+      const previewResponse = await fetch(`/api/assets/${encodeURIComponent(assetId)}/download-url?variant=preview`, { cache: 'no-store' });
+      const preview = await previewResponse.json() as { download?: { url?: string } };
+      if (!previewResponse.ok || typeof preview.download?.url !== 'string') throw new Error('La photo est enregistrée, mais son aperçu est indisponible.');
+      setImageUrls((items) => ({ ...items, [assetId]: preview.download!.url! }));
+      const layer = selected.document.elements.find((item) => item.id === replaceId && item.type === 'IMAGE');
+      const sourceWidth = asset.width!; const sourceHeight = asset.height!;
+      if (layer) {
+        editDocument((document) => {
+          const target = document.elements.find((item) => item.id === replaceId)!;
+          Object.assign(target, { assetId, originalAssetId: assetId, sourceWidth, sourceHeight, cropX: 50, cropY: 50, cropScale: 1 });
+          delete target.derivedAssetId;
+          document.assets = [...document.assets.filter((item) => item['assetId'] !== assetId), { id: assetId, assetId, role: 'COUPLE_PHOTO', width: sourceWidth, height: sourceHeight, mimeType: 'image/webp' }];
+        });
+      } else {
+        const factor = Math.min(selected.document.canvas.width * 0.7 / sourceWidth, selected.document.canvas.height * 0.55 / sourceHeight, 1);
+        const width = Math.max(1, Math.round(sourceWidth * factor)); const height = Math.max(1, Math.round(sourceHeight * factor));
+        const id = `photo-${crypto.randomUUID().slice(0, 8)}`;
+        const image: Layer = { id, type: 'IMAGE', assetId, originalAssetId: assetId, sourceWidth, sourceHeight, name: 'Photo des mariés', x: Math.round((selected.document.canvas.width - width) / 2), y: Math.round(selected.document.canvas.height * 0.12), width, height, rotation: 0, locked: false, editable: true, zIndex: Math.max(...selected.document.elements.map((item) => item.zIndex), 0) + 1, fit: 'cover', cropX: 50, cropY: 50, cropScale: 1, opacity: 1 };
+        editDocument((document) => {
+          document.elements.push(image);
+          document.assets = [...document.assets.filter((item) => item['assetId'] !== assetId), { id: assetId, assetId, role: 'COUPLE_PHOTO', width: sourceWidth, height: sourceHeight, mimeType: 'image/webp' }];
+        });
+        setActiveLayerId(id);
+      }
+      setMessage('Photo validée et ajoutée au design.');
+    } catch (error) {
+      if (assetId) await fetch(`/api/assets/${encodeURIComponent(assetId)}`, { method: 'DELETE' }).catch(() => undefined);
+      setMessage(error instanceof Error ? error.message : 'Le téléversement de la photo a échoué.');
+    } finally { setImageUploading(false); }
+  }
+
+  async function startBackgroundRemoval(sourceAssetId: string) {
+    setBackgroundJobs((jobs) => ({ ...jobs, [sourceAssetId]: { status: 'PENDING' } }));
+    try {
+      const response = await fetch(`/api/assets/${encodeURIComponent(sourceAssetId)}/background-removal`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', cache: 'no-store' });
+      const result = await response.json() as { jobId?: string; status?: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; derivedAssetId?: string; message?: string };
+      if (!response.ok || !result.jobId) throw new Error(result.message ?? 'Impossible de démarrer le traitement.');
+      setBackgroundJobs((jobs) => ({ ...jobs, [sourceAssetId]: { status: result.status ?? 'PENDING', ...(result.derivedAssetId ? { derivedAssetId: result.derivedAssetId } : {}) } }));
+    } catch {
+      setBackgroundJobs((jobs) => ({ ...jobs, [sourceAssetId]: { status: 'FAILED' } }));
+    }
+  }
+
+  function choosePhotoVersion(layer: Layer, assetId: string, derivedAssetId?: string) {
+    editDocument((document) => {
+      const target = document.elements.find((item) => item.id === layer.id);
+      if (!target) return;
+      if (!target.originalAssetId && target.assetId) target.originalAssetId = target.assetId;
+      target.assetId = assetId;
+      if (derivedAssetId) target.derivedAssetId = derivedAssetId;
+    });
+  }
+
   function duplicateLayer(layer: Layer) {
     if (!selected || layer.locked || !layer.editable || layer.type === 'BACKGROUND') return;
     const copy = clone(layer); copy.id = `custom-${crypto.randomUUID().slice(0, 8)}`; copy.name = `${layer.name} · copie`;
@@ -348,34 +566,43 @@ export function DesignsWorkspace({ event }: { event: Event }) {
     pointerRef.current = null;
   }
 
-  const variableMap = selected ? resolveGuestPreviewValues(selected.document.variables, previewGuest) : {};
+  const variableMap = selected ? resolveGuestPreviewValues(selected.document.variables, previewGuest, { tableName: previewTableName }) : {};
   const canvas = selected?.document.canvas;
+  const rawSafeMargin = selected?.document.constraints.safeMargin ?? 64;
+  const safeMargins = typeof rawSafeMargin === 'number' ? { top: rawSafeMargin, right: rawSafeMargin, bottom: rawSafeMargin, left: rawSafeMargin } : rawSafeMargin;
   const stageWidth = 390;
   const stageHeight = canvas ? Math.round(stageWidth * canvas.height / canvas.width) : 694;
 
   return <main className="events-shell design-page">
-    <nav className="events-nav"><BrandLogo/><div><a href="/events">Événements</a><a href={`/events/${encodeURIComponent(event.id)}/guests`}>Invités</a><a href={`/events/${encodeURIComponent(event.id)}/seating`}>Placement</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
-    <header className="design-heading"><div><p className="eyebrow">ATELIER DE CRÉATION · {event.name}</p><h1>Composez votre<br /><em>invitation.</em></h1><p>Choisissez un modèle, adaptez chaque détail et retrouvez vos versions à tout moment.</p></div><a className="design-back" href="/events">← Tous les événements</a></header>
+    <AppNavbar eventId={event.id} />
+    <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(eventChange) => void uploadCouplePhoto(eventChange)} />
+    <header className="design-heading"><div><p className="eyebrow">ATELIER DE CRÉATION · {event.name}</p><h1>Composez votre<br /><em>invitation.</em></h1><p>Choisissez un modèle, adaptez chaque détail et retrouvez vos versions à tout moment.</p></div><Link className="design-back" href="/events">← Tous les événements</Link></header>
     {message && <p className="design-status" role="status">{message}</p>}
     {loading ? <section className="design-state"><p>Chargement de la bibliothèque enregistrée…</p></section> : <>
       {!selected ? <div className="design-catalog-layout"><section className="design-catalog"><div className="design-section-title"><div><span className="design-kicker">BIBLIOTHÈQUE</span><h2>Choisissez une composition</h2></div><label>Catégorie<select value={category} onChange={(eventChange) => setCategory(eventChange.target.value)}><option value="ALL">Toutes</option><option value="WEDDING">Mariage</option><option value="BIRTHDAY">Anniversaire</option><option value="GRADUATION">Graduation</option><option value="BAPTISM">Baptême</option><option value="BABY_SHOWER">Baby shower</option><option value="GALA">Gala</option><option value="CONFERENCE">Conférence</option></select></label><label>Cérémonie<select aria-label="Filtrer par type de cérémonie" value={ceremonyType} onChange={(eventChange) => setCeremonyType(eventChange.target.value)}><option value="ALL">Toutes</option>{eventCeremonyTypes.map((type) => <option key={type} value={type}>{({ CIVIL: 'Civile', RELIGIOUS: 'Religieuse', RECEPTION: 'Réception', DOT: 'Dot', TRADITIONAL: 'Traditionnelle', CUSTOM: 'Personnalisée', UNIVERSAL: 'Universelle' } as Record<string, string>)[type] ?? type}</option>)}</select></label></div>
-        {filteredTemplates.length ? <div className="template-grid">{filteredTemplates.map((template) => <article className="template-card" key={template.id}><button className="template-poster" style={{ background: template.preview.background }} onClick={() => void createFromTemplate(template)} disabled={busy} aria-label={`Créer un design avec ${template.name}`}><span className="poster-frame" style={{ borderColor: template.preview.accent }}><span className="poster-ornament" style={{ color: template.preview.accent }}>✳</span><span className="poster-rule" style={{ background: template.preview.accent }} /><strong style={{ color: template.preview.style === 'MIDNIGHT_BLUE' ? '#F7F0E4' : '#302D2A' }}>{template.name}</strong><span className="poster-rule short" style={{ background: template.preview.accent }} /><small style={{ color: template.preview.accent }}>{template.category === 'WEDDING' ? 'CÉLÉBRATION' : template.category}</small></span><span className="poster-open">Ouvrir ce modèle ↗</span></button><div className="template-info"><div><span>{template.category === 'WEDDING' ? 'MARIAGE' : template.category}</span><span>VERSION {template.version}</span></div><h3>{template.name}</h3><p>{template.description}</p><div className="template-tags">{template.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><button className="template-choose" disabled={busy} onClick={() => void createFromTemplate(template)}>Personnaliser <span>→</span></button></div></article>)}</div> : <div className="design-state"><p>Aucun modèle actif dans cette catégorie. La bibliothèque se remplit à mesure que des modèles validés sont publiés.</p></div>}</section>
-        <aside className="design-saved"><span className="design-kicker">VOTRE ESPACE</span><h2>Vos créations</h2>{designs.length ? <div className="saved-list">{designs.map((design) => <button key={design.id} onClick={() => void selectDesign(design)} disabled={busy}><span className="saved-palette" style={{ background: String(design.document.theme.tokens.background) }} /><span><strong>{design.name}</strong><small>Version {design.version} · Modifié {new Date(design.updatedAt).toLocaleDateString('fr-FR')}</small></span><span>→</span></button>)}</div> : <p className="saved-empty">Vos designs enregistrés apparaîtront ici.</p>}</aside></div> : <section className="editor-shell">
+        {filteredTemplates.length ? <div className="template-grid">{filteredTemplates.map((template) => <article className="template-card" key={template.id}><div className="template-poster" style={{ background: template.preview.background }} aria-hidden="true"><span className="poster-frame" style={{ borderColor: template.preview.accent }}><span className="poster-ornament" style={{ color: template.preview.accent }}>✳</span><span className="poster-rule" style={{ background: template.preview.accent }} /><strong style={{ color: template.preview.style === 'MIDNIGHT_BLUE' ? '#F7F0E4' : '#302D2A' }}>{template.name}</strong><span className="poster-rule short" style={{ background: template.preview.accent }} /><small style={{ color: template.preview.accent }}>{template.category === 'WEDDING' ? 'CÉLÉBRATION' : template.category}</small></span></div><div className="template-info"><div><span>{template.category === 'WEDDING' ? 'MARIAGE' : template.category}</span><span>{template.style}</span><span>VERSION {template.version}</span></div><h3>{template.name}</h3><p>{template.description}</p><div className="template-tags">{template.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="template-capabilities"><span>Nom invité</span><span>Table</span><span>QR privé</span></div><button className="template-choose" disabled={busy} onClick={() => void createFromTemplate(template)}>Choisir ce modèle <span>→</span></button></div></article>)}</div> : <div className="design-state"><p>Aucun modèle actif dans cette catégorie. La bibliothèque se remplit à mesure que des modèles validés sont publiés.</p></div>}</section>
+        <aside className="design-saved"><span className="design-kicker">VOTRE ESPACE</span><h2>Vos créations</h2>{designs.length ? <div className="saved-list">{designs.map((design) => <button key={design.id} onClick={() => void selectDesign(design)} disabled={busy}><span className="saved-palette" style={{
+  background: String(
+    design.document?.theme?.tokens?.background ?? '#F5F0E8'
+  ),
+}} /><span><strong>{design.name}</strong><small>Version {design.version} · Modifié {new Date(design.updatedAt).toLocaleDateString('fr-FR')}</small></span><span>Personnaliser →</span></button>)}</div> : <p className="saved-empty">Vos designs enregistrés apparaîtront ici.</p>}</aside></div> : <section className="editor-shell">
         <div className="editor-toolbar"><button className="editor-return" onClick={() => { if (dirty && !window.confirm('Les changements non enregistrés seront perdus. Quitter ?')) return; setSelected(null); setSavedDocument(null); setSavedName(''); setHistory([]); setFuture([]); }}>← Bibliothèque</button><div className="editor-title"><input aria-label="Nom du design" value={selected.name} onChange={(eventChange) => setSelected({ ...selected, name: eventChange.target.value })} maxLength={120} /><span>v{selected.version}{dirty ? ' · Modifications non enregistrées' : ' · Enregistré'}</span></div><div className="editor-actions"><button title="Annuler (Ctrl/⌘+Z)" disabled={!history.length || busy} onClick={undo}>↶</button><button title="Rétablir (Ctrl/⌘+Maj+Z)" disabled={!future.length || busy} onClick={redo}>↷</button><button disabled={!dirty || busy} onClick={() => void save()}>Enregistrer</button></div></div>
-        <div className="editor-body"><aside className="editor-panel editor-left"><span className="design-kicker">CALQUES · {selected.document.elements.length}</span><div className="layer-list">{[...selected.document.elements].sort((a, b) => b.zIndex - a.zIndex).map((layer) => <button key={layer.id} className={activeLayerId === layer.id ? 'active' : ''} onClick={() => setActiveLayerId(layer.id)}><span className={`layer-icon ${layer.type.toLowerCase()}`}>{layer.type === 'TEXT' ? 'T' : layer.type === 'BACKGROUND' ? '◧' : '□'}</span><span><strong>{layer.name}</strong><small>{layer.type === 'TEXT' ? 'Texte' : layer.type === 'BACKGROUND' ? 'Arrière-plan' : 'Rectangle'}{layer.locked ? ' · verrouillé' : ''}</small></span>{layer.editable && !layer.locked && <i>✳</i>}</button>)}</div><div className="layer-add"><button onClick={addText} disabled={busy}>＋ Ajouter du texte</button><button onClick={addShape} disabled={busy}>＋ Ajouter un cadre</button></div></aside>
-          <section className="editor-stage"><div className="stage-bar"><div className="preview-guest-picker"><span className="design-kicker">APERÇU DU MODÈLE</span><label>Prévisualiser comme un invité<input type="search" value={previewGuestSearch} onChange={(eventChange) => setPreviewGuestSearch(eventChange.target.value)} placeholder="Rechercher un invité" maxLength={160} /></label><label>Invité<select aria-label="Invité pour l’aperçu" value={previewGuest?.id ?? ''} onChange={(eventChange) => setPreviewGuest(previewGuests.find((guest) => guest.id === eventChange.target.value) ?? null)}><option value="">Valeurs du modèle</option>{previewGuest && !previewGuests.some((guest) => guest.id === previewGuest.id) && <option value={previewGuest.id}>{previewGuest.fullName}</option>}{previewGuests.map((guest) => <option value={guest.id} key={guest.id}>{guest.fullName}{guest.email ? ` · ${guest.email}` : ''}</option>)}</select></label>{previewGuestError && <small role="status">{previewGuestError}</small>}</div><div><button onClick={() => setDragMode((enabled) => !enabled)} aria-pressed={dragMode} className={dragMode ? 'selected-tool' : ''}>{dragMode ? '✥ Déplacement actif' : '↖ Sélection'}</button><button onClick={() => setZoom((value) => Math.max(0.24, value - 0.04))} aria-label="Zoom arrière">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(0.52, value + 0.04))} aria-label="Zoom avant">＋</button></div></div><div className="stage-scroll"><div className="design-canvas" ref={stageRef} style={{ width: stageWidth, height: stageHeight, transform: `scale(${zoom / (stageWidth / 1080)})`, transformOrigin: 'top center', marginBottom: stageHeight * (zoom / (stageWidth / 1080) - 1) }}><svg viewBox={`0 0 ${canvas!.width} ${canvas!.height}`} width="100%" height="100%" onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} style={{ cursor: dragMode ? 'grab' : 'default', touchAction: 'none' }}>
+        <div className="editor-body"><aside className="editor-panel editor-left"><span className="design-kicker">CALQUES · {selected.document.elements.length}</span><div className="layer-list">{[...selected.document.elements].sort((a, b) => b.zIndex - a.zIndex).map((layer) => <button key={layer.id} className={activeLayerId === layer.id ? 'active' : ''} onClick={() => setActiveLayerId(layer.id)}><span className={`layer-icon ${layer.type.toLowerCase()}`}>{layer.type === 'TEXT' ? 'T' : layer.type === 'BACKGROUND' ? '◧' : layer.type === 'QR' ? '▦' : layer.type === 'IMAGE' ? '▧' : '□'}</span><span><strong>{layer.name}</strong><small>{layer.type === 'TEXT' ? 'Texte dynamique' : layer.type === 'BACKGROUND' ? 'Arrière-plan' : layer.type === 'QR' ? 'QR invité' : layer.type === 'IMAGE' ? 'Photo' : 'Rectangle'}{layer.locked ? ' · verrouillé' : ''}</small></span>{layer.editable && !layer.locked && <i>✳</i>}</button>)}</div><div className="layer-add"><button onClick={addText} disabled={busy}>＋ Ajouter du texte</button><button onClick={addShape} disabled={busy}>＋ Ajouter un cadre</button><button onClick={() => { imageReplaceLayerId.current = null; imageInputRef.current?.click(); }} disabled={busy || imageUploading || selected.document.elements.length >= 100}>＋ Ajouter une photo</button><button onClick={addQr} disabled={busy || selected.document.elements.some((layer) => layer.type === 'QR')}>＋ Ajouter un QR invité</button></div></aside>
+          <section className="editor-stage"><div className="stage-bar"><div className="preview-guest-picker"><span className="design-kicker">APERÇU DU MODÈLE</span><label>Prévisualiser comme un invité<input type="search" value={previewGuestSearch} onChange={(eventChange) => setPreviewGuestSearch(eventChange.target.value)} placeholder="Rechercher un invité" maxLength={160} /></label><label>Invité<select aria-label="Invité pour l’aperçu" value={previewGuest?.id ?? ''} onChange={(eventChange) => setPreviewGuest(previewGuests.find((guest) => guest.id === eventChange.target.value) ?? null)}><option value="">Valeurs du modèle</option>{previewGuest && !previewGuests.some((guest) => guest.id === previewGuest.id) && <option value={previewGuest.id}>{previewGuest.fullName}</option>}{previewGuests.map((guest) => <option value={guest.id} key={guest.id}>{guest.fullName}{guest.email ? ` · ${guest.email}` : ''}</option>)}</select></label>{previewGuestError && <small role="status">{previewGuestError}</small>}</div><div><button onClick={() => setShowSafeMargins((visible) => !visible)} aria-pressed={showSafeMargins}>{showSafeMargins ? 'Masquer les marges' : 'Afficher les marges de sécurité'}</button><button onClick={() => setDragMode((enabled) => !enabled)} aria-pressed={dragMode} className={dragMode ? 'selected-tool' : ''}>{dragMode ? '✥ Déplacement actif' : '↖ Sélection'}</button><button onClick={() => setZoom((value) => Math.max(0.24, value - 0.04))} aria-label="Zoom arrière">−</button><span>{Math.round(zoom * 100)}%</span><button onClick={() => setZoom((value) => Math.min(0.52, value + 0.04))} aria-label="Zoom avant">＋</button></div></div><div className="stage-scroll"><div className="design-canvas" ref={stageRef} style={{ width: stageWidth, height: stageHeight, transform: `scale(${zoom / (stageWidth / 1080)})`, transformOrigin: 'top center', marginBottom: stageHeight * (zoom / (stageWidth / 1080) - 1) }}><svg viewBox={`0 0 ${canvas!.width} ${canvas!.height}`} width="100%" height="100%" onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} style={{ cursor: dragMode ? 'grab' : 'default', touchAction: 'none' }}>
             {[...selected.document.elements].sort((a, b) => a.zIndex - b.zIndex).map((layer) => {
               const isActive = activeLayerId === layer.id;
               const fontScale = 1080 / canvas!.width;
               return <g key={layer.id} transform={`rotate(${layer.rotation} ${layer.x + layer.width / 2} ${layer.y + layer.height / 2})`} onPointerDown={(eventPointer) => beginDrag(eventPointer, layer)} onClick={() => setActiveLayerId(layer.id)}>
                 {layer.type === 'BACKGROUND' && svgRect(layer, 1, `${layer.id}-background`)}
                 {layer.type === 'SHAPE' && svgRect(layer, 1, `${layer.id}-shape`)}
+                {layer.type === 'IMAGE' && <>{imageUrls[layer.assetId ?? ''] ? <><defs><clipPath id={`clip-${layer.id}`}><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} /></clipPath></defs><image href={imageUrls[layer.assetId ?? '']} {...imageBounds(layer)} preserveAspectRatio="none" opacity={layer.opacity ?? 1} clipPath={`url(#clip-${layer.id})`} /></> : <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} rx={12} fill="#f2eadf" stroke="#b58b58" strokeDasharray="12 8" /><text x={layer.x + layer.width / 2} y={layer.y + layer.height / 2} textAnchor="middle" dominantBaseline="middle" fontFamily="Arial" fontSize={Math.min(28, layer.width / 12)} fill="#59465a">{Object.hasOwn(imageUrls, layer.assetId ?? '') ? 'Aperçu indisponible' : 'Chargement photo…'}</text></>}</>}
+                {layer.type === 'QR' && <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="#fff" stroke="#32163a" strokeWidth={3 / fontScale} /><text x={layer.x + layer.width / 2} y={layer.y + layer.height / 2} textAnchor="middle" dominantBaseline="middle" fontFamily="Arial" fontSize={Math.max(12, layer.width * 0.13)} fill="#32163a">QR invité</text><text x={layer.x + layer.width / 2} y={layer.y + layer.height * 0.68} textAnchor="middle" fontFamily="Arial" fontSize={Math.max(8, layer.width * 0.055)} fill="#62576a">créé à la génération</text></>}
                 {layer.type === 'TEXT' && <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="transparent" /><text x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} y={layer.y + layer.height / 2} dominantBaseline="middle" textAnchor={layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle'} fontFamily={layer.fontFamily} fontSize={layer.fontSize} fontWeight={layer.fontWeight} fill={layer.color}>{wrapText(renderText(layer.text ?? '', variableMap), Math.max(1, Math.floor(layer.width / ((layer.fontSize ?? 16) * 0.58)))).map((line, index, lines) => <tspan key={index} x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} dy={index === 0 ? `${-((lines.length - 1) * (layer.fontSize ?? 16) * 1.2) / 2}px` : `${(layer.fontSize ?? 16) * 1.2}px`}>{line}</tspan>)}</text></>}
                 {isActive && layer.type !== 'BACKGROUND' && <rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="none" stroke="#ba8065" strokeWidth={4 / fontScale} strokeDasharray={`${8 / fontScale} ${6 / fontScale}`} pointerEvents="none" />}
               </g>;
             })}
-          </svg></div></div><div className="stage-footnote">{canvas!.width} × {canvas!.height} px · Format {selected.document.layouts[0]?.name}</div></section>
-          <aside className="editor-panel editor-right"><span className="design-kicker">PERSONNALISATION</span><h2>{openLayer?.name ?? 'Votre design'}</h2>{openLayer && <div className="layer-tools"><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => moveLayerInStack(openLayer, -1)} title="Descendre le calque">↓ Arrière</button><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => moveLayerInStack(openLayer, 1)} title="Monter le calque">↑ Avant</button><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => toggleLayerLock(openLayer)}>{openLayer.locked ? 'Déverrouiller' : 'Verrouiller'}</button><button disabled={openLayer.locked || openLayer.type === 'BACKGROUND'} onClick={() => duplicateLayer(openLayer)}>Dupliquer</button></div>}{openLayer?.locked ? <p className="inspector-note">Ce calque est verrouillé. Vous pouvez le déverrouiller pour le modifier.</p> : openLayer?.type === 'TEXT' ? <div className="inspector-fields"><label>Nom du calque<input value={openLayer.name} maxLength={100} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.name = eventChange.target.value; })} /></label><label>Contenu<textarea value={openLayer.text ?? ''} maxLength={500} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.text = eventChange.target.value; })} /></label><label>Alignement<select value={openLayer.align} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.align = eventChange.target.value as NonNullable<Layer['align']>; })}><option value="left">À gauche</option><option value="center">Centré</option><option value="right">À droite</option></select></label><div className="inspector-pair"><label>Corps<input type="number" min="8" max="180" value={openLayer.fontSize} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fontSize = Number(eventChange.target.value); })} /></label><label>Couleur<input type="color" value={openLayer.color} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.color = eventChange.target.value; })} /></label></div><label>Police<select value={openLayer.fontFamily} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fontFamily = eventChange.target.value; })}><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option></select></label><div className="inspector-pair"><label>Largeur<input type="number" min="1" max={canvas!.width - openLayer.x} value={Math.round(openLayer.width)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.width = Number(eventChange.target.value); })} /></label><label>Hauteur<input type="number" min="1" max={canvas!.height - openLayer.y} value={Math.round(openLayer.height)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.height = Number(eventChange.target.value); })} /></label></div><div className="inspector-pair"><label>Rotation<input type="number" min="-360" max="360" value={openLayer.rotation} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.rotation = Number(eventChange.target.value); })} /></label><label>Position X<input type="number" min="0" max={canvas!.width - openLayer.width} value={Math.round(openLayer.x)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.x = Number(eventChange.target.value); })} /></label></div><label className="position-fields">Position Y<input type="number" min="0" max={canvas!.height - openLayer.height} value={Math.round(openLayer.y)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.y = Number(eventChange.target.value); })} /></label><button className="danger-action" onClick={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }}>Supprimer ce calque</button></div> : openLayer?.type === 'SHAPE' ? <div className="inspector-fields"><label>Nom du calque<input value={openLayer.name} maxLength={100} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.name = eventChange.target.value; })} /></label><div className="inspector-pair"><label>Remplissage<input type="color" value={openLayer.fill === 'transparent' ? '#ffffff' : openLayer.fill} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fill = eventChange.target.value; })} /></label><label>Contour<input type="color" value={openLayer.stroke} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.stroke = eventChange.target.value; })} /></label></div><p className="inspector-note">Cadre rectangulaire éditable.</p><button className="danger-action" onClick={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }}>Supprimer ce calque</button></div> : <div className="inspector-fields"><label>Palette principale<input type="color" value={selected.document.theme.tokens.primary} onChange={(eventChange) => editDocument((document) => { document.theme.tokens.primary = eventChange.target.value; for (const layer of document.elements) if (layer.type === 'SHAPE' && layer.stroke === selected.document.theme.tokens.primary) layer.stroke = eventChange.target.value; })} /></label><label>Fond du canevas<input type="color" value={selected.document.theme.tokens.background} onChange={(eventChange) => editDocument((document) => { document.theme.tokens.background = eventChange.target.value; const background = document.elements.find((layer) => layer.type === 'BACKGROUND'); if (background) background.fill = eventChange.target.value; })} /></label><p className="inspector-note">Format portrait · {selected.document.canvas.width} × {selected.document.canvas.height} px</p></div>}
+            {showSafeMargins && <rect x={safeMargins.left} y={safeMargins.top} width={Math.max(1, canvas!.width - safeMargins.left - safeMargins.right)} height={Math.max(1, canvas!.height - safeMargins.top - safeMargins.bottom)} fill="none" stroke="#bc754f" strokeWidth={5} strokeDasharray="18 12" pointerEvents="none" />}</svg></div></div><div className="stage-footnote">{canvas!.width} × {canvas!.height} px · Format {selected.document.layouts[0]?.name}</div></section>
+          <aside className="editor-panel editor-right"><span className="design-kicker">PERSONNALISATION</span><h2>{openLayer?.name ?? 'Votre design'}</h2>{openLayer && <div className="layer-tools"><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => moveLayerInStack(openLayer, -1)} title="Descendre le calque">↓ Arrière</button><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => moveLayerInStack(openLayer, 1)} title="Monter le calque">↑ Avant</button><button disabled={openLayer.type === 'BACKGROUND'} onClick={() => toggleLayerLock(openLayer)}>{openLayer.locked ? 'Déverrouiller' : 'Verrouiller'}</button><button disabled={openLayer.locked || openLayer.type === 'BACKGROUND'} onClick={() => duplicateLayer(openLayer)}>Dupliquer</button></div>}{!openLayer?.locked && openLayer?.type === 'IMAGE' ? <ImageInspector layer={openLayer} canvas={canvas!} uploading={imageUploading} backgroundStatus={backgroundJobs[openLayer.originalAssetId ?? openLayer.assetId ?? '']?.status ?? 'NONE'} backgroundDerivedAssetId={backgroundJobs[openLayer.originalAssetId ?? openLayer.assetId ?? '']?.derivedAssetId ?? openLayer.derivedAssetId} onRemoveBackground={() => void startBackgroundRemoval(openLayer.originalAssetId ?? openLayer.assetId ?? '')} onRetryBackground={() => void startBackgroundRemoval(openLayer.originalAssetId ?? openLayer.assetId ?? '')} onUseOriginal={() => choosePhotoVersion(openLayer, openLayer.originalAssetId ?? openLayer.assetId ?? '')} onUseDerived={() => { const derived = backgroundJobs[openLayer.originalAssetId ?? openLayer.assetId ?? '']?.derivedAssetId ?? openLayer.derivedAssetId; if (derived) choosePhotoVersion(openLayer, derived, derived); }} onReplace={() => { imageReplaceLayerId.current = openLayer.id; imageInputRef.current?.click(); }} onDelete={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }} onChange={(change) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id); if (target) change(target); })} /> : null}{openLayer?.locked ? <p className="inspector-note">Ce calque est verrouillé. Vous pouvez le déverrouiller pour le modifier.</p> : openLayer?.type === 'QR' ? <div className="inspector-fields"><p className="inspector-note">Un QR privé distinct est généré pour chaque invité lors du rendu final.</p><div className="inspector-pair"><label>Largeur<input type="number" min="64" max={canvas!.width - openLayer.x} value={Math.round(openLayer.width)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.width = Number(eventChange.target.value); })} /></label><label>Hauteur<input type="number" min="64" max={canvas!.height - openLayer.y} value={Math.round(openLayer.height)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.height = Number(eventChange.target.value); })} /></label></div><button className="danger-action" onClick={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }}>Supprimer ce QR</button></div> : openLayer?.type === 'TEXT' ? <div className="inspector-fields"><label>Nom du calque<input value={openLayer.name} maxLength={100} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.name = eventChange.target.value; })} /></label><label>Contenu<textarea value={openLayer.text ?? ''} maxLength={500} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.text = eventChange.target.value; })} /></label><label>Alignement<select value={openLayer.align} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.align = eventChange.target.value as NonNullable<Layer['align']>; })}><option value="left">À gauche</option><option value="center">Centré</option><option value="right">À droite</option></select></label><div className="inspector-pair"><label>Corps<input type="number" min="8" max="180" value={openLayer.fontSize} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fontSize = Number(eventChange.target.value); })} /></label><label>Couleur<input type="color" value={openLayer.color} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.color = eventChange.target.value; })} /></label></div><label>Police<select value={openLayer.fontFamily} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fontFamily = eventChange.target.value; })}><option value="Georgia">Georgia</option><option value="Arial">Arial</option><option value="Times New Roman">Times New Roman</option></select></label><div className="inspector-pair"><label>Largeur<input type="number" min="1" max={canvas!.width - openLayer.x} value={Math.round(openLayer.width)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.width = Number(eventChange.target.value); })} /></label><label>Hauteur<input type="number" min="1" max={canvas!.height - openLayer.y} value={Math.round(openLayer.height)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.height = Number(eventChange.target.value); })} /></label></div><div className="inspector-pair"><label>Rotation<input type="number" min="-360" max="360" value={openLayer.rotation} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.rotation = Number(eventChange.target.value); })} /></label><label>Position X<input type="number" min="0" max={canvas!.width - openLayer.width} value={Math.round(openLayer.x)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.x = Number(eventChange.target.value); })} /></label></div><label className="position-fields">Position Y<input type="number" min="0" max={canvas!.height - openLayer.height} value={Math.round(openLayer.y)} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.y = Number(eventChange.target.value); })} /></label><button className="danger-action" onClick={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }}>Supprimer ce calque</button></div> : openLayer?.type === 'SHAPE' ? <div className="inspector-fields"><label>Nom du calque<input value={openLayer.name} maxLength={100} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.name = eventChange.target.value; })} /></label><div className="inspector-pair"><label>Remplissage<input type="color" value={openLayer.fill === 'transparent' ? '#ffffff' : openLayer.fill} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.fill = eventChange.target.value; })} /></label><label>Contour<input type="color" value={openLayer.stroke} onChange={(eventChange) => editDocument((document) => { const target = document.elements.find((layer) => layer.id === openLayer.id)!; target.stroke = eventChange.target.value; })} /></label></div><p className="inspector-note">Cadre rectangulaire éditable.</p><button className="danger-action" onClick={() => { editDocument((document) => { document.elements = document.elements.filter((layer) => layer.id !== openLayer.id); }); setActiveLayerId(null); }}>Supprimer ce calque</button></div> : openLayer?.type === 'IMAGE' ? null : <div className="inspector-fields"><label>Palette principale<input type="color" value={selected.document.theme.tokens.primary} onChange={(eventChange) => editDocument((document) => { document.theme.tokens.primary = eventChange.target.value; for (const layer of document.elements) if (layer.type === 'SHAPE' && layer.stroke === selected.document.theme.tokens.primary) layer.stroke = eventChange.target.value; })} /></label><label>Fond du canevas<input type="color" value={selected.document.theme.tokens.background} onChange={(eventChange) => editDocument((document) => { document.theme.tokens.background = eventChange.target.value; const background = document.elements.find((layer) => layer.type === 'BACKGROUND'); if (background) background.fill = eventChange.target.value; })} /></label><p className="inspector-note">Format portrait · {selected.document.canvas.width} × {selected.document.canvas.height} px</p></div>}
             <div className="inspector-section ai-assistant"><span className="design-kicker">ASSISTANT DE CRÉATION</span><p>Décrivez une ambiance. L’assistant propose des changements structurés et vous gardez la main avant l’enregistrement.</p><textarea value={aiPrompt} onChange={(eventChange) => setAiPrompt(eventChange.target.value)} maxLength={2000} minLength={8} placeholder="Ex. une ambiance africaine contemporaine, tons émeraude et dorés, élégante et très lisible…" disabled={aiBusy || aiJob?.status === 'QUEUED' || aiJob?.status === 'PROCESSING'} /><button className="ai-request-action" onClick={() => void requestAiProposal()} disabled={!selected || dirty || aiBusy || aiPrompt.trim().length < 8 || aiJob?.status === 'QUEUED' || aiJob?.status === 'PROCESSING'}>{aiJob?.status === 'QUEUED' || aiJob?.status === 'PROCESSING' ? 'Création en cours…' : aiBusy ? 'Envoi…' : 'Demander une proposition'}</button>{dirty && <small>Enregistrez vos modifications avant de demander une proposition.</small>}{aiJob && <div className={`ai-result ${aiJob.status.toLowerCase()}`}><strong>{aiJob.status === 'QUEUED' ? 'En attente dans la file' : aiJob.status === 'PROCESSING' ? 'Analyse du design en cours' : aiJob.status === 'PROPOSED' ? 'Proposition prête' : aiJob.status === 'CANCELLED' ? 'Demande annulée' : 'Proposition indisponible'}</strong>{aiJob.summary && <p>{aiJob.summary}</p>}{aiJob.status === 'PROPOSED' && <>{aiJob.previewAvailable && <img className="ai-preview-image" src={`/api/events/${encodeURIComponent(event.id)}/designs/${encodeURIComponent(selected.id)}/ai-jobs/${encodeURIComponent(aiJob.id)}/preview`} alt="Aperçu généré de l’arrière-plan" />}{!aiJob.previewAvailable && <small className="ai-provider-label">Aucun aperçu image en mode local simulé</small>}<small className="ai-provider-label">{aiJob.provider === 'mock' ? 'Mode local simulé · aucun modèle IA appelé' : 'Fournisseur auto-hébergé'}</small><button className="ai-apply-action" onClick={applyAiProposal} disabled={dirty || selected.version !== aiJob.baseVersion}>Appliquer cette proposition</button>{selected.version !== aiJob.baseVersion && <small>Le design a changé depuis cette demande. Lancez une nouvelle proposition.</small>}</>}{aiJob.status === 'FAILED' && <><small>{aiJob.errorCode === 'provider_unavailable' ? 'Le fournisseur auto-hébergé est indisponible ou non configuré.' : aiJob.errorCode === 'invalid_proposal' ? 'La proposition reçue ne respecte pas les règles du design.' : 'La génération n’a pas abouti.'}</small><button className="ai-apply-action" disabled={aiBusy || aiJob.attempt >= 3} onClick={() => void retryAiJob()}>{aiJob.attempt >= 3 ? 'Limite de tentatives atteinte' : 'Réessayer'}</button></>}</div>}</div>
             <div className="inspector-section"><span className="design-kicker">VARIABLES DU MODÈLE</span>{selected.document.variables.map((variable) => <label key={variable.key}>{variable.label}{variable.required && <b> · requis</b>}<input value={variable.defaultValue} onChange={(eventChange) => editDocument((document) => { const target = document.variables.find((item) => item.key === variable.key)!; target.defaultValue = eventChange.target.value; })} maxLength={500} /></label>)}</div>
             <div className="inspector-section version-section"><span className="design-kicker">HISTORIQUE · {versions.length}</span><div className="version-list">{versions.slice(0, 8).map((version) => <div key={version.version}><span><strong>Version {version.version}</strong><small>{new Date(version.createdAt).toLocaleString('fr-FR')}</small></span>{version.version !== selected.version && <button disabled={busy} onClick={() => void restoreVersion(version.version)}>Restaurer</button>}</div>)}</div></div>

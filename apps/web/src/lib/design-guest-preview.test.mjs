@@ -20,3 +20,10 @@ test('uses model defaults when no guest is selected', () => {
   const variables = [{ key: 'guest_name', label: 'Guest name', defaultValue: 'Guest' }];
   assert.deepEqual(resolveGuestPreviewValues(variables, null), { guest_name: 'Guest' });
 });
+
+test('uses the selected assigned table for table-name fields', () => {
+  const variables = [{ key: 'table_name', label: 'Nom de table', defaultValue: '' }];
+  assert.deepEqual(resolveGuestPreviewValues(variables, { fullName: 'Sarah Ilunga' }, { tableName: 'Émeraude' }), {
+    table_name: 'Émeraude',
+  });
+});

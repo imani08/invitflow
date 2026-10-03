@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
-import { BrandLogo } from '@/components/brand-logo';
+import AppNavbar from '@/components/AppNavbar';
 import { NotificationInbox } from './notification-inbox';
 import './notifications.css';
 
@@ -26,12 +26,12 @@ export default async function NotificationsPage() {
   const inbox = await response.json() as Inbox;
   const preferences = await preferencesResponse.json() as { enabled: boolean };
   if (!Array.isArray(inbox.items) || !Number.isSafeInteger(inbox.unreadCount) || typeof preferences.enabled !== 'boolean') return <Unavailable />;
-  return <main className="notifications-page"><nav className="account-nav"><BrandLogo/><div><a className="account-link" href="/account">Mon compte</a><a className="account-link" href="/events">Mes événements</a></div></nav>
+  return <main className="notifications-page"><AppNavbar />
     <header className="notifications-heading"><span className="eyebrow">VOTRE ESPACE</span><h1>Notifications</h1><p>Les confirmations et mises à jour importantes de vos événements apparaissent ici.</p></header>
     <NotificationInbox initial={inbox} initialEnabled={preferences.enabled} />
   </main>;
 }
 
 function Unavailable() {
-  return <main className="notifications-page"><nav className="account-nav"><BrandLogo/><div><a className="account-link" href="/account">Mon compte</a></div></nav><section className="notifications-unavailable"><h1>Notifications momentanément indisponibles</h1><p>Réessayez dans quelques instants.</p><a href="/account/notifications">Réessayer</a></section></main>;
+  return <main className="notifications-page"><AppNavbar /><section className="notifications-unavailable"><h1>Notifications momentanément indisponibles</h1><p>Réessayez dans quelques instants.</p><a href="/account/notifications">Réessayer</a></section></main>;
 }

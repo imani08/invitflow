@@ -5,9 +5,10 @@ import { MediaController } from './media.controller.js';
 import { MediaService } from './media.service.js';
 import { MediaStorage } from './media-storage.js';
 import { PrismaService } from './prisma.service.js';
+import { OutboxPublisher } from './outbox-publisher.js';
 
 @Module({
   controllers: [HealthController, MediaController],
-  providers: [PrismaService, IdentityGuard, MediaStorage, MediaService],
+  providers: [PrismaService, IdentityGuard, MediaStorage, MediaService, OutboxPublisher],
 })
 export class MediaModule {}

@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { decodeJwt } from 'jose';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
-import { BrandLogo } from '@/components/brand-logo';
+import AppNavbar from '@/components/AppNavbar';
 import { ProfileForm } from './profile-form';
 import './profile.css';
 
@@ -22,8 +22,29 @@ export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
   const cookieStore = await cookies();
-  const session = await getSession(cookieStore.get(sessionCookieName())?.value);
+  const sessionCookie = cookieStore.get(sessionCookieName())?.value;
+
+console.log('[ACCOUNT SESSION COOKIE]', {
+  present: Boolean(sessionCookie),
+  length: sessionCookie?.length ?? 0,
+  cookieName: sessionCookieName(),
+});
+
+const session = await getSession(sessionCookie);
+
+console.log('[ACCOUNT SESSION RESULT]', {
+  valid: Boolean(session),
+});
   if (!session) redirect('/api/auth/login?returnTo=%2Faccount');
+  const tokenClaims = decodeJwt(session.accessToken);
+
+console.log('[ACCESS TOKEN CLAIMS]', {
+  iss: tokenClaims['iss'],
+  aud: tokenClaims['aud'],
+  azp: tokenClaims['azp'],
+  email_verified: tokenClaims['email_verified'],
+  subPresent: typeof tokenClaims['sub'] === 'string',
+});
   let canManagePricing = false;
   try {
     const access = decodeJwt(session.accessToken)['realm_access'];
@@ -81,29 +102,7 @@ export default async function AccountPage() {
 
   return (
     <main className="account-shell">
-      <nav className="account-nav">
-        <BrandLogo />
-        <div>
-          {canManagePricing && (
-            <a className="account-link" href="/admin/pricing">
-              Gérer les tarifs
-            </a>
-          )}
-          <a className="account-link" href="/account/report">
-            Signaler un contenu
-          </a>
-          <a className="account-link" href="/account/notifications">
-            Notifications
-          </a>
-          <a className="account-link" href="/account/wallet">
-            Crédits & tarifs
-          </a>
-          <a className="account-link" href="/events">
-            Mes événements
-          </a>
-          <span>Espace personnel</span>
-        </div>
-      </nav>
+      <AppNavbar showPricingAdmin={canManagePricing} />
       <section className="account-card">
         <p className="eyebrow">Votre espace</p>
         <h1>Bonjour{profile.displayName ? `, ${profile.displayName}` : ''}.</h1>

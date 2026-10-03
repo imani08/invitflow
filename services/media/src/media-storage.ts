@@ -96,6 +96,34 @@ export class MediaStorage {
     return Buffer.concat(chunks, size);
   }
 
+  async readReady(key: string, maxBytes: number) {
+    if (!/^assets\/[0-9a-f-]{36}$/i.test(key))
+      throw new ServiceUnavailableException('Media read key is invalid');
+    const response = await this.request('GET', this.bucket, key, false, 'ready');
+    const announced = Number(response.headers.get('content-length'));
+    if (Number.isFinite(announced) && announced > maxBytes)
+      throw new ServiceUnavailableException('Ready media exceeds the read limit');
+    if (!response.body) throw new ServiceUnavailableException('Ready media body is unavailable');
+    const reader = response.body.getReader();
+    const chunks: Buffer[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > maxBytes) {
+          await reader.cancel();
+          throw new ServiceUnavailableException('Ready media exceeds the read limit');
+        }
+        chunks.push(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    return Buffer.concat(chunks, size);
+  }
+
   async deleteQuarantine(key: string) {
     await this.request(
       'DELETE',
@@ -109,6 +137,13 @@ export class MediaStorage {
   async publishSanitized(assetId: string, bytes: Buffer) {
     const key = `assets/${assetId}`;
     await this.request('PUT', this.bucket, key, false, 'ready', bytes, 'image/webp');
+    return key;
+  }
+
+  async publishDerivedPng(assetId: string, bytes: Buffer) {
+    if (!/^[0-9a-f-]{36}$/i.test(assetId)) throw new ServiceUnavailableException('Derived media id is invalid');
+    const key = `assets/${assetId}`;
+    await this.request('PUT', this.bucket, key, false, 'ready', bytes, 'image/png');
     return key;
   }
 

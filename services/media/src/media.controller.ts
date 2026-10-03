@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import { Body, Controller, Delete, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { uuid } from './env.js';
 import { IdentityGuard, type AuthenticatedRequest } from './identity.guard.js';
 import { MediaService } from './media.service.js';
@@ -33,6 +33,29 @@ export class MediaController {
       (request as AuthenticatedRequest).identity!.subject,
       uuid(assetId, 'assetId'),
     );
+  }
+
+  @Get(':assetId/content')
+  async content(@Req() request: FastifyRequest, @Param('assetId') assetId: string, @Res() reply: FastifyReply) {
+    const result = await this.media.getAssetContent(
+      (request as AuthenticatedRequest).identity!.subject,
+      uuid(assetId, 'assetId'),
+    );
+    return reply
+      .header('content-type', result.mimeType)
+      .header('cache-control', 'private, no-store')
+      .header('x-content-type-options', 'nosniff')
+      .send(result.bytes);
+  }
+
+  @Post(':assetId/background-removal')
+  removeBackground(@Req() request: FastifyRequest, @Param('assetId') assetId: string) {
+    return this.media.createBackgroundRemoval((request as AuthenticatedRequest).identity!.subject, uuid(assetId, 'assetId'));
+  }
+
+  @Get(':assetId/background-removal')
+  getBackgroundRemoval(@Req() request: FastifyRequest, @Param('assetId') assetId: string) {
+    return this.media.getBackgroundRemoval((request as AuthenticatedRequest).identity!.subject, uuid(assetId, 'assetId'));
   }
 
   @Post(':assetId/upload-url')

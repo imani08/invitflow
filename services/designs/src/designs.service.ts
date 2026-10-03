@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { DesignStatus, Prisma, TemplateCategory } from '../generated/prisma/client.js';
 import { EventsClient } from './events-client.js';
 import { PrismaService } from './prisma.service.js';
-import { templateVariables, validateDesignDocument } from './design-document.js';
+import { normalizeDesignDocument, templateVariables, validateDesignDocument } from './design-document.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const categories = new Set<string>(Object.values(TemplateCategory));
@@ -170,7 +170,7 @@ export class DesignsService {
       },
     });
     if (!design) throw new NotFoundException('Design introuvable.');
-    return design;
+    return { ...design, document: normalizeDesignDocument(design.document) };
   }
 
   async create(eventId: string, ownerSubject: string, authorization: string, body: unknown) {
@@ -191,7 +191,7 @@ export class DesignsService {
     if (!templateVersion) throw new NotFoundException('Version du template introuvable.');
     const eventTypes = (event.ceremonies ?? []).map((item) => typeof item.ceremonyType === 'string' ? item.ceremonyType.toUpperCase() : '').map((type) => type === 'OTHER' ? 'CUSTOM' : type);
     if (!this.templateMatchesEvent(templateVersion.ceremonyTypes, eventTypes)) throw new NotFoundException('Template indisponible pour les cérémonies de cet événement.');
-    const document = validateDesignDocument(templateVersion.document);
+    const document = validateDesignDocument(normalizeDesignDocument(templateVersion.document));
     const version = await this.prisma.$transaction(async (tx) => {
       const design = await tx.design.create({
         data: {
@@ -219,7 +219,7 @@ export class DesignsService {
           payload: { eventId, ownerSubject, designId: design.id, version: 1 },
         },
       });
-      return design;
+    return { ...design, document: normalizeDesignDocument(design.document) };
     });
     return version;
   }
@@ -239,7 +239,7 @@ export class DesignsService {
     if (!Number.isInteger(input['expectedVersion']) || (input['expectedVersion'] as number) < 1)
       throw new BadRequestException('Rechargez le design avant de le modifier.');
     const name = text(input['name'], 'Le nom du design', 120);
-    const document = validateDesignDocument(input['document']);
+    const document = validateDesignDocument(normalizeDesignDocument(input['document']));
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.design.findFirst({
         where: { id: designId, eventId, ownerSubject, status: DesignStatus.DRAFT },
@@ -298,7 +298,7 @@ export class DesignsService {
       orderBy: { version: 'desc' },
       select: { version: true, name: true, document: true, createdAt: true },
     });
-    return { items };
+    return { items: items.map((item) => ({ ...item, document: normalizeDesignDocument(item.document) })) };
   }
 
   async restore(
@@ -354,16 +354,18 @@ export class DesignsService {
   }
 
   async inspectDocument(documentValue: unknown) {
-    const document = validateDesignDocument(documentValue);
+    const document = validateDesignDocument(normalizeDesignDocument(documentValue));
     const elements = document['elements'] as Record<string, unknown>[];
-    const safeMargin = (document['constraints'] as Record<string, unknown>)['safeMargin'] as number;
+    const rawMargin = (document['constraints'] as Record<string, unknown>)['safeMargin'];
+    const safeMargin: { top: number; right: number; bottom: number; left: number } = typeof rawMargin === 'number' ? { top: rawMargin, right: rawMargin, bottom: rawMargin, left: rawMargin } : { top: Number((rawMargin as Record<string, unknown>)['top'] ?? 64), right: Number((rawMargin as Record<string, unknown>)['right'] ?? 64), bottom: Number((rawMargin as Record<string, unknown>)['bottom'] ?? 64), left: Number((rawMargin as Record<string, unknown>)['left'] ?? 64) };
     const canvas = document['canvas'] as Record<string, unknown>;
     const background = (document['theme']['tokens'] as Record<string, unknown>)[
       'background'
     ] as string;
     const problems: { code: string; layerId?: string; message: string }[] = [];
+    const warnings: { code: string; layerId?: string; message: string }[] = [];
     for (const element of elements) {
-      if (element['editable'] && !element['locked'] && (element['x'] as number) < safeMargin)
+      if (element['editable'] && !element['locked'] && (element['x'] as number) < safeMargin.left)
         problems.push({
           code: 'SAFE_MARGIN',
           layerId: element['id'] as string,
@@ -373,14 +375,14 @@ export class DesignsService {
         element['editable'] &&
         !element['locked'] &&
         (element['x'] as number) + (element['width'] as number) >
-          (canvas['width'] as number) - safeMargin
+          (canvas['width'] as number) - safeMargin.right
       )
         problems.push({
           code: 'SAFE_MARGIN',
           layerId: element['id'] as string,
           message: `${element['name']} est trop près du bord droit.`,
         });
-      if (element['editable'] && !element['locked'] && (element['y'] as number) < safeMargin)
+      if (element['editable'] && !element['locked'] && (element['y'] as number) < safeMargin.top)
         problems.push({
           code: 'SAFE_MARGIN',
           layerId: element['id'] as string,
@@ -390,7 +392,7 @@ export class DesignsService {
         element['editable'] &&
         !element['locked'] &&
         (element['y'] as number) + (element['height'] as number) >
-          (canvas['height'] as number) - safeMargin
+          (canvas['height'] as number) - safeMargin.bottom
       )
         problems.push({
           code: 'SAFE_MARGIN',
@@ -412,7 +414,7 @@ export class DesignsService {
           1,
           Math.floor((element['width'] as number) / (fontSize * 0.58)),
         );
-        const estimatedLines = rendered.split('\n').reduce((total, paragraph) => {
+        let estimatedLines = rendered.split('\n').reduce((total, paragraph) => {
           let rows = 1;
           let row = '';
           for (const word of paragraph.split(/\s+/)) {
@@ -427,10 +429,15 @@ export class DesignsService {
           }
           return total + rows;
         }, 0);
-        const availableLines = Math.max(
-          1,
-          Math.floor((element['height'] as number) / (fontSize * 1.25)),
-        );
+        let fittedFontSize = fontSize;
+        let availableLines = Math.max(1, Math.floor((element['height'] as number) / (fittedFontSize * Number(element['lineHeight'] ?? 1.2))));
+        while (estimatedLines > availableLines && fittedFontSize > Number(element['minFontSize'] ?? fontSize)) {
+          fittedFontSize -= 1;
+          const fittedCharsPerLine = Math.max(1, Math.floor((element['width'] as number) / (fittedFontSize * 0.58)));
+          estimatedLines = Math.max(1, Math.ceil([...rendered].length / fittedCharsPerLine));
+          availableLines = Math.max(1, Math.floor((element['height'] as number) / (fittedFontSize * Number(element['lineHeight'] ?? 1.2))));
+        }
+        if (fittedFontSize < fontSize) warnings.push({ code: 'FONT_REDUCED', layerId: element['id'] as string, message: `${element['name']} sera réduit à ${fittedFontSize} px pour tenir dans sa zone.` });
         if (estimatedLines > availableLines)
           problems.push({
             code: 'TEXT_FIT',
@@ -455,6 +462,7 @@ export class DesignsService {
       valid: problems.length === 0,
       checked: elements.length,
       problems,
+      warnings,
       variables: templateVariables(document),
     };
   }

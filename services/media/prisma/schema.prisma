@@ -21,13 +21,37 @@ enum MediaAssetStatus {
   QUARANTINED
   READY
   REJECTED
+  DELETING
   DELETED
+}
+
+enum MediaTransformationStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum MediaTransformationType {
+  BACKGROUND_REMOVAL
+}
+
+enum MediaAssetCategory {
+  ORIGINAL_MEDIA
+  DERIVED_MEDIA
+  PREVIEW
+  PDF_FINAL
+  ZIP_EXPORT
+  TEMP_RENDER
+  IMPORT_TEMP
+  FAILED_JOB_ARTIFACT
 }
 
 model MediaAsset {
   id                  String            @id @default(uuid()) @db.Uuid
   ownerSubject        String            @map("owner_subject") @db.VarChar(255)
   purpose             MediaAssetPurpose
+  category            MediaAssetCategory @default(ORIGINAL_MEDIA)
   status              MediaAssetStatus  @default(UPLOADING)
   originalName        String            @map("original_name") @db.VarChar(255)
   declaredMimeType    String            @map("declared_mime_type") @db.VarChar(100)
@@ -45,9 +69,64 @@ model MediaAsset {
   createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt           DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  sourceAssetId       String?           @map("source_asset_id") @db.Uuid
+  transformationType  MediaTransformationType? @map("transformation_type")
+  expiresAt            DateTime?         @map("expires_at") @db.Timestamptz(3)
+  lastAccessedAt       DateTime?         @map("last_accessed_at") @db.Timestamptz(3)
+  isPinned             Boolean           @default(false) @map("is_pinned")
+  sourceAsset          MediaAsset?       @relation("MediaDerivation", fields: [sourceAssetId], references: [id], onDelete: Restrict)
+  derivedAssets        MediaAsset[]      @relation("MediaDerivation")
+  sourceJobs           MediaTransformationJob[] @relation("JobSource")
+  derivedJob           MediaTransformationJob?  @relation("JobDerived")
 
   @@index([ownerSubject, status, createdAt(sort: Desc)], map: "media_assets_owner_status_created_idx")
   @@index([status, uploadExpiresAt], map: "media_assets_status_expiry_idx")
   @@index([status, intentExpiresAt], map: "media_assets_intent_expiry_idx")
   @@map("media_assets")
+}
+
+model MediaTransformationJob {
+  id             String                    @id @default(uuid()) @db.Uuid
+  ownerSubject   String                    @map("owner_subject") @db.VarChar(255)
+  sourceAssetId  String                    @map("source_asset_id") @db.Uuid
+  derivedAssetId String                    @unique @map("derived_asset_id") @db.Uuid
+  type           MediaTransformationType
+  status         MediaTransformationStatus @default(PENDING)
+  attempts       Int                       @default(0)
+  errorCode      String?                   @map("error_code") @db.VarChar(80)
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceAsset    MediaAsset                @relation("JobSource", fields: [sourceAssetId], references: [id], onDelete: Restrict)
+  derivedAsset   MediaAsset                @relation("JobDerived", fields: [derivedAssetId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt], map: "media_transform_jobs_status_created_idx")
+  @@map("media_transformation_jobs")
+}
+
+model OutboxMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  eventType   String    @map("event_type") @db.VarChar(100)
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  payload     Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  attempts    Int       @default(0)
+
+  @@index([publishedAt, createdAt], map: "media_outbox_pending_idx")
+  @@map("outbox_messages")
+}
+
+model MediaCleanupEntry {
+  id         String            @id @default(uuid()) @db.Uuid
+  fileId     String            @map("file_id") @db.Uuid
+  category   MediaAssetCategory
+  sizeBytes  Int               @map("size_bytes")
+  reason     String            @db.VarChar(80)
+  jobId      String?           @map("job_id") @db.Uuid
+  status     String            @db.VarChar(24)
+  deletedAt  DateTime?         @map("deleted_at") @db.Timestamptz(3)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("media_cleanup_entries")
 }

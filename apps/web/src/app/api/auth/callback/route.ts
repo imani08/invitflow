@@ -19,11 +19,18 @@ export async function GET(request: Request) {
 
   try {
     const { sessionId, returnTo } = await finishLogin(code, state);
+    console.log('[AUTH SESSION CREATED]', {
+  sessionIdLength: sessionId.length,
+  cookieName: sessionCookieName(),
+  returnTo,
+});
     const response = NextResponse.redirect(publicUrl(returnTo));
     response.cookies.set(sessionCookieName(), sessionId, cookieOptions());
     response.headers.set('Cache-Control', 'no-store');
     return response;
-  } catch {
+  } catch (error) {
+    console.error('[AUTH CALLBACK ERROR]', error);
+
     const response = NextResponse.redirect(publicUrl('/?auth=failed'));
     response.headers.set('Cache-Control', 'no-store');
     return response;

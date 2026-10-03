@@ -10,7 +10,7 @@ const hmac = (k: Uint8Array | string, v: string) => createHmac('sha256', k).upda
   async stream(key: string) { return this.request('GET', key); }
   async delete(key: string) { const r = await this.request('DELETE', key); if (!r.ok && r.status !== 404) throw new ServiceUnavailableException('Object storage unavailable'); }
   private async request(method: string, key: string, body?: Buffer, type?: string) {
-    if (!/^(pdf|batches)\/[0-9a-f-]{36}(\/[0-9a-f-]{36})?\.(pdf|zip)$/i.test(key)) throw new ServiceUnavailableException('Storage object key is invalid');
+    if (!/^(?:pdf\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.pdf|batches\/[0-9a-f-]{36}\.zip|batches\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:webp|png))$/i.test(key)) throw new ServiceUnavailableException('Storage object key is invalid');
     const target = new URL(`/${this.bucket}/${key}`, this.endpoint); const hash = sha(body ?? new Uint8Array()); const now = new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''); const day = now.slice(0, 8);
     const headers = { host: target.host, 'x-amz-content-sha256': hash, 'x-amz-date': now, ...(type ? { 'content-type': type } : {}) }; const signed = 'host;x-amz-content-sha256;x-amz-date';
     const canonical = `${method}\n${target.pathname}\n\nhost:${target.host}\nx-amz-content-sha256:${hash}\nx-amz-date:${now}\n${signed}\n${hash}`; const scope = `${day}/${this.region}/s3/aws4_request`;

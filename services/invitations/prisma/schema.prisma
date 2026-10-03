@@ -82,6 +82,8 @@ model InvitationBatch {
   totalItems Int @map("total_items")
   completedItems Int @default(0) @map("completed_items")
   failedItems Int @default(0) @map("failed_items")
+  zipExpiresAt DateTime? @map("zip_expires_at") @db.Timestamptz(3)
+  zipDeletedAt DateTime? @map("zip_deleted_at") @db.Timestamptz(3)
   cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)

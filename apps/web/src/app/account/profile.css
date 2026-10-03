@@ -1,1 +1,65 @@
-.account-shell{min-height:100vh;padding:0 8vw 64px;background:radial-gradient(ellipse at 80% 42%,#eee5d6 0%,transparent 43%),var(--paper)}.account-nav{height:92px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);color:var(--muted);font-size:13px}.account-card{width:min(100%,620px);margin:80px auto;padding:clamp(26px,6vw,56px);background:#fffdf8;border:1px solid var(--line);border-radius:5px;box-shadow:0 20px 65px #3227130c}.account-card h1{font-family:'Playfair Display',serif;font-weight:500;font-size:clamp(38px,6vw,54px);line-height:1.12;letter-spacing:-1px;margin:18px 0}.account-copy{color:var(--muted);font-size:14px;line-height:1.75;margin:0 0 30px}.identity-row{display:flex;justify-content:space-between;gap:20px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px}.identity-row span{color:var(--muted)}.profile-form{display:grid;gap:10px;margin-top:28px}.profile-form label{font-size:12px;font-weight:600;margin-top:8px}.profile-form input,.profile-form select{width:100%;height:46px;padding:0 12px;border:1px solid var(--line);border-radius:3px;background:white;color:var(--ink);font:inherit}.save-button,.logout-button{height:46px;border:0;border-radius:3px;font:inherit;font-size:13px;cursor:pointer}.save-button{margin-top:12px;background:var(--accent);color:white}.save-button:disabled{opacity:.65;cursor:wait}.form-status{min-height:20px;margin:0;color:var(--muted);font-size:12px}.logout-button{margin-top:18px;padding:0 18px;background:transparent;color:var(--accent);border:1px solid var(--line)}.account-link{display:inline-block;margin-top:10px;color:var(--accent);font-size:14px}
+.account-shell{min-height:100vh;padding:0 8vw 64px;background:radial-gradient(ellipse at 80% 42%,#eee5d6 0%,transparent 43%),var(--paper)}.account-nav{
+  min-height:92px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:32px;
+  border-bottom:1px solid var(--line);
+  color:var(--muted);
+  font-size:13px;
+}
+
+.account-nav>div{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:22px;
+  flex-wrap:wrap;
+}
+
+.account-nav .account-link{
+  display:inline-flex;
+  align-items:center;
+  margin-top:0;
+  white-space:nowrap;
+  text-decoration:none;
+}
+
+.account-nav>div>span{
+  white-space:nowrap;
+  font-weight:600;
+  color:var(--ink);
+}.account-card{width:min(100%,620px);margin:80px auto;padding:clamp(26px,6vw,56px);background:#fffdf8;border:1px solid var(--line);border-radius:5px;box-shadow:0 20px 65px #3227130c}.account-card h1{font-family:'Playfair Display',serif;font-weight:500;font-size:clamp(38px,6vw,54px);line-height:1.12;letter-spacing:-1px;margin:18px 0}.account-copy{color:var(--muted);font-size:14px;line-height:1.75;margin:0 0 30px}.identity-row{display:flex;justify-content:space-between;gap:20px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px}.identity-row span{color:var(--muted)}.profile-form{display:grid;gap:10px;margin-top:28px}.profile-form label{font-size:12px;font-weight:600;margin-top:8px}.profile-form input,.profile-form select{width:100%;height:46px;padding:0 12px;border:1px solid var(--line);border-radius:3px;background:white;color:var(--ink);font:inherit}.save-button,.logout-button{height:46px;border:0;border-radius:3px;font:inherit;font-size:13px;cursor:pointer}.save-button{margin-top:12px;background:var(--accent);color:white}.save-button:disabled{opacity:.65;cursor:wait}.form-status{min-height:20px;margin:0;color:var(--muted);font-size:12px}.logout-button{margin-top:18px;padding:0 18px;background:transparent;color:var(--accent);border:1px solid var(--line)}.account-link{display:inline-block;margin-top:10px;color:var(--accent);font-size:14px}
+
+@media(max-width:900px){
+  .account-nav{
+    height:auto;
+    padding:18px 0;
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .account-nav>div{
+    width:100%;
+    justify-content:flex-start;
+    gap:14px 18px;
+  }
+}
+
+@media(max-width:560px){
+  .account-shell{
+    padding-left:20px;
+    padding-right:20px;
+  }
+
+  .account-nav>div{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+
+  .account-nav .account-link,
+  .account-nav>div>span{
+    white-space:normal;
+  }
+}

@@ -1,0 +1,10 @@
+.event-overview-steps { max-width: 850px; padding-top: 28px; }
+.event-overview-steps h2 { margin: 0 0 16px; font: 500 28px 'Playfair Display', Georgia, serif; }
+.event-overview-steps ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.event-overview-steps li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid #eee8df; background: #fffdfa; padding: 16px; }
+.event-overview-steps li > span { color: #a77c65; font: 500 18px Georgia, serif; }
+.event-overview-steps li div { display: grid; gap: 4px; }
+.event-overview-steps li strong { font-size: 13px; }
+.event-overview-steps li small,.event-overview-steps>p { color: #827c71; font-size: 11px; }
+.event-overview-steps li a { color: #32163a; font-size: 12px; text-decoration: none; }
+@media(max-width:520px) { .event-overview-steps li { grid-template-columns: 28px minmax(0,1fr); gap: 10px; } .event-overview-steps li a { grid-column: 2; justify-self: start; } }

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
   OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -22,6 +23,8 @@ import { PrismaService } from './prisma.service.js';
 import { InvitationStorage } from './invitation-storage.js';
 import { requiredEnv } from './env.js';
 import { invitationIdFromToken, invitationToken } from './invitation-token.mjs';
+import { renderInvitationImage } from './invitation-image-render.mjs';
+import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
 
 type Obj = Record<string, unknown>;
 const object = (v: unknown): Obj =>
@@ -64,18 +67,34 @@ async function renderStaticPdf(html: string) {
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
-export class InvitationService implements OnModuleInit {
+export class InvitationService implements OnModuleInit, OnModuleDestroy {
   private busy = false;
+  private cleanupTimer?: NodeJS.Timeout;
+  private readonly renderImageCache = new Map<string, Promise<string>>();
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: InvitationStorage,
   ) {}
   onModuleInit() {
-    if (process.env['RENDER_WORKER_ENABLED'] !== 'true') return;
-    const timer = setInterval(() => {
-      void this.work().catch(() => undefined);
-    }, 1200);
-    timer.unref();
+    this.cleanupTimer = setInterval(() => void this.cleanupExpiredExports().catch(() => console.warn(JSON.stringify({ event: 'expired_export_cleanup_failed' }))), 60 * 60 * 1000);
+    this.cleanupTimer.unref();
+    void this.cleanupExpiredExports().catch(() => undefined);
+    if (process.env['RENDER_WORKER_ENABLED'] === 'true') {
+      const timer = setInterval(() => { void this.work().catch(() => undefined); }, 1200);
+      timer.unref();
+    }
+  }
+  onModuleDestroy() { if (this.cleanupTimer) clearInterval(this.cleanupTimer); }
+
+  private async cleanupExpiredExports() {
+    const batches = await this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { lt: new Date() }, zipDeletedAt: null }, orderBy: { zipExpiresAt: 'asc' }, take: 50, select: { id: true, zipExpiresAt: true } });
+    for (const batch of batches) {
+      try {
+        await this.storage.delete(`batches/${batch.id}.zip`);
+        await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, zipDeletedAt: null, zipExpiresAt: { lte: new Date() } }, data: { zipDeletedAt: new Date() } });
+        console.info(JSON.stringify({ event: 'zip_export_expired', batchId: batch.id }));
+      } catch { console.warn(JSON.stringify({ event: 'zip_export_cleanup_retry', batchId: batch.id })); }
+    }
   }
 
   private async upstream(url: string, authorization: string) {
@@ -99,6 +118,7 @@ export class InvitationService implements OnModuleInit {
     const designs = requiredEnv('DESIGNS_SERVICE_URL');
     const guests = requiredEnv('GUESTS_SERVICE_URL');
     const seating = requiredEnv('SEATING_SERVICE_URL');
+    const media = requiredEnv('MEDIA_SERVICE_URL', 'http://media:3014');
     const [event, design] = await Promise.all([
       this.upstream(`${events}/v1/events/${eventId}`, authorization),
       this.upstream(`${designs}/v1/events/${eventId}/designs/${designId}`, authorization),
@@ -137,9 +157,12 @@ export class InvitationService implements OnModuleInit {
               authorization,
             ),
           ]);
-          return { ceremony, plan, assignments };
+          const tables = object(plan).mode === 'TABLE'
+            ? await this.upstream(`${seating}/v1/events/${eventId}/ceremonies/${ceremony.id}/seating/tables`, authorization).catch(() => null)
+            : null;
+          return { ceremony, plan, assignments, tables };
         } catch {
-          return { ceremony, plan: null, assignments: null };
+          return { ceremony, plan: null, assignments: null, tables: null };
         }
       }),
     );
@@ -151,17 +174,38 @@ export class InvitationService implements OnModuleInit {
           : Array.isArray(source.items)
             ? source.items
             : [];
+        const assignment = rows.find((row: Obj) => row.guestId === guestId) ?? null;
+        const tableRows = Array.isArray(entry.tables) ? entry.tables : Array.isArray(object(entry.tables).items) ? object(entry.tables).items as Obj[] : [];
+        const table = assignment && typeof assignment.tableId === 'string' ? tableRows.find((row: Obj) => row.id === assignment.tableId) : undefined;
         return {
           ceremonyId: object(entry.ceremony).id,
           plan: entry.plan,
-          assignment: rows.find((row: Obj) => row.guestId === guestId) ?? null,
+          assignment,
+          tableName: typeof table?.name === 'string' ? table.name : '',
         };
       });
     const doc = object(design?.document);
+    const photoLayers = [...new Map((Array.isArray(doc.elements) ? doc.elements : [])
+      .filter((value: unknown) => object(value).type === 'IMAGE' && typeof object(value).assetId === 'string')
+      .map((value: unknown) => object(value))
+      .map((layer) => [String(layer.assetId), { assetId: String(layer.assetId), fallbackAssetId: typeof layer.originalAssetId === 'string' ? layer.originalAssetId : null }] as const)).values()];
+    const photoAssets = await Promise.all(photoLayers.map(async ({ assetId, fallbackAssetId }) => {
+      const getContent = (id: string) => fetch(media.replace(/\/$/, '') + '/v1/assets/' + encodeURIComponent(id) + '/content', { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(12_000) });
+      let response = await getContent(assetId);
+      let storedFromAssetId = assetId;
+      if (!response.ok && fallbackAssetId && fallbackAssetId !== assetId) { response = await getContent(fallbackAssetId); storedFromAssetId = fallbackAssetId; }
+      if (!response.ok) throw new BadRequestException('La photo ' + assetId + ' n’est pas accessible ou prête.');
+      const mimeType = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
+      if (mimeType !== 'image/webp' && mimeType !== 'image/png') throw new BadRequestException('Le média de la photo n’est pas un WebP ou PNG validé.');
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new BadRequestException('Le média de la photo dépasse la taille de rendu autorisée.');
+      return { assetId, storedFromAssetId, bytes, mimeType };
+    }));
     const version = Number.isInteger(design?.version) ? design.version : 1;
     return {
       event,
       design: { id: design.id, version, name: design.name, document: doc },
+      photoAssets,
       ceremonySnapshots,
       guests: selected,
       seatingFor,
@@ -212,7 +256,20 @@ export class InvitationService implements OnModuleInit {
       return prior;
     }
     const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization);
+    const document = object(snapshot.design.document) ? object(snapshot.design.document) as Obj : {};
+    const constraints = object(document.constraints) ? object(document.constraints) : {};
+    const rawSafeMargin = constraints.safeMargin;
+    const marginObject = object(rawSafeMargin);
+    const safeMargin = typeof rawSafeMargin === 'number' ? rawSafeMargin : ['top', 'right', 'bottom', 'left'].every((edge) => typeof marginObject[edge] === 'number') ? marginObject as { top: number; right: number; bottom: number; left: number } : 64;
+    for (const guest of snapshot.guests) {
+      const seating = snapshot.seatingFor(String(guest.id));
+      const tableName = [...new Set(seating.map((item: Obj) => item.tableName).filter((name: unknown): name is string => typeof name === 'string' && !!name.trim()))].join(' · ');
+      const ceremonyName = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => { const ceremony = object(object(item).ceremony); return String(ceremony.name ?? ceremony.title ?? ''); }).filter(Boolean).join(' · ');
+      const layout = validateInvitationLayout({ document, values: { guest_name: String(guest.fullName ?? ''), table_name: tableName, event_name: String(object(snapshot.event).name ?? ''), ceremony_name: ceremonyName, event_date: String(object(snapshot.event).startAt ?? object(snapshot.event).date ?? ''), event_location: String(object(object(snapshot.event).venue).name ?? object(snapshot.event).location ?? '') }, safeMargin });
+      if (layout.errors.length) throw new BadRequestException({ code: 'INVITATION_LAYOUT_INVALID', errors: layout.errors });
+    }
     const batchId = randomUUID();
+    const renderAssets = Object.fromEntries(snapshot.photoAssets.map((asset) => [asset.assetId, { key: 'batches/' + batchId + '/' + asset.assetId + (asset.mimeType === 'image/png' ? '.png' : '.webp'), mimeType: asset.mimeType }]));
     const ref = `invitation-batch/${batchId}`;
     const eventsUrl = requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '');
     const agencyWorkspaceId = typeof snapshot.event?.agencyWorkspaceId === 'string' ? snapshot.event.agencyWorkspaceId : null;
@@ -222,6 +279,8 @@ export class InvitationService implements OnModuleInit {
       agencyReference = `agency-invitation-batch/${batchId}`;
     }
     let walletReservedCredits = snapshot.guests.length;
+    try {
+    for (const asset of snapshot.photoAssets) await this.storage.put(renderAssets[asset.assetId]!.key, asset.bytes, asset.mimeType!);
     await this.prisma.$transaction(async (tx) => {
       const created = await tx.invitationBatch.create({
         data: {
@@ -265,6 +324,7 @@ export class InvitationService implements OnModuleInit {
           eventSnapshot: snapshot.event,
           ceremonySnapshots: snapshot.ceremonySnapshots,
           seatingSnapshot: snapshot.seatingFor(guest.id),
+          renderAssets,
         };
         const version = await tx.invitationVersion.create({
           data: {
@@ -290,6 +350,10 @@ export class InvitationService implements OnModuleInit {
       }
       return created;
     });
+    } catch (error) {
+      await Promise.allSettled(Object.values(renderAssets).map((entry) => this.storage.delete(entry.key)));
+      throw error;
+    }
     try {
       if (agencyReference && agencyWorkspaceId) {
         const quotaReservation = await fetch(`${eventsUrl}/v1/agencies/${encodeURIComponent(agencyWorkspaceId)}/quota/reservations`, { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': `reserve-${batchId}` }, body: JSON.stringify({ eventId, referenceKey: agencyReference, credits: snapshot.guests.length, allowPartial: true }), signal: AbortSignal.timeout(10_000) });
@@ -345,6 +409,7 @@ export class InvitationService implements OnModuleInit {
           data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' },
         });
       });
+      await Promise.allSettled(Object.values(renderAssets).map((entry) => this.storage.delete(entry.key)));
       throw new ConflictException('Les crédits n’ont pas pu être réservés; le lot a été arrêté.');
     }
     return this.getBatch(owner, batchId);
@@ -441,7 +506,30 @@ export class InvitationService implements OnModuleInit {
         data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
       });
     });
+    const activeItems = await this.prisma.batchItem.count({ where: { batchId: id, status: BatchItemStatus.GENERATING } });
+    if (!activeItems) await this.cleanupRenderAssets(batch.items[0]?.snapshot);
     return this.getBatch(owner, id);
+  }
+  private async cleanupRenderAssets(snapshotValue: unknown) {
+    const assets = object(object(snapshotValue).renderAssets);
+    const keys = Object.values(assets).flatMap((entry) => typeof entry === 'string' ? [entry] : typeof object(entry)['key'] === 'string' ? [object(entry)['key'] as string] : []);
+    await Promise.all(keys.map((key) => this.storage.delete(key)));
+    for (const key of keys) for (const cacheKey of this.renderImageCache.keys()) if (cacheKey.startsWith(key + '|')) this.renderImageCache.delete(cacheKey);
+  }
+  private renderImageSource(key: string, mimeType: string) {
+    const cacheKey = key + '|' + mimeType;
+    const cached = this.renderImageCache.get(cacheKey);
+    if (cached) return cached;
+    const loading = this.storage.get(key).then((bytes) => {
+      if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error('Invitation image snapshot size is invalid');
+      return 'data:' + mimeType + ';base64,' + bytes.toString('base64');
+    }).catch((error) => {
+      this.renderImageCache.delete(cacheKey);
+      throw error;
+    });
+    this.renderImageCache.set(cacheKey, loading);
+    while (this.renderImageCache.size > 12) this.renderImageCache.delete(this.renderImageCache.keys().next().value!);
+    return loading;
   }
   private async settle(
     batch: { ownerSubject: string; reservationReference: string; agencyWorkspaceId: string | null; agencyReservationReference: string | null; agencyReservedCredits: number; walletReservedCredits: number },
@@ -547,11 +635,29 @@ export class InvitationService implements OnModuleInit {
     const key = `batches/${batchId}.zip`;
     if (batch.status !== BatchStatus.COMPLETED)
       throw new ConflictException('Le ZIP est disponible après le rendu complet du lot.');
+    if (batch.zipDeletedAt || (batch.zipExpiresAt && batch.zipExpiresAt <= new Date()))
+      throw new ConflictException({ code: 'ZIP_EXPIRED', message: 'Le ZIP a expiré. Régénérez-le à partir des PDF conservés.' });
     return {
       body: (await this.storage.stream(key)).body!,
       type: 'application/zip',
       name: `invitations-${batchId}.zip`,
     };
+  }
+
+  async regenerateZip(owner: string, batchId: string) {
+    const batch = await this.prisma.invitationBatch.findFirst({ where: { id: batchId, ownerSubject: owner }, include: { items: { where: { status: BatchItemStatus.GENERATED }, orderBy: { createdAt: 'asc' } } } });
+    if (!batch) throw new NotFoundException('Lot introuvable.');
+    if (batch.status !== BatchStatus.COMPLETED || !batch.items.length || batch.items.some((item) => !item.objectKey)) throw new ConflictException('Les PDF finaux ne sont pas disponibles pour régénérer le ZIP.');
+    const files = await Promise.all(batch.items.map(async (item) => ({ name: `invitations/${safeGuestFilename(object(object(item.snapshot).guestSnapshot).fullName)}--${item.guestId.slice(0, 8)}.pdf`, bytes: await this.storage.get(item.objectKey!) })));
+    const event = object(object(batch.items[0]!.snapshot).eventSnapshot);
+    const readme = await renderStaticPdf(`<!doctype html><html lang="fr"><meta charset="utf-8"><style>@page{size:A4;margin:22mm}body{font:12pt Arial;line-height:1.5}h1{font:26pt Georgia;color:#684d3e}</style><h1>Votre lot d’invitations</h1><p>${esc(event.name ?? 'Événement')} · ${files.length} PDF</p><p>Les invitations individuelles se trouvent dans le dossier invitations. Conservez chaque PDF privé et transmettez-le uniquement à son invité.</p></html>`);
+    const archive = createZip([...files, { name: 'LISEZ-MOI.pdf', bytes: readme }]);
+    const key = `batches/${batch.id}.zip`;
+    await this.storage.put(key, archive, 'application/zip');
+    const ttlDays = Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5)));
+    const zipExpiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+    await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, ownerSubject: owner, status: BatchStatus.COMPLETED }, data: { zipExpiresAt, zipDeletedAt: null } });
+    return { id: batch.id, status: batch.status, zipExpiresAt };
   }
 
   async publicInvitation(token: string) {
@@ -976,7 +1082,10 @@ export class InvitationService implements OnModuleInit {
     )
       return;
     const batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id } });
-    if (batch.status === BatchStatus.CANCELLED) return;
+    if (batch.status === BatchStatus.CANCELLED) {
+      await this.cleanupRenderAssets(items[0]?.snapshot);
+      return;
+    }
     const made = items.filter((i) => i.status === BatchItemStatus.GENERATED);
     const failed = items.filter((i) => i.status === BatchItemStatus.FAILED).length;
     try {
@@ -997,7 +1106,9 @@ export class InvitationService implements OnModuleInit {
         );
         await this.storage.put(`batches/${id}.zip`, zip, 'application/zip');
       }
+      await this.cleanupRenderAssets(items[0]?.snapshot);
       await this.settle(batch, failed ? 0 : made.length);
+      const zipTtlDays = Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5)));
       await this.prisma.$transaction(async (tx) => {
         const changed = await tx.invitationBatch.updateMany({
           where: { id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
@@ -1005,6 +1116,8 @@ export class InvitationService implements OnModuleInit {
             status: failed ? BatchStatus.FAILED : BatchStatus.COMPLETED,
             completedItems: failed ? 0 : made.length,
             failedItems: failed ? items.length : 0,
+            zipExpiresAt: failed || !made.length ? null : new Date(Date.now() + zipTtlDays * 24 * 60 * 60 * 1000),
+            zipDeletedAt: null,
           },
         });
         if (changed.count)
@@ -1051,6 +1164,12 @@ export class InvitationService implements OnModuleInit {
     const eventName = String(event.name ?? '');
     const eventDate = String(event.startAt ?? event.date ?? '');
     const eventLocation = String(venue.name ?? event.location ?? '');
+    const seating = Array.isArray(snapshot.seatingSnapshot) ? snapshot.seatingSnapshot.map(object) : [];
+    const tableName = [...new Set(seating.map((item) => item.tableName).filter((name): name is string => typeof name === 'string' && !!name.trim()))].join(' · ');
+    const ceremonyName = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => {
+      const ceremony = object(object(item).ceremony);
+      return String(ceremony.name ?? ceremony.title ?? '');
+    }).filter(Boolean).join(' · ');
     const variables: Record<string, string> = {
       'guest.name': guestName,
       'guest.fullname': guestName,
@@ -1061,11 +1180,17 @@ export class InvitationService implements OnModuleInit {
       guest_name: guestName,
       guestname: guestName,
       guest_full_name: guestName,
+      table_name: tableName,
+      tablename: tableName,
+      tableName,
       guest_email: String(guest.email ?? ''),
       event_name: eventName,
       eventname: eventName,
       event_date: eventDate,
       event_location: eventLocation,
+      ceremony_name: ceremonyName,
+      rsvp_link: `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${invitationToken(String(snapshot.invitationId ?? ''))}`,
+      qr_code: `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${invitationToken(String(snapshot.invitationId ?? ''))}`,
     };
     for (const variable of Array.isArray(doc.variables) ? doc.variables : []) {
       const v = object(variable);
@@ -1080,7 +1205,9 @@ export class InvitationService implements OnModuleInit {
               ? eventName
               : /event|evenement/.test(identity) && /date/.test(identity)
                 ? eventDate
-                : /event|evenement/.test(identity) && /location|lieu|adresse/.test(identity)
+          : /table/.test(identity) && /name|nom/.test(identity)
+            ? tableName
+            : /event|evenement/.test(identity) && /location|lieu|adresse/.test(identity)
                   ? eventLocation
                   : v.defaultValue;
       }
@@ -1093,6 +1220,17 @@ export class InvitationService implements OnModuleInit {
     const canvas = object(doc.canvas);
     const width = Number(canvas.width) || 1080;
     const height = Number(canvas.height) || 1530;
+    const renderAssets = object(snapshot.renderAssets);
+    const imageData = new Map<string, string>();
+    for (const value of Array.isArray(doc.elements) ? doc.elements : []) {
+      const layer = object(value);
+      if (layer.type !== 'IMAGE' || typeof layer.assetId !== 'string' || imageData.has(layer.assetId)) continue;
+      const entry: unknown = renderAssets[layer.assetId];
+      const key = typeof entry === 'string' ? entry : object(entry)['key'];
+      const mimeType = typeof entry === 'string' ? 'image/webp' : object(entry)['mimeType'];
+      if (typeof key !== 'string' || !['image/webp', 'image/png'].includes(String(mimeType))) throw new Error('Invitation image snapshot is missing');
+      imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType)));
+    }
     const layers = (Array.isArray(doc.elements) ? doc.elements : [])
       .map((value: unknown) => {
         const layer = object(value);
@@ -1102,21 +1240,32 @@ export class InvitationService implements OnModuleInit {
         const h = Number(layer.height) || 0;
         const rotate = Number(layer.rotation) || 0;
         const transform = rotate ? ` transform="rotate(${rotate} ${x + w / 2} ${y + h / 2})"` : '';
+        if (layer.type === 'QR') return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff"${transform}/><image href="file://${'QR_FILE'}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none"${transform}/>`;
+        if (layer.type === 'IMAGE') {
+          const assetId = String(layer.assetId ?? '');
+          const href = imageData.get(assetId);
+          if (!href) throw new Error('Invitation image snapshot is unavailable');
+          return renderInvitationImage(layer, href);
+        }
         if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE')
           return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${esc(layer.fill === 'transparent' ? 'none' : (layer.fill ?? 'none'))}" stroke="${esc(layer.stroke ?? 'none')}" stroke-width="${Number(layer.strokeWidth) || 0}"${transform}/>`;
         if (layer.type !== 'TEXT' || typeof layer.text !== 'string') return '';
         const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle';
         const tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
-        const fontSize = Math.max(8, Math.min(180, Number(layer.fontSize) || 24));
-        const lines = substitute(layer.text).split('\n');
-        const firstY = y + h / 2 - (lines.length - 1) * fontSize * 0.6;
-        return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * 1.2 : 0}">${esc(line)}</tspan>`).join('')}</text>`;
+        const renderedText = substitute(layer.text);
+        if (!renderedText.trim() && layer.hideWhenEmpty) return '';
+        const fit = fitInvitationText(layer, renderedText);
+        if (fit.overflow) throw new Error(`Invitation text overflow: ${String(layer.id ?? '')}`);
+        const fontSize = fit.fontSize;
+        const firstY = y + h / 2 - (fit.lines.length - 1) * fontSize * fit.lineHeight / 2;
+        return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${fit.lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * fit.lineHeight : 0}">${esc(line)}</tspan>`).join('')}</text>`;
       })
       .join('');
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
     const token = invitationToken(String(snapshot.invitationId ?? ''));
     const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
-    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img">${layers}</svg>` : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`;
+    const hasDesignQr = (Array.isArray(doc.elements) ? doc.elements : []).some((item: unknown) => object(item).type === 'QR');
+    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img">${layers}</svg>` : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');
     const output = join(dir, 'invitation.pdf');
@@ -1124,11 +1273,11 @@ export class InvitationService implements OnModuleInit {
       const qr = join(dir, 'invitation-qr.svg');
       await (
         await import('node:fs/promises')
-      ).writeFile(input, html.replace('QR_FILE', qr), 'utf8');
+      ).writeFile(input, html.replaceAll('QR_FILE', qr), 'utf8');
       await new Promise<void>((resolve, reject) => {
         const child = spawn(
           process.env['QR_ENCODE_PATH'] ?? '/usr/bin/qrencode',
-          ['-t', 'SVG', '-o', qr, qrTarget],
+          ['-t', 'SVG', '-m', '4', '-o', qr, qrTarget],
           { stdio: 'ignore' },
         );
         child.once('error', reject);

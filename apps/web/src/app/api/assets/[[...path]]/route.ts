@@ -22,8 +22,9 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
     path.length === 2 &&
     request.method === 'POST' &&
     ['upload-url', 'complete', 'download-url'].includes(path[1] ?? '');
+  const isBackgroundRemoval = path.length === 2 && path[1] === 'background-removal' && ['GET', 'POST'].includes(request.method);
   if (
-    !(isCreate || isList || isRead || isDelete || isAction) ||
+    !(isCreate || isList || isRead || isDelete || isAction || isBackgroundRemoval) ||
     path.some((part) => part.length > 100)
   )
     return NextResponse.json({ error: 'not_found' }, { status: 404 });

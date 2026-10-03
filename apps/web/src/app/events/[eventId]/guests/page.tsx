@@ -1,4 +1,5 @@
-import { BrandLogo } from '@/components/brand-logo';
+import AppNavbar from '@/components/AppNavbar';
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
@@ -27,10 +28,10 @@ export default async function GuestsPage({ params }: { params: Promise<{ eventId
     if (event.id !== eventId || !Array.isArray(event.ceremonies)) notFound();
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error) throw error;
-    return <main className="events-shell"><nav className="events-nav"><BrandLogo href="/events"/></nav><section className="events-notice"><h1>Liste d’invités indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={`/events/${eventId}/guests`}>Réessayer</a></section></main>;
+    return <main className="events-shell"><AppNavbar eventId={eventId} /><section className="events-notice"><h1>Liste d’invités indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={`/events/${eventId}/guests`}>Réessayer</a></section></main>;
   }
-  return <main className="events-shell"><nav className="events-nav"><BrandLogo/><div><a href="/events">Mes événements</a><a href="/account">Mon profil</a><form action="/api/auth/logout" method="post"><button>Déconnexion</button></form></div></nav>
-    <header className="guests-heading"><a href="/events">← Retour aux événements</a><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Préparez votre liste et choisissez les cérémonies accessibles à chaque invité.</p><a href={`/events/${event.id}/designs`}>Créer un design →</a> <a href={`/events/${event.id}/invitations`}>Générer les invitations →</a> <a href={`/events/${event.id}/seating`}>Ouvrir le plan de salle →</a></header>
+  return <main className="events-shell"><AppNavbar eventId={eventId} />
+    <header className="guests-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Préparez votre liste et choisissez les cérémonies accessibles à chaque invité.</p><a href={`/events/${event.id}/designs`}>Créer un design →</a> <a href={`/events/${event.id}/invitations`}>Générer les invitations →</a> <a href={`/events/${event.id}/seating`}>Ouvrir le plan de salle →</a></header>
     <GuestsWorkspace event={event} />
   </main>;
 }

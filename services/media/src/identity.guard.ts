@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from './env.js';
 
-export type MediaIdentity = { subject: string; email: string };
+export type MediaIdentity = { subject: string; email: string; roles: string[] };
 export type AuthenticatedRequest = FastifyRequest & { identity?: MediaIdentity };
 
 @Injectable()
@@ -34,6 +34,9 @@ export class IdentityGuard implements CanActivate {
       request.identity = {
         subject: payload['sub'],
         email: typeof payload['email'] === 'string' ? payload['email'] : '',
+        roles: payload['realm_access'] && typeof payload['realm_access'] === 'object' && Array.isArray((payload['realm_access'] as { roles?: unknown }).roles)
+          ? ((payload['realm_access'] as { roles: unknown[] }).roles.filter((role): role is string => typeof role === 'string'))
+          : [],
       };
       return true;
     } catch {
