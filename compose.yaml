@@ -69,7 +69,6 @@ services:
         '+scard',
         '+llen',
         '+hlen',
-        '+arcount',
         '+get',
         '+eval',
         '+slowlog',
@@ -1159,7 +1158,7 @@ services:
           'CMD',
           'node',
           '-e',
-          "fetch('http://127.0.0.1:3017/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+          "fetch('http://127.0.0.1:3017/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 15s
       timeout: 5s

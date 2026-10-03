@@ -6,7 +6,7 @@ RUN npm install --global pnpm@12.8.0
 COPY . .
 RUN pnpm install --frozen-lockfile --filter @invitaflow/invitations...
 WORKDIR /app/services/invitations
-RUN DATABASE_URL=postgresql://generate:generate@localhost:5432/invitations pnpm prisma:generate && pnpm exec tsc -p tsconfig.json
+RUN DATABASE_URL=postgresql://generate:generate@localhost:5432/invitations pnpm prisma:generate && pnpm exec tsc -p tsconfig.json && cp src/*.mjs dist/src/
 RUN groupadd --system app && useradd --system --gid app app && chown -R app:app /app
 USER app
 ENV CHROMIUM_PATH=/usr/bin/chromium
