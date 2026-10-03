@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm prisma:generate && pnpm prisma:migrate:deploy && tsx watch src/main.ts",
     "build": "pnpm prisma:generate && tsc -p tsconfig.json",
-    "start": "pnpm prisma:migrate:deploy && node dist/main.js",
+    "start": "pnpm prisma:migrate:deploy && node dist/src/main.js",
     "lint": "eslint --ignore-pattern generated/** --ignore-pattern dist/** --ext .ts .",
     "test": "pnpm build && node access.service.test.mjs",
     "typecheck": "pnpm prisma:generate && tsc --noEmit -p tsconfig.json",
