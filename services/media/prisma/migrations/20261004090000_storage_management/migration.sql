@@ -5,6 +5,8 @@ ALTER TYPE "MediaAssetCategory" ADD VALUE IF NOT EXISTS 'ZIP_EXPORT';
 ALTER TYPE "MediaAssetCategory" ADD VALUE IF NOT EXISTS 'TEMP_RENDER';
 ALTER TYPE "MediaAssetCategory" ADD VALUE IF NOT EXISTS 'IMPORT_TEMP';
 ALTER TYPE "MediaAssetCategory" ADD VALUE IF NOT EXISTS 'FAILED_JOB_ARTIFACT';
+ALTER TABLE "media_assets" ADD COLUMN "preview_size_bytes" INTEGER;
+ALTER TABLE "media_assets" ADD COLUMN "thumbnail_size_bytes" INTEGER;
 
 CREATE TABLE "media_cleanup_entries" (
   "id" UUID NOT NULL,

@@ -6,6 +6,7 @@ import {
   NotFoundException,
   OnModuleInit,
   OnModuleDestroy,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -16,7 +17,7 @@ import {
   RsvpStatus,
 } from '../generated/prisma/client.js';
 import { spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PrismaService } from './prisma.service.js';
@@ -65,6 +66,22 @@ async function renderStaticPdf(html: string) {
   } finally { await rm(dir, { recursive: true, force: true }); }
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function assertStorageCapacity(operation: string) {
+  try {
+    const response = await fetch(`${requiredEnv('MEDIA_SERVICE_URL', 'http://media:3014').replace(/\/$/, '')}/v1/internal/storage/capacity`, {
+      headers: { 'x-storage-monitor-token': requiredEnv('STORAGE_MONITOR_TOKEN') },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) throw new Error(`Capacity check returned ${response.status}`);
+    const capacity = await response.json() as { diskStatsAvailable?: boolean; blocked?: boolean };
+    if (capacity.diskStatsAvailable && capacity.blocked)
+      throw new ConflictException({ code: 'STORAGE_CAPACITY_EMERGENCY', message: `Impossible de lancer ${operation} : le stockage serveur a atteint son seuil d’urgence.` });
+  } catch (error) {
+    if (error instanceof ConflictException) throw error;
+    throw new ServiceUnavailableException('La capacité du stockage doit être vérifiée avant cette opération.');
+  }
+}
 
 @Injectable()
 export class InvitationService implements OnModuleInit, OnModuleDestroy {
@@ -76,9 +93,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     private readonly storage: InvitationStorage,
   ) {}
   onModuleInit() {
-    this.cleanupTimer = setInterval(() => void this.cleanupExpiredExports().catch(() => console.warn(JSON.stringify({ event: 'expired_export_cleanup_failed' }))), 60 * 60 * 1000);
+    this.cleanupTimer = setInterval(() => void Promise.all([this.cleanupExpiredExports(), this.cleanupAbandonedRenderDirectories()]).catch(() => console.warn(JSON.stringify({ event: 'storage_cleanup_failed' }))), 60 * 60 * 1000);
     this.cleanupTimer.unref();
     void this.cleanupExpiredExports().catch(() => undefined);
+    void this.cleanupAbandonedRenderDirectories().catch(() => undefined);
     if (process.env['RENDER_WORKER_ENABLED'] === 'true') {
       const timer = setInterval(() => { void this.work().catch(() => undefined); }, 1200);
       timer.unref();
@@ -94,6 +112,22 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, zipDeletedAt: null, zipExpiresAt: { lte: new Date() } }, data: { zipDeletedAt: new Date() } });
         console.info(JSON.stringify({ event: 'zip_export_expired', batchId: batch.id }));
       } catch { console.warn(JSON.stringify({ event: 'zip_export_cleanup_retry', batchId: batch.id })); }
+    }
+  }
+
+  private async cleanupAbandonedRenderDirectories() {
+    const maxAgeMs = Math.max(1, Math.min(168, Number(process.env['STORAGE_TEMP_RENDER_TTL_HOURS'] ?? 24))) * 60 * 60 * 1000;
+    const cutoff = Date.now() - maxAgeMs;
+    let entries: Array<{ name: string; isDirectory(): boolean }>;
+    try { entries = await readdir(tmpdir(), { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^invitaflow-(?:render|readme)-[A-Za-z0-9_-]+$/u.test(entry.name)) continue;
+      const path = join(tmpdir(), entry.name);
+      try {
+        const metadata = await lstat(path);
+        if (!metadata.isDirectory() || metadata.isSymbolicLink() || metadata.mtimeMs >= cutoff) continue;
+        await rm(path, { recursive: true, force: true });
+      } catch { console.warn(JSON.stringify({ event: 'temp_render_cleanup_retry' })); }
     }
   }
 
@@ -218,6 +252,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     idempotencyKey: string,
     raw: unknown,
   ) {
+    await assertStorageCapacity('une génération d’invitations');
     if (!uuid.test(eventId)) throw new BadRequestException('eventId invalide.');
     if (!/^[A-Za-z0-9._:@/-]{1,200}$/.test(idempotencyKey ?? ''))
       throw new BadRequestException('Idempotency-Key obligatoire et invalide.');
@@ -645,6 +680,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
   }
 
   async regenerateZip(owner: string, batchId: string) {
+    await assertStorageCapacity('la régénération d’un ZIP');
     const batch = await this.prisma.invitationBatch.findFirst({ where: { id: batchId, ownerSubject: owner }, include: { items: { where: { status: BatchItemStatus.GENERATED }, orderBy: { createdAt: 'asc' } } } });
     if (!batch) throw new NotFoundException('Lot introuvable.');
     if (batch.status !== BatchStatus.COMPLETED || !batch.items.length || batch.items.some((item) => !item.objectKey)) throw new ConflictException('Les PDF finaux ne sont pas disponibles pour régénérer le ZIP.');

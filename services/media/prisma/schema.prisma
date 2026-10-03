@@ -57,6 +57,8 @@ model MediaAsset {
   declaredMimeType    String            @map("declared_mime_type") @db.VarChar(100)
   detectedMimeType    String?           @map("detected_mime_type") @db.VarChar(100)
   sizeBytes           Int               @map("size_bytes")
+  previewSizeBytes    Int?              @map("preview_size_bytes")
+  thumbnailSizeBytes  Int?              @map("thumbnail_size_bytes")
   width               Int?
   height              Int?
   sha256              String?           @db.Char(64)

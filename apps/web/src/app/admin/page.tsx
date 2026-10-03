@@ -106,6 +106,7 @@ export default async function AdminPage({
           {canFinance && <a href="/admin/analytics">Indicateurs ↗</a>}
           <a href="/admin/finance">Paiements ↗</a>
           <a href="/admin/pricing">Gestion des tarifs ↗</a>
+          <a href="/admin/storage">Stockage ↗</a>
           <a href="/account/report">Créer un signalement</a>
           <a href="/account/notifications">Notifications</a>
         </div>

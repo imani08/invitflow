@@ -14,7 +14,7 @@ import { AntivirusScanError, scanWithClamAV } from '../antivirus-scan.mjs';
 import { ImageValidationError, inspectUserImage } from '../image-validation.mjs';
 import { ImageTranscodeError, transcodeUserImage } from '../image-transcode.mjs';
 import { MediaAssetCategory, MediaAssetPurpose, MediaAssetStatus, MediaTransformationStatus, MediaTransformationType } from '../generated/prisma/client.js';
-import { shouldBlockLargeStorageOperation, storageLevel } from './storage-policy.mjs';
+import { storageLevel } from './storage-policy.mjs';
 import { requiredEnv, validatedServicePort } from './env.js';
 import { MediaStorage } from './media-storage.js';
 import { PrismaService } from './prisma.service.js';
@@ -244,6 +244,8 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
           status: MediaAssetStatus.READY,
           detectedMimeType: sanitized.mimeType,
           sizeBytes: sanitized.bytes.length,
+          previewSizeBytes: sanitized.preview.length,
+          thumbnailSizeBytes: sanitized.thumbnail.length,
           width: sanitized.width,
           height: sanitized.height,
           sha256: createHash('sha256').update(sanitized.bytes).digest('hex'),
@@ -307,7 +309,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async deleteAsset(ownerSubject: string, id: string) {
-    const asset = await this.prisma.mediaAsset.findFirst({ where: { id, ownerSubject, status: { not: MediaAssetStatus.DELETED } } });
+    const asset = await this.prisma.mediaAsset.findFirst({ where: { id, ownerSubject, status: { not: MediaAssetStatus.DELETED } }, include: { derivedJob: { select: { id: true } } } });
     if (!asset) throw new NotFoundException('Média introuvable.');
     if (asset.status === MediaAssetStatus.DELETED) return { id: asset.id, status: asset.status };
     await this.prisma.mediaAsset.updateMany({ where: { id: asset.id, ownerSubject, status: { not: MediaAssetStatus.DELETED } }, data: { status: MediaAssetStatus.DELETING } });
@@ -317,6 +319,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       return { id: asset.id, status: MediaAssetStatus.DELETED };
     } catch {
       this.cleanupFailures += 1;
+      await this.recordCleanupFailure(asset, 'USER_REQUEST');
       this.logger.warn(`Media deletion deferred for ${asset.id}`);
       throw new ServiceUnavailableException('La suppression est enregistrée et sera réessayée.');
     }
@@ -324,25 +327,29 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
   async getAdminStorageStats() {
     const where = { status: MediaAssetStatus.READY, deletedAt: null };
-    const [groups, totalFileCount, largestFiles, disk, deleted] = await Promise.all([
+    const [groups, totalFileCount, previewCount, thumbnailCount, previewSizes, largestFiles, disk, deleted] = await Promise.all([
       this.prisma.mediaAsset.groupBy({ by: ['category'], where, _sum: { sizeBytes: true }, _count: { _all: true } }),
       this.prisma.mediaAsset.count({ where }),
+      this.prisma.mediaAsset.count({ where: { ...where, previewSizeBytes: { not: null } } }),
+      this.prisma.mediaAsset.count({ where: { ...where, thumbnailSizeBytes: { not: null } } }),
+      this.prisma.mediaAsset.aggregate({ where, _sum: { previewSizeBytes: true, thumbnailSizeBytes: true } }),
       this.prisma.mediaAsset.findMany({ where, orderBy: { sizeBytes: 'desc' }, take: 10, select: { id: true, originalName: true, category: true, sizeBytes: true, createdAt: true } }),
       this.getDiskStats(),
       this.prisma.mediaCleanupEntry.aggregate({ where: { deletedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, status: 'DELETED' }, _sum: { sizeBytes: true } }),
     ]);
     const categoryTotals = Object.fromEntries(groups.map((group) => [group.category, { bytes: group._sum.sizeBytes ?? 0, count: group._count._all }])) as Record<string, { bytes: number; count: number }>;
-    const totalUsedBytes = Object.values(categoryTotals).reduce((sum, category) => sum + category.bytes, 0);
+    const previewBytes = (previewSizes._sum.previewSizeBytes ?? 0) + (previewSizes._sum.thumbnailSizeBytes ?? 0);
+    const totalUsedBytes = Object.values(categoryTotals).reduce((sum, category) => sum + category.bytes, 0) + previewBytes;
     const percentage = disk.totalBytes ? disk.usedBytes! / disk.totalBytes * 100 : null;
     const thresholds = { warning: storageEnvInt('STORAGE_WARNING_PERCENT', 70, 1, 97), serious: storageEnvInt('STORAGE_SERIOUS_PERCENT', 80, 2, 98), critical: storageEnvInt('STORAGE_CRITICAL_PERCENT', 90, 3, 99), emergency: storageEnvInt('STORAGE_EMERGENCY_PERCENT', 95, 4, 100) };
     let level: string;
     try { level = percentage === null ? 'UNKNOWN' : storageLevel(percentage, thresholds); } catch { level = storageLevel(percentage ?? -1); }
     return {
       disk: { ...disk, percentage, level, thresholds },
-      application: { totalUsedBytes, totalFileCount, breakdownByCategory: {
+      application: { totalUsedBytes, totalFileCount: totalFileCount + previewCount + thumbnailCount, breakdownByCategory: {
         originals: categoryTotals['ORIGINAL_MEDIA'] ?? { bytes: 0, count: 0 },
         derived: categoryTotals['DERIVED_MEDIA'] ?? { bytes: 0, count: 0 },
-        previews: categoryTotals['PREVIEW'] ?? { bytes: 0, count: 0 },
+        previews: { bytes: previewBytes + (categoryTotals['PREVIEW']?.bytes ?? 0), count: previewCount + thumbnailCount + (categoryTotals['PREVIEW']?.count ?? 0) },
         pdfFinal: categoryTotals['PDF_FINAL'] ?? { bytes: 0, count: 0 },
         zip: categoryTotals['ZIP_EXPORT'] ?? { bytes: 0, count: 0 },
         temp: ['TEMP_RENDER', 'IMPORT_TEMP', 'FAILED_JOB_ARTIFACT'].reduce((sum, category) => ({ bytes: sum.bytes + (categoryTotals[category]?.bytes ?? 0), count: sum.count + (categoryTotals[category]?.count ?? 0) }), { bytes: 0, count: 0 }),
@@ -364,13 +371,17 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async assertStorageCapacity(operation: string) {
+    const capacity = await this.storageCapacityStatus();
+    if (capacity.blocked) throw new ConflictException({ code: 'STORAGE_CAPACITY_EMERGENCY', message: `Impossible de lancer ${operation} : le stockage serveur a atteint son seuil d’urgence.` });
+  }
+
+  async storageCapacityStatus() {
     const disk = await this.getDiskStats();
-    if (!disk.diskStatsAvailable || disk.totalBytes === null) return;
-    const percentage = disk.usedBytes! / disk.totalBytes * 100;
     const thresholds = { warning: storageEnvInt('STORAGE_WARNING_PERCENT', 70, 1, 97), serious: storageEnvInt('STORAGE_SERIOUS_PERCENT', 80, 2, 98), critical: storageEnvInt('STORAGE_CRITICAL_PERCENT', 90, 3, 99), emergency: storageEnvInt('STORAGE_EMERGENCY_PERCENT', 95, 4, 100) };
-    let blocked = false;
-    try { blocked = shouldBlockLargeStorageOperation(percentage, thresholds); } catch { blocked = shouldBlockLargeStorageOperation(percentage); }
-    if (blocked) throw new ConflictException({ code: 'STORAGE_CAPACITY_EMERGENCY', message: `Impossible de lancer ${operation} : le stockage serveur a atteint son seuil d’urgence.` });
+    const percentage = disk.totalBytes ? disk.usedBytes! / disk.totalBytes * 100 : null;
+    let level = 'UNKNOWN';
+    try { if (percentage !== null) level = storageLevel(percentage, thresholds); } catch { if (percentage !== null) level = storageLevel(percentage); }
+    return { diskStatsAvailable: disk.diskStatsAvailable, percentage, level, blocked: level === 'EMERGENCY', emergencyPercent: thresholds.emergency };
   }
 
   private async deleteAssetObjects(asset: { id: string; uploadKey: string | null; quarantineKey: string; objectKey: string | null }) {
@@ -388,6 +399,10 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     ]);
   }
 
+  private async recordCleanupFailure(asset: { id: string; category: MediaAssetCategory; sizeBytes: number; derivedJob?: { id: string } | null }, reason: string) {
+    await this.prisma.mediaCleanupEntry.create({ data: { fileId: asset.id, category: asset.category, sizeBytes: asset.sizeBytes, reason, jobId: asset.derivedJob?.id ?? null, status: 'RETRYABLE' } }).catch(() => undefined);
+  }
+
   async getAsset(ownerSubject: string, id: string) {
     return this.publicAsset(await this.ownedAsset(ownerSubject, id));
   }
@@ -402,6 +417,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async createBackgroundRemoval(ownerSubject: string, sourceId: string) {
+    await this.assertStorageCapacity('un traitement de détourage');
     const source = await this.ownedAsset(ownerSubject, sourceId);
     if (source.status !== MediaAssetStatus.READY || source.purpose !== MediaAssetPurpose.PHOTO || source.detectedMimeType !== 'image/webp')
       throw new ConflictException('Une photo originale validée est nécessaire.');
@@ -435,7 +451,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cursor)
     )
       throw new BadRequestException('Le curseur du média est invalide.');
-    const where = { ownerSubject, status: { not: MediaAssetStatus.DELETED } };
+    const where = { ownerSubject, status: { notIn: [MediaAssetStatus.DELETED, MediaAssetStatus.DELETING] } };
     if (
       cursor &&
       !(await this.prisma.mediaAsset.findFirst({
@@ -457,7 +473,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
 
   private async ownedAsset(ownerSubject: string, id: string) {
     const asset = await this.prisma.mediaAsset.findFirst({
-      where: { id, ownerSubject, status: { not: MediaAssetStatus.DELETED } },
+      where: { id, ownerSubject, status: { notIn: [MediaAssetStatus.DELETED, MediaAssetStatus.DELETING] } },
     });
     if (!asset) throw new NotFoundException('Média introuvable.');
     return asset;
@@ -474,10 +490,23 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async cleanupExpired() {
+    this.cleanupLastRunAt = new Date();
+    const batchSize = storageEnvInt('STORAGE_CLEANUP_BATCH_SIZE', 100, 1, 1000);
+    const deleting = await this.prisma.mediaAsset.findMany({ where: { status: MediaAssetStatus.DELETING }, orderBy: { updatedAt: 'asc' }, take: batchSize, include: { derivedJob: { select: { id: true } } } });
+    for (const asset of deleting) {
+      try {
+        await this.deleteAssetObjects(asset);
+        await this.finishAssetDelete(asset, 'RETRY');
+      } catch {
+        this.cleanupFailures += 1;
+        await this.recordCleanupFailure(asset, 'RETRY');
+        this.logger.warn(`Media deletion retry deferred for ${asset.id}`);
+      }
+    }
     const expiredUploadKeys = await this.prisma.mediaAsset.findMany({
       where: { uploadKey: { not: null }, uploadExpiresAt: { lt: new Date() } },
       orderBy: { uploadExpiresAt: 'asc' },
-      take: 100,
+      take: batchSize,
       select: { id: true, uploadKey: true },
     });
     for (const asset of expiredUploadKeys) {
@@ -510,7 +539,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         ],
       },
       orderBy: { createdAt: 'asc' },
-      take: 100,
+      take: batchSize,
       select: { id: true, uploadKey: true, quarantineKey: true, status: true },
     });
     for (const asset of expired) {

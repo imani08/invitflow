@@ -296,6 +296,21 @@ class MediaProxyController {
   }
 }
 
+@Controller('/v1/admin/storage')
+class StorageAdminProxyController {
+  @Get()
+  async stats(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    const authorization = request.headers['authorization'];
+    if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization)) throw new UnauthorizedException();
+    try {
+      const upstream = await fetchWithRequestContext(request, `${requiredEnv('MEDIA_SERVICE_URL').replace(/\/$/, '')}/v1/admin/storage`, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(8_000) });
+      return reply.header('Cache-Control', 'private, no-store').code(upstream.status).send(await upstream.json().catch(() => ({ error: 'invalid_storage_response' })));
+    } catch {
+      return reply.code(503).send({ error: 'media_storage_unavailable' });
+    }
+  }
+}
+
 @Controller('/v1/events/:eventId')
 class GuestsProxyController {
   @All('/guests') guests(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
@@ -1205,6 +1220,7 @@ class ModerationProxyController {
     EventsProxyController,
     AgenciesProxyController,
     MediaProxyController,
+    StorageAdminProxyController,
     GuestsProxyController,
     SeatingProxyController,
     DesignsProxyController,

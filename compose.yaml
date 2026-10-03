@@ -747,10 +747,18 @@ services:
       MINIO_MEDIA_SECRET_KEY: ${MINIO_MEDIA_SECRET_KEY:?Set MINIO_MEDIA_SECRET_KEY in .env}
       MEDIA_ANTIVIRUS_HOST: clamav
       MEDIA_ANTIVIRUS_PORT: '3310'
+      STORAGE_DISK_PATH: ${STORAGE_DISK_PATH:-/storage-volume}
+      STORAGE_CLEANUP_BATCH_SIZE: ${STORAGE_CLEANUP_BATCH_SIZE:-100}
+      STORAGE_WARNING_PERCENT: ${STORAGE_WARNING_PERCENT:-70}
+      STORAGE_SERIOUS_PERCENT: ${STORAGE_SERIOUS_PERCENT:-80}
+      STORAGE_CRITICAL_PERCENT: ${STORAGE_CRITICAL_PERCENT:-90}
+      STORAGE_EMERGENCY_PERCENT: ${STORAGE_EMERGENCY_PERCENT:-95}
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
       RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
       RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
     networks: [application, data, identity, storage, media_scanner, messaging]
+    volumes: [minio_data:/storage-volume:ro]
     depends_on:
       postgres:
         condition: service_healthy
@@ -1132,6 +1140,8 @@ services:
       RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
       RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      STORAGE_EMERGENCY_PERCENT: ${STORAGE_EMERGENCY_PERCENT:-95}
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
     networks: [application, data, identity, messaging, storage]
     depends_on:
       postgres:

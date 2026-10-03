@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BadRequestException } from '@nestjs/common';
-import { MediaAssetPurpose, MediaAssetStatus } from '../generated/prisma/client.js';
+import { MediaAssetCategory, MediaAssetPurpose, MediaAssetStatus } from '../generated/prisma/client.js';
 import { MediaService } from './media.service.js';
 import type { MediaStorage } from './media-storage.js';
 import type { PrismaService } from './prisma.service.js';
@@ -14,10 +14,13 @@ function makeService() {
   const requestedKeys: string[] = [];
   const readKeys: string[] = [];
   const outboxEntries: unknown[] = [];
+  const cleanupEntries: unknown[] = [];
+  let failObjectDelete = false;
   const asset = {
     id: assetId,
     ownerSubject: 'owner-1',
     purpose: MediaAssetPurpose.PHOTO,
+    category: MediaAssetCategory.ORIGINAL_MEDIA,
     status: MediaAssetStatus.READY,
     originalName: 'photo.webp',
     declaredMimeType: 'image/jpeg',
@@ -39,13 +42,15 @@ function makeService() {
         assert.equal(where.id, assetId);
         return asset;
       },
-      updateMany: async () => ({ count: 1 }),
+      updateMany: async ({ data }: { data: Record<string, unknown> }) => { Object.assign(asset, data); return { count: 1 }; },
       create: async ({ data }: { data: Record<string, unknown> }) => data,
+      findMany: async ({ where }: { where?: { status?: MediaAssetStatus } }) => where?.status === MediaAssetStatus.DELETING ? [{ ...asset }] : [],
     },
     mediaTransformationJob: {
       findFirst: async () => null,
       create: async ({ data }: { data: Record<string, unknown> }) => ({ id: '660e8400-e29b-41d4-a716-446655440000', status: 'PENDING', ...data }),
     },
+    mediaCleanupEntry: { create: async ({ data }: { data: unknown }) => { cleanupEntries.push(data); return data; } },
     outboxMessage: { create: async (entry: { data: unknown }) => { outboxEntries.push(entry); return entry.data; } },
     $transaction: async (work: (tx: unknown) => unknown) => typeof work === 'function' ? work(prisma) : Promise.all(work as Promise<unknown>[]),
   } as unknown as PrismaService;
@@ -58,8 +63,11 @@ function makeService() {
       readKeys.push(key);
       return Buffer.from('sanitized webp');
     },
+    deleteQuarantine: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
+    deleteReady: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
+    deleteVariants: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
   } as unknown as MediaStorage;
-  return { service: new MediaService(prisma, storage), requestedKeys, readKeys, outboxEntries };
+  return { service: new MediaService(prisma, storage), requestedKeys, readKeys, outboxEntries, cleanupEntries, setObjectDeleteFailure: (value: boolean) => { failObjectDelete = value; }, asset };
 }
 
 test('creates owner-scoped download URLs only for the original and fixed variants', async () => {
@@ -109,4 +117,17 @@ test('creates a private derived-media job and a transactional RabbitMQ outbox ev
   assert.equal(event.data.eventType, 'media.background-removal.requested.v1');
   assert.equal(event.data.payload['sourceAssetId'], assetId);
   assert.equal(event.data.payload['derivedAssetId'], result.derivedAssetId);
+});
+
+test('keeps a MinIO deletion retryable and finalizes it in a cleanup pass', async () => {
+  const { service, cleanupEntries, setObjectDeleteFailure, asset } = makeService();
+  setObjectDeleteFailure(true);
+  await assert.rejects(service.deleteAsset('owner-1', assetId));
+  assert.equal(asset.status, MediaAssetStatus.DELETING);
+  setObjectDeleteFailure(false);
+  await (service as unknown as { cleanupExpired(): Promise<void> }).cleanupExpired();
+  assert.equal(asset.status, MediaAssetStatus.DELETED);
+  assert.equal(cleanupEntries.length, 2);
+  assert.ok(cleanupEntries.some((entry) => (entry as { status: string }).status === 'RETRYABLE'));
+  assert.ok(cleanupEntries.some((entry) => (entry as { status: string }).status === 'DELETED'));
 });
