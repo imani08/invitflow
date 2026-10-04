@@ -32,4 +32,12 @@ if ! mc admin policy info local media-service-access >/dev/null 2>&1; then
   mc admin policy create local media-service-access /media-policy.json
 fi
 mc admin policy attach local media-service-access --user "$MINIO_MEDIA_ACCESS_KEY"
+
+if ! mc admin user info local "$MINIO_STORAGE_AUDIT_ACCESS_KEY" >/dev/null 2>&1; then
+  mc admin user add local "$MINIO_STORAGE_AUDIT_ACCESS_KEY" "$MINIO_STORAGE_AUDIT_SECRET_KEY"
+fi
+if ! mc admin policy info local storage-inventory-readonly >/dev/null 2>&1; then
+  mc admin policy create local storage-inventory-readonly /storage-audit-policy.json
+fi
+mc admin policy attach local storage-inventory-readonly --user "$MINIO_STORAGE_AUDIT_ACCESS_KEY"
 mc cors set local/media-quarantine /media-cors.xml || echo "CORS bucket non supporté par cette édition MinIO, étape ignorée."

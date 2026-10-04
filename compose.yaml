@@ -139,11 +139,14 @@ services:
       MINIO_INVITATION_SECRET_KEY: ${MINIO_INVITATION_SECRET_KEY:?Set MINIO_INVITATION_SECRET_KEY in .env}
       MINIO_MEDIA_ACCESS_KEY: ${MINIO_MEDIA_ACCESS_KEY:?Set MINIO_MEDIA_ACCESS_KEY in .env}
       MINIO_MEDIA_SECRET_KEY: ${MINIO_MEDIA_SECRET_KEY:?Set MINIO_MEDIA_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_ACCESS_KEY: ${MINIO_STORAGE_AUDIT_ACCESS_KEY:?Set MINIO_STORAGE_AUDIT_ACCESS_KEY in .env}
+      MINIO_STORAGE_AUDIT_SECRET_KEY: ${MINIO_STORAGE_AUDIT_SECRET_KEY:?Set MINIO_STORAGE_AUDIT_SECRET_KEY in .env}
     volumes:
       - ./infrastructure/minio/bootstrap.sh:/bootstrap.sh:ro
       - ./infrastructure/minio/ai-design-policy.json:/ai-design-policy.json:ro
       - ./infrastructure/minio/invitation-policy.json:/invitation-policy.json:ro
       - ./infrastructure/minio/media-policy.json:/media-policy.json:ro
+      - ./infrastructure/minio/storage-audit-policy.json:/storage-audit-policy.json:ro
       - ./infrastructure/minio/media-cors.xml:/media-cors.xml:ro
     networks: [storage, application]
     depends_on:
@@ -698,6 +701,7 @@ services:
       KEYCLOAK_CLIENT_ID: invitaflow-web
       KEYCLOAK_AUDIENCE: designs-api
       EVENTS_SERVICE_URL: http://events:3004
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
       RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
       RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
@@ -745,10 +749,17 @@ services:
       MINIO_MEDIA_QUARANTINE_BUCKET: media-quarantine
       MINIO_MEDIA_ACCESS_KEY: ${MINIO_MEDIA_ACCESS_KEY:?Set MINIO_MEDIA_ACCESS_KEY in .env}
       MINIO_MEDIA_SECRET_KEY: ${MINIO_MEDIA_SECRET_KEY:?Set MINIO_MEDIA_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_ACCESS_KEY: ${MINIO_STORAGE_AUDIT_ACCESS_KEY:?Set MINIO_STORAGE_AUDIT_ACCESS_KEY in .env}
+      MINIO_STORAGE_AUDIT_SECRET_KEY: ${MINIO_STORAGE_AUDIT_SECRET_KEY:?Set MINIO_STORAGE_AUDIT_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_BUCKETS: media,media-quarantine,previews,generated,temporary,invitations
+      DESIGNS_SERVICE_URL: http://designs:3007
+      INVITATIONS_SERVICE_URL: http://invitations:3013
       MEDIA_ANTIVIRUS_HOST: clamav
       MEDIA_ANTIVIRUS_PORT: '3310'
       STORAGE_DISK_PATH: ${STORAGE_DISK_PATH:-/storage-volume}
       STORAGE_CLEANUP_BATCH_SIZE: ${STORAGE_CLEANUP_BATCH_SIZE:-100}
+      STORAGE_INVENTORY_TTL_SECONDS: ${STORAGE_INVENTORY_TTL_SECONDS:-900}
+      STORAGE_PREVIEW_TTL_DAYS: ${STORAGE_PREVIEW_TTL_DAYS:-30}
       STORAGE_WARNING_PERCENT: ${STORAGE_WARNING_PERCENT:-70}
       STORAGE_SERIOUS_PERCENT: ${STORAGE_SERIOUS_PERCENT:-80}
       STORAGE_CRITICAL_PERCENT: ${STORAGE_CRITICAL_PERCENT:-90}

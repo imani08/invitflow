@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
+import { normalizeDesignDocumentV2, validateDesignDocumentV2 } from '@invitaflow/design-document';
 
 export type DesignDocument = Record<string, unknown> & {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   canvas: { width: number; height: number; unit: 'px' };
   theme: Record<string, unknown>;
   assets: unknown[];
@@ -43,7 +44,7 @@ const safeColor = (value: unknown, fallback: string) => typeof value === 'string
 const safeNumber = (value: unknown, fallback: number, minimum: number, maximum: number) => typeof value === 'number' && Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : fallback;
 
 /** Fill gaps from earlier persisted documents before the strict current schema is applied. */
-export function normalizeDesignDocument(value: unknown): DesignDocument {
+function normalizeLegacyDesignDocument(value: unknown): DesignDocument {
   const source = object(value) ? value : {};
   const sourceCanvas = object(source['canvas']) ? source['canvas'] : {};
   const width = safeNumber(sourceCanvas['width'], 1080, 320, 4000);
@@ -144,7 +145,7 @@ export function normalizeDesignDocument(value: unknown): DesignDocument {
   } as DesignDocument;
 }
 
-export function validateDesignDocument(input: unknown): DesignDocument {
+function validateLegacyDesignDocument(input: unknown): DesignDocument {
   if (!object(input)) fail('Le document doit être un objet JSON.');
   onlyKeys(input, ['schemaVersion', 'metadata', 'canvas', 'theme', 'assets', 'elements', 'variables', 'constraints', 'layouts', 'ceremonyRules', 'exportProfiles', 'version'], 'Le document');
   if (input['schemaVersion'] !== 1 || !object(input['metadata']) || !object(input['canvas']) || !object(input['theme']) || !object(input['constraints'])) fail('Structure de document invalide.');
@@ -234,6 +235,59 @@ export function validateDesignDocument(input: unknown): DesignDocument {
   entries(input['exportProfiles'], 'exportProfiles', 1, 12).forEach((profile) => { onlyKeys(profile, ['id', 'width', 'height', 'unit'], 'Un profil de format'); scalar(profile['id'], 'exportProfile.id', 60); number(profile['width'], 'exportProfile.width', 320, 4000); number(profile['height'], 'exportProfile.height', 320, 4000); if (profile['unit'] !== 'px') fail('Un profil de format doit utiliser les pixels.'); });
   if (!Array.isArray(input['assets']) || !Array.isArray(input['elements']) || !Array.isArray(input['layouts']) || !Array.isArray(input['ceremonyRules']) || !Array.isArray(input['exportProfiles'])) fail('Le document doit contenir toutes ses collections.');
   return input as DesignDocument;
+}
+
+function legacyProjection(input: DesignDocument): Record<string, unknown> {
+  const projected = structuredClone(input) as Record<string, any>;
+  projected['schemaVersion'] = 1;
+  for (const key of ['safeArea', 'bleed', 'groups', 'layoutVariants']) delete projected[key];
+  projected['elements'] = projected['elements'].map((element: Record<string, any>) => {
+    const next = { ...element };
+    const semanticBinding = next['binding'];
+    const preferredFontSize = next['preferredFontSize'];
+    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId']) delete next[key];
+    if (next['type'] === 'TEXT') {
+      if (semanticBinding) next['text'] = '';
+      next['maxFontSize'] = preferredFontSize ?? next['maxFontSize'] ?? next['fontSize'];
+      next['overflowPolicy'] = next['overflowPolicy'] === 'WARN' ? 'WARN' : 'ERROR';
+    }
+    return next;
+  });
+  if (!Array.isArray(projected['variables']) || projected['variables'].length === 0) projected['variables'] = [{ key: 'legacyText', label: 'Texte', type: 'TEXT', defaultValue: '', required: false }];
+  return projected;
+}
+
+/** Normalize historical v1 data in memory to the current v2 shape. Nothing is persisted by this adapter. */
+export function normalizeDesignDocument(value: unknown): DesignDocument {
+  try {
+    if (object(value) && value['schemaVersion'] === 2) {
+      const normalized = validateDesignDocumentV2(value) as DesignDocument;
+      validateLegacyDesignDocument(legacyProjection(normalized));
+      return normalized;
+    }
+    const legacy = normalizeLegacyDesignDocument(value);
+    const upgraded = normalizeDesignDocumentV2(legacy) as DesignDocument;
+    validateDesignDocumentV2(upgraded);
+    validateLegacyDesignDocument(legacyProjection(upgraded));
+    return upgraded;
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    fail(error instanceof Error ? error.message : 'Le document de design est invalide.');
+  }
+}
+
+export function validateDesignDocument(input: unknown): DesignDocument {
+  if (object(input) && input['schemaVersion'] === 2) {
+    try {
+      const validated = validateDesignDocumentV2(input) as DesignDocument;
+      validateLegacyDesignDocument(legacyProjection(validated));
+      return validated;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      fail(error instanceof Error ? error.message : 'Le document de design est invalide.');
+    }
+  }
+  return validateLegacyDesignDocument(input);
 }
 
 export function templateVariables(document: DesignDocument) {

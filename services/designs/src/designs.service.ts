@@ -43,6 +43,36 @@ export class DesignsService {
     private readonly events: EventsClient,
   ) {}
 
+  async checkStorageReference(assetId: string, objectKey: string) {
+    const asset = Prisma.sql`SELECT EXISTS (
+      SELECT 1 FROM designs WHERE document @> ${JSON.stringify({ elements: [{ assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ originalAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ derivedAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ assets: [{ assetId }] })}::jsonb
+      UNION ALL SELECT 1 FROM design_versions WHERE document @> ${JSON.stringify({ elements: [{ assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ originalAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ derivedAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ assets: [{ assetId }] })}::jsonb
+      UNION ALL SELECT 1 FROM design_templates WHERE document @> ${JSON.stringify({ elements: [{ assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ originalAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ derivedAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ assets: [{ assetId }] })}::jsonb
+      UNION ALL SELECT 1 FROM design_template_versions WHERE document @> ${JSON.stringify({ elements: [{ assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ originalAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ elements: [{ derivedAssetId: assetId }] })}::jsonb
+        OR document @> ${JSON.stringify({ assets: [{ assetId }] })}::jsonb
+    ) AS referenced`;
+    const rows = await this.prisma.$queryRaw<Array<{ referenced: boolean }>>(asset);
+    if (rows[0]?.referenced) return { status: 'REFERENCED' as const };
+    const keyRows = await this.prisma.$queryRaw<Array<{ referenced: boolean }>>(Prisma.sql`SELECT EXISTS (
+      SELECT 1 FROM designs WHERE document::text LIKE ${`%${objectKey}%`}
+      UNION ALL SELECT 1 FROM design_versions WHERE document::text LIKE ${`%${objectKey}%`}
+      UNION ALL SELECT 1 FROM design_templates WHERE document::text LIKE ${`%${objectKey}%`}
+      UNION ALL SELECT 1 FROM design_template_versions WHERE document::text LIKE ${`%${objectKey}%`}
+    ) AS referenced`);
+    return { status: keyRows[0]?.referenced ? 'REFERENCED' as const : 'UNREFERENCED' as const };
+  }
+
   private async event(eventId: string, authorization: string) {
     if (!uuidPattern.test(eventId)) throw new NotFoundException('Événement introuvable.');
     return this.events.assertOwnerEvent(eventId, authorization);

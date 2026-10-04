@@ -114,9 +114,10 @@ export function SeatingMap({
                 place.capacity === null
                   ? 0
                   : Math.min(100, Math.round((place.occupied / place.capacity) * 100));
+              const remaining = place.capacity === null ? null : Math.max(0, place.capacity - place.occupied);
               return (
                 <article
-                  className={`seating-map-place ${mode === 'TABLE' ? 'is-table' : 'is-zone'}${place.overCapacity ? ' is-over-capacity' : ''}`}
+                  className={`seating-map-place ${mode === 'TABLE' ? 'is-table' : 'is-zone'}${place.overCapacity ? ' is-over-capacity' : ''}${remaining === 0 ? ' is-full' : ''}`}
                   key={place.id}
                   aria-describedby="seating-map-help"
                   onDragOver={(event) => {
@@ -128,7 +129,7 @@ export function SeatingMap({
                     const guestId = event.dataTransfer.getData('text/plain');
                     if (guestId) void onAssign(guestId, place.id);
                   }}
-                  aria-label={`${mode === 'TABLE' ? 'Table' : 'Zone'} ${place.name}, ${place.occupied}${place.capacity === null ? '' : ` sur ${place.capacity}`} places occupées`}
+                    aria-label={`${mode === 'TABLE' ? 'Table' : 'Zone'} ${place.name}, ${place.occupied}${place.capacity === null ? ' places occupées, capacité non définie' : ` sur ${place.capacity} places, ${place.overCapacity ? 'capacité dépassée' : `${remaining} places restantes`}`}`}
                 >
                   <header>
                     <div>
@@ -146,6 +147,7 @@ export function SeatingMap({
                       {place.capacity === null ? '' : ` / ${place.capacity}`}
                     </strong>
                   </header>
+                  <p className={`seating-place-capacity${place.overCapacity ? ' over' : ''}`}>{place.capacity === null ? `${place.occupied} place(s) occupée(s) · capacité non définie` : place.overCapacity ? 'Capacité dépassée' : remaining === 0 ? 'Complet' : `${remaining} place(s) restante(s)`}</p>
                   {place.capacity !== null && (
                     <div
                       className="seating-capacity-track"

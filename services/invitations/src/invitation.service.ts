@@ -105,13 +105,16 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() { if (this.cleanupTimer) clearInterval(this.cleanupTimer); }
 
   private async cleanupExpiredExports() {
-    const batches = await this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { lt: new Date() }, zipDeletedAt: null }, orderBy: { zipExpiresAt: 'asc' }, take: 50, select: { id: true, zipExpiresAt: true } });
+    const batches = await this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { lt: new Date() }, zipDeletedAt: null }, orderBy: { zipExpiresAt: 'asc' }, take: 50, select: { id: true, zipExpiresAt: true, zipCleanupAttempts: true } });
     for (const batch of batches) {
       try {
         await this.storage.delete(`batches/${batch.id}.zip`);
-        await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, zipDeletedAt: null, zipExpiresAt: { lte: new Date() } }, data: { zipDeletedAt: new Date() } });
+        await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, zipDeletedAt: null, zipExpiresAt: { lte: new Date() } }, data: { zipDeletedAt: new Date(), zipCleanupLastError: null } });
         console.info(JSON.stringify({ event: 'zip_export_expired', batchId: batch.id }));
-      } catch { console.warn(JSON.stringify({ event: 'zip_export_cleanup_retry', batchId: batch.id })); }
+      } catch {
+        await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, zipDeletedAt: null }, data: { zipCleanupAttempts: { increment: 1 }, zipCleanupLastError: 'OBJECT_DELETE_FAILED' } }).catch(() => undefined);
+        console.warn(JSON.stringify({ event: 'zip_export_cleanup_retry', batchId: batch.id, attempt: batch.zipCleanupAttempts + 1, errorCode: 'OBJECT_DELETE_FAILED' }));
+      }
     }
   }
 
@@ -296,12 +299,19 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const rawSafeMargin = constraints.safeMargin;
     const marginObject = object(rawSafeMargin);
     const safeMargin = typeof rawSafeMargin === 'number' ? rawSafeMargin : ['top', 'right', 'bottom', 'left'].every((edge) => typeof marginObject[edge] === 'number') ? marginObject as { top: number; right: number; bottom: number; left: number } : 64;
+    const resolvedLayouts = new Map<string, unknown>();
     for (const guest of snapshot.guests) {
       const seating = snapshot.seatingFor(String(guest.id));
       const tableName = [...new Set(seating.map((item: Obj) => item.tableName).filter((name: unknown): name is string => typeof name === 'string' && !!name.trim()))].join(' · ');
       const ceremonyName = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => { const ceremony = object(object(item).ceremony); return String(ceremony.name ?? ceremony.title ?? ''); }).filter(Boolean).join(' · ');
-      const layout = validateInvitationLayout({ document, values: { guest_name: String(guest.fullName ?? ''), table_name: tableName, event_name: String(object(snapshot.event).name ?? ''), ceremony_name: ceremonyName, event_date: String(object(snapshot.event).startAt ?? object(snapshot.event).date ?? ''), event_location: String(object(object(snapshot.event).venue).name ?? object(snapshot.event).location ?? '') }, safeMargin });
+      const previewQrUrl = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${invitationToken(randomUUID())}`;
+      const ceremonyData = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => {
+        const ceremony = object(object(item).ceremony);
+        return { name: ceremony.name ?? ceremony.title, date: ceremony.date ?? ceremony.startAt, time: ceremony.time, venue: ceremony.venue, address: ceremony.address, reference: ceremony.reference, dressCode: ceremony.dressCode };
+      });
+      const layout = validateInvitationLayout({ document, values: { guest_name: String(guest.fullName ?? ''), guest_email: String(guest.email ?? ''), table_name: tableName, event_name: String(object(snapshot.event).name ?? ''), couple_names: String(object(snapshot.event).coupleNames ?? ''), invitation_text: String(object(snapshot.event).invitationText ?? ''), ceremony_name: ceremonyName, ceremonies: ceremonyData, event_date: String(object(snapshot.event).startAt ?? object(snapshot.event).date ?? ''), event_location: String(object(object(snapshot.event).venue).name ?? object(snapshot.event).location ?? ''), contact: String(object(snapshot.event).contact ?? ''), qr_code: previewQrUrl, rsvp_link: previewQrUrl }, safeMargin });
       if (layout.errors.length) throw new BadRequestException({ code: 'INVITATION_LAYOUT_INVALID', errors: layout.errors });
+      resolvedLayouts.set(String(guest.id), layout.resolvedLayout);
     }
     const batchId = randomUUID();
     const renderAssets = Object.fromEntries(snapshot.photoAssets.map((asset) => [asset.assetId, { key: 'batches/' + batchId + '/' + asset.assetId + (asset.mimeType === 'image/png' ? '.png' : '.webp'), mimeType: asset.mimeType }]));
@@ -360,6 +370,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
           ceremonySnapshots: snapshot.ceremonySnapshots,
           seatingSnapshot: snapshot.seatingFor(guest.id),
           renderAssets,
+          resolvedLayout: resolvedLayouts.get(String(guest.id)),
         };
         const version = await tx.invitationVersion.create({
           data: {
@@ -692,8 +703,77 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     await this.storage.put(key, archive, 'application/zip');
     const ttlDays = Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5)));
     const zipExpiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
-    await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, ownerSubject: owner, status: BatchStatus.COMPLETED }, data: { zipExpiresAt, zipDeletedAt: null } });
+    await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, ownerSubject: owner, status: BatchStatus.COMPLETED }, data: { zipExpiresAt, zipDeletedAt: null, zipSizeBytes: BigInt(archive.byteLength) } });
     return { id: batch.id, status: batch.status, zipExpiresAt };
+  }
+
+  async getAdminStorageStats() {
+    const now = new Date();
+    const [pdfs, zips, byEvent, byAgency] = await Promise.all([
+      this.prisma.batchItem.aggregate({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null } }, _sum: { sizeBytes: true }, _count: { _all: true } }),
+      this.prisma.invitationBatch.aggregate({ where: { status: BatchStatus.COMPLETED, zipDeletedAt: null, zipExpiresAt: { gt: now } }, _sum: { zipSizeBytes: true }, _count: { _all: true } }),
+      this.prisma.$queryRaw<Array<{ event_id: string; bytes: bigint | null; pdf_count: bigint; zip_bytes: bigint | null; zip_count: bigint }>>(Prisma.sql`
+        WITH pdf AS (
+          SELECT b.event_id, SUM(i.size_bytes) AS bytes, COUNT(i.id) FILTER (WHERE i.object_key IS NOT NULL AND i.status = 'GENERATED') AS file_count
+          FROM invitation_batches b JOIN invitation_batch_items i ON i.batch_id = b.id GROUP BY b.event_id
+        ), zip AS (
+          SELECT event_id, SUM(zip_size_bytes) AS bytes, COUNT(*) AS file_count FROM invitation_batches
+          WHERE zip_deleted_at IS NULL AND zip_expires_at > ${now} GROUP BY event_id
+        )
+        SELECT COALESCE(pdf.event_id, zip.event_id) AS event_id, pdf.bytes, COALESCE(pdf.file_count, 0) AS pdf_count, zip.bytes AS zip_bytes, COALESCE(zip.file_count, 0) AS zip_count
+        FROM pdf FULL OUTER JOIN zip ON zip.event_id = pdf.event_id
+        ORDER BY (COALESCE(pdf.bytes, 0) + COALESCE(zip.bytes, 0)) DESC LIMIT 10`),
+      this.prisma.$queryRaw<Array<{ agency_workspace_id: string | null; owner_subject: string; bytes: bigint | null; file_count: bigint }>>(Prisma.sql`
+        WITH pdf AS (
+          SELECT b.agency_workspace_id, b.owner_subject, SUM(i.size_bytes) AS bytes, COUNT(i.id) FILTER (WHERE i.object_key IS NOT NULL AND i.status = 'GENERATED') AS file_count
+          FROM invitation_batches b JOIN invitation_batch_items i ON i.batch_id = b.id GROUP BY b.agency_workspace_id, b.owner_subject
+        ), zip AS (
+          SELECT agency_workspace_id, owner_subject, SUM(zip_size_bytes) AS bytes, COUNT(*) AS file_count FROM invitation_batches
+          WHERE zip_deleted_at IS NULL AND zip_expires_at > ${now} GROUP BY agency_workspace_id, owner_subject
+        )
+        SELECT COALESCE(pdf.agency_workspace_id, zip.agency_workspace_id) AS agency_workspace_id, COALESCE(pdf.owner_subject, zip.owner_subject) AS owner_subject,
+          COALESCE(pdf.bytes, 0) + COALESCE(zip.bytes, 0) AS bytes, COALESCE(pdf.file_count, 0) + COALESCE(zip.file_count, 0) AS file_count
+        FROM pdf FULL OUTER JOIN zip ON zip.agency_workspace_id IS NOT DISTINCT FROM pdf.agency_workspace_id AND zip.owner_subject = pdf.owner_subject
+        ORDER BY (COALESCE(pdf.bytes, 0) + COALESCE(zip.bytes, 0)) DESC LIMIT 10`),
+    ]);
+    const num = (value: bigint | number | null) => value === null ? null : Number(value);
+    return {
+      measuredAt: now.toISOString(),
+      pdf: { bytes: num(pdfs._sum.sizeBytes), count: pdfs._count._all, unknownSizeCount: await this.prisma.batchItem.count({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null }, sizeBytes: null } }) },
+      zip: { bytes: num(zips._sum.zipSizeBytes), count: zips._count._all, unknownSizeCount: await this.prisma.invitationBatch.count({ where: { status: BatchStatus.COMPLETED, zipDeletedAt: null, zipExpiresAt: { gt: now }, zipSizeBytes: null } }) },
+      cleanup: { zipDeletionErrors: await this.prisma.invitationBatch.count({ where: { zipDeletedAt: null, zipCleanupAttempts: { gt: 0 } } }), zipRetryable: await this.prisma.invitationBatch.count({ where: { zipDeletedAt: null, zipCleanupAttempts: { gt: 0 }, zipExpiresAt: { lt: now } } }) },
+      byEvent: byEvent.map((row) => ({ eventId: row.event_id, bytes: num(row.bytes), pdfCount: num(row.pdf_count), zipBytes: num(row.zip_bytes), zipCount: num(row.zip_count) })),
+      byAgencyOrClient: byAgency.map((row) => ({ agencyWorkspaceId: row.agency_workspace_id, ownerSubject: row.owner_subject, bytes: num(row.bytes), fileCount: num(row.file_count) })),
+      source: 'invitations-database-recorded-object-sizes',
+    };
+  }
+
+  async checkStorageReference(assetId: string, objectKey: string) {
+    const pattern = `%${assetId}%`;
+    const keyPattern = `%${objectKey}%`;
+    const rows = await this.prisma.$queryRaw<Array<{ referenced: boolean }>>(Prisma.sql`SELECT EXISTS (
+      SELECT 1 FROM invitation_versions WHERE snapshot::text LIKE ${pattern} OR snapshot::text LIKE ${keyPattern}
+      UNION ALL SELECT 1 FROM invitation_batch_items WHERE snapshot::text LIKE ${pattern} OR snapshot::text LIKE ${keyPattern}
+    ) AS referenced`);
+    return { status: rows[0]?.referenced ? 'REFERENCED' as const : 'UNREFERENCED' as const };
+  }
+
+  async getStorageInventoryPage(pdfCursor?: string, zipCursor?: string) {
+    const limit = 500;
+    const [pdfRows, zipRows] = await Promise.all([
+      this.prisma.batchItem.findMany({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null } }, orderBy: { id: 'asc' }, take: limit + 1, ...(pdfCursor ? { cursor: { id: pdfCursor }, skip: 1 } : {}), select: { id: true, objectKey: true } }),
+      this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { not: null }, zipDeletedAt: null }, orderBy: { id: 'asc' }, take: limit + 1, ...(zipCursor ? { cursor: { id: zipCursor }, skip: 1 } : {}), select: { id: true, zipExpiresAt: true, zipSizeBytes: true } }),
+    ]);
+    const pdfHasMore = pdfRows.length > limit;
+    const zipHasMore = zipRows.length > limit;
+    const pdfPage = pdfRows.slice(0, limit);
+    const zipPage = zipRows.slice(0, limit);
+    return {
+      pdfKeys: pdfPage.flatMap((row) => row.objectKey ? [row.objectKey] : []),
+      zipKeys: zipPage.map((row) => ({ key: `batches/${row.id}.zip`, expiresAt: row.zipExpiresAt!.toISOString(), sizeKnown: row.zipSizeBytes !== null })),
+      nextPdfCursor: pdfHasMore ? pdfPage.at(-1)?.id ?? null : null,
+      nextZipCursor: zipHasMore ? zipPage.at(-1)?.id ?? null : null,
+    };
   }
 
   async publicInvitation(token: string) {
@@ -1037,7 +1117,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
                 }
                 await tx.batchItem.update({
                   where: { id: item.id },
-                  data: { status: BatchItemStatus.GENERATED, objectKey: key },
+                  data: { status: BatchItemStatus.GENERATED, objectKey: key, sizeBytes: BigInt(pdf.byteLength) },
                 });
                 await tx.invitation.update({
                   where: { id: item.invitationId },
@@ -1141,6 +1221,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
           ).then((files) => [...files, { name: 'LISEZ-MOI.pdf', bytes: readme }]),
         );
         await this.storage.put(`batches/${id}.zip`, zip, 'application/zip');
+        await this.prisma.invitationBatch.update({ where: { id }, data: { zipSizeBytes: BigInt(zip.byteLength) } });
       }
       await this.cleanupRenderAssets(items[0]?.snapshot);
       await this.settle(batch, failed ? 0 : made.length);
@@ -1257,8 +1338,12 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const width = Number(canvas.width) || 1080;
     const height = Number(canvas.height) || 1530;
     const renderAssets = object(snapshot.renderAssets);
+    const resolvedLayout = object(snapshot.resolvedLayout);
+    const renderElements = Array.isArray(resolvedLayout.elements) ? resolvedLayout.elements : Array.isArray(doc.elements) ? doc.elements : [];
+    const token = invitationToken(String(snapshot.invitationId ?? ''));
+    const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
     const imageData = new Map<string, string>();
-    for (const value of Array.isArray(doc.elements) ? doc.elements : []) {
+    for (const value of renderElements) {
       const layer = object(value);
       if (layer.type !== 'IMAGE' || typeof layer.assetId !== 'string' || imageData.has(layer.assetId)) continue;
       const entry: unknown = renderAssets[layer.assetId];
@@ -1267,7 +1352,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       if (typeof key !== 'string' || !['image/webp', 'image/png'].includes(String(mimeType))) throw new Error('Invitation image snapshot is missing');
       imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType)));
     }
-    const layers = (Array.isArray(doc.elements) ? doc.elements : [])
+    const layers = renderElements
       .map((value: unknown) => {
         const layer = object(value);
         const x = Number(layer.x) || 0;
@@ -1288,19 +1373,19 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         if (layer.type !== 'TEXT' || typeof layer.text !== 'string') return '';
         const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle';
         const tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
-        const renderedText = substitute(layer.text);
+        const renderedText = layer.binding === 'qr.url' ? qrTarget : typeof layer.resolvedText === 'string' ? layer.resolvedText : substitute(layer.text);
         if (!renderedText.trim() && layer.hideWhenEmpty) return '';
-        const fit = fitInvitationText(layer, renderedText);
+        const fit = Array.isArray(layer.resolvedLines) && typeof layer.resolvedFontSize === 'number'
+          ? { fontSize: layer.resolvedFontSize, lines: layer.resolvedLines as string[], lineHeight: Number(layer.lineHeight) || 1.2, overflow: false }
+          : fitInvitationText(layer, renderedText);
         if (fit.overflow) throw new Error(`Invitation text overflow: ${String(layer.id ?? '')}`);
         const fontSize = fit.fontSize;
         const firstY = y + h / 2 - (fit.lines.length - 1) * fontSize * fit.lineHeight / 2;
-        return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${fit.lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * fit.lineHeight : 0}">${esc(line)}</tspan>`).join('')}</text>`;
+        return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(object(layer.resolvedFont).family ?? layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${fit.lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * fit.lineHeight : 0}">${esc(line)}</tspan>`).join('')}</text>`;
       })
       .join('');
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
-    const token = invitationToken(String(snapshot.invitationId ?? ''));
-    const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
-    const hasDesignQr = (Array.isArray(doc.elements) ? doc.elements : []).some((item: unknown) => object(item).type === 'QR');
+    const hasDesignQr = renderElements.some((item: unknown) => object(item).type === 'QR');
     const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img">${layers}</svg>` : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');

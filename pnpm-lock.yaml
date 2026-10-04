@@ -261,6 +261,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@invitaflow/design-document':
+        specifier: workspace:*
+        version: link:../../packages/design-document
       jose:
         specifier: 6.2.12
         version: 6.2.12
@@ -297,6 +300,8 @@ importers:
         version: 5.9.2
 
   packages/contracts: {}
+
+  packages/design-document: {}
 
   packages/observability: {}
 
@@ -597,6 +602,9 @@ importers:
 
   services/designs:
     dependencies:
+      '@invitaflow/design-document':
+        specifier: workspace:*
+        version: link:../../packages/design-document
       '@nestjs/common':
         specifier: 11.2.4
         version: 11.2.4(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -780,6 +788,9 @@ importers:
 
   services/invitations:
     dependencies:
+      '@invitaflow/design-document':
+        specifier: workspace:*
+        version: link:../../packages/design-document
       '@nestjs/common':
         specifier: 11.2.4
         version: 11.2.4(reflect-metadata@0.2.2)(rxjs@7.8.2)

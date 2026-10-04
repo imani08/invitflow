@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import type { FastifyRequest } from 'fastify';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from './env.js';
-export type AuthenticatedRequest = FastifyRequest & { identity?: { subject: string } };
+export type AuthenticatedRequest = FastifyRequest & { identity?: { subject: string; roles: string[] } };
 @Injectable()
 export class IdentityGuard implements CanActivate {
   private readonly issuer = requiredEnv('KEYCLOAK_ISSUER_URL').replace(/\/$/, '');
@@ -12,7 +12,11 @@ export class IdentityGuard implements CanActivate {
     if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ') || authorization.length > 8192) throw new UnauthorizedException();
     try { const { payload } = await jwtVerify(authorization.slice(7), this.jwks, { issuer: this.issuer, audience: process.env['KEYCLOAK_AUDIENCE'] ?? 'invitations-api', algorithms: ['RS256'], maxTokenAge: '10m' });
       if (typeof payload['sub'] !== 'string' || payload['azp'] !== (process.env['KEYCLOAK_CLIENT_ID'] ?? 'invitaflow-web') || payload['email_verified'] !== true) throw new Error();
-      req.identity = { subject: payload['sub'] }; return true;
+      const realm = payload['realm_access'];
+      const roles = realm && typeof realm === 'object' && Array.isArray((realm as { roles?: unknown }).roles)
+        ? (realm as { roles: unknown[] }).roles.filter((role): role is string => typeof role === 'string')
+        : [];
+      req.identity = { subject: payload['sub'], roles }; return true;
     } catch { throw new UnauthorizedException('Invalid or expired identity token'); }
   }
 }

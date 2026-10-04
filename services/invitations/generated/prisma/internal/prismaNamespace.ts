@@ -1026,6 +1026,9 @@ export const InvitationBatchScalarFieldEnum = {
   failedItems: 'failedItems',
   zipExpiresAt: 'zipExpiresAt',
   zipDeletedAt: 'zipDeletedAt',
+  zipSizeBytes: 'zipSizeBytes',
+  zipCleanupAttempts: 'zipCleanupAttempts',
+  zipCleanupLastError: 'zipCleanupLastError',
   cancelledAt: 'cancelledAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -1042,6 +1045,7 @@ export const BatchItemScalarFieldEnum = {
   snapshot: 'snapshot',
   status: 'status',
   objectKey: 'objectKey',
+  sizeBytes: 'sizeBytes',
   errorCode: 'errorCode',
   attempts: 'attempts',
   createdAt: 'createdAt',
@@ -1222,6 +1226,20 @@ export type ListEnumBatchStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+
+
+
+/**
+ * Reference to a field of type 'BigInt'
+ */
+export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
+
+
+
+/**
+ * Reference to a field of type 'BigInt[]'
+ */
+export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
 
 
 

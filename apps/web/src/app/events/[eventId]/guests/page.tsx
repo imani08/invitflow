@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import { GuestsWorkspace } from './workspace';
 import './guests.css';
+import '../../journey.css';
 
 type Ceremony = { id: string; name: string; ceremonyType: string; startAt: string; timezone: string; status: string };
 type Event = { id: string; name: string; status: string; timezone: string; ceremonies: Ceremony[] };
@@ -28,10 +29,10 @@ export default async function GuestsPage({ params }: { params: Promise<{ eventId
     if (event.id !== eventId || !Array.isArray(event.ceremonies)) notFound();
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error) throw error;
-    return <main className="events-shell"><AppNavbar eventId={eventId} /><section className="events-notice"><h1>Liste d’invités indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={`/events/${eventId}/guests`}>Réessayer</a></section></main>;
+    return <main className="events-shell"><AppNavbar eventId={eventId} /><section className="events-notice"><h1>Liste d’invités indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><Link href={`/events/${eventId}/guests`}>Réessayer</Link></section></main>;
   }
   return <main className="events-shell"><AppNavbar eventId={eventId} />
-    <header className="guests-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Préparez votre liste et choisissez les cérémonies accessibles à chaque invité.</p><a href={`/events/${event.id}/designs`}>Créer un design →</a> <a href={`/events/${event.id}/invitations`}>Générer les invitations →</a> <a href={`/events/${event.id}/seating`}>Ouvrir le plan de salle →</a></header>
+    <header className="guests-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Préparez votre liste et choisissez les cérémonies accessibles à chaque invité.</p><nav className="guest-next-actions" aria-label="Autres étapes de préparation"><Link href={`/events/${event.id}/designs`}>Créer un design →</Link><Link href={`/events/${event.id}/invitations`}>Générer les invitations →</Link><Link href={`/events/${event.id}/seating`}>Ouvrir le plan de salle →</Link></nav></header>
     <GuestsWorkspace event={event} />
   </main>;
 }

@@ -12,6 +12,19 @@ const guestA = '33333333-3333-4333-8333-333333333333';
 const guestB = '66666666-6666-4666-8666-666666666666';
 const guestC = '77777777-7777-4777-8777-777777777777';
 
+async function withStorageCapacity<T>(work: () => Promise<T>) {
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
+  process.env['STORAGE_MONITOR_TOKEN'] = 'unit-test-storage-token';
+  globalThis.fetch = async (input, init) => String(input).includes('/v1/internal/storage/capacity')
+    ? new Response(JSON.stringify({ diskStatsAvailable: false, blocked: false }), { status: 200, headers: { 'content-type': 'application/json' } })
+    : originalFetch(input, init);
+  try { return await work(); } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env['STORAGE_MONITOR_TOKEN']; else process.env['STORAGE_MONITOR_TOKEN'] = originalToken;
+  }
+}
+
 function serviceWithPrior() {
   const prior = { id: 'batch-1', eventId, designId, items: [{ guestId: guestA }, { guestId: guestB }] };
   const prisma = { invitationBatch: { findUnique: async () => prior } } as unknown as PrismaService;
@@ -19,22 +32,26 @@ function serviceWithPrior() {
 }
 
 test('generation idempotency returns a prior batch only for the same event, design and selected guests', async () => {
-  const { service, prior } = serviceWithPrior();
-  const replay = (requestedEvent: string, requestedDesign: string, guestIds: string[]) =>
-    service.createBatch('owner', requestedEvent, 'Bearer token', 'same-key', { designId: requestedDesign, guestIds });
+  await withStorageCapacity(async () => {
+    const { service, prior } = serviceWithPrior();
+    const replay = (requestedEvent: string, requestedDesign: string, guestIds: string[]) =>
+      service.createBatch('owner', requestedEvent, 'Bearer token', 'same-key', { designId: requestedDesign, guestIds });
 
-  assert.equal(await replay(eventId, designId, [guestB, guestA]), prior);
-  await assert.rejects(replay(otherEventId, designId, [guestA, guestB]), /autre demande de génération/);
-  await assert.rejects(replay(eventId, otherDesignId, [guestA, guestB]), /autre demande de génération/);
-  await assert.rejects(replay(eventId, designId, [guestA, guestC]), /autre demande de génération/);
+    assert.equal(await replay(eventId, designId, [guestB, guestA]), prior);
+    await assert.rejects(replay(otherEventId, designId, [guestA, guestB]), /autre demande de génération/);
+    await assert.rejects(replay(eventId, otherDesignId, [guestA, guestB]), /autre demande de génération/);
+    await assert.rejects(replay(eventId, designId, [guestA, guestC]), /autre demande de génération/);
+  });
 });
 
 test('generation idempotency treats an omitted guest list and an empty list as the same all-guests request', async () => {
-  const { service, prior } = serviceWithPrior();
-  const omitted = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId });
-  const empty = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] });
-  assert.equal(omitted, prior);
-  assert.equal(empty, prior);
+  await withStorageCapacity(async () => {
+    const { service, prior } = serviceWithPrior();
+    const omitted = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId });
+    const empty = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] });
+    assert.equal(omitted, prior);
+    assert.equal(empty, prior);
+  });
 });
 
 test('pending reservation release is retried idempotently and only cleared after Wallet confirms it', async () => {

@@ -274,3 +274,226 @@ Les seules vulnérabilités déclarées ci-dessus sont celles de dépendances av
 - Dashboard partenaire: définitions PENDING/PAYABLE/PAID/REVERSED et empty states expliqués; PAID reste réservé à une confirmation vérifiable externe. La sélection d’invitations affiche un message quota lisible avec le déficit lorsque l’API renvoie le solde.
 - Validations ciblées du 5 octobre: Billing 10/10; Payments 13/13; Events 18/18; Web 23/23 (dont calcul de période); typechecks Billing/Payments/Events/Web et lint Billing/Events/Web sans erreur. Les erreurs `spawn EPERM` sans accès processus ont été contournées avec exécution autorisée des tests. PostgreSQL/runtime et migrations non exécutés.
 - UX restante PARTIAL: explications et animations légères/réduction de mouvement ne sont pas encore uniformisées dans tous les parcours (programme cérémonie, invitations hors erreur de quota, partenaires Admin). Responsive reste à vérifier visuellement sur appareils réels; aucun budget Lighthouse/LCP/INP/CLS n’a été mesuré.
+
+## Stockage — reprise ciblée du 4 octobre 2026
+
+### Terminé dans le code (validation locale uniquement)
+- Invitations persiste désormais `size_bytes` des PDF et `zip_size_bytes` des ZIP écrits avec succès. Les migrations gardent `NULL` pour les fichiers historiques dont la taille n’est pas connue; aucune taille n’est estimée. L’API admin Invitations expose les totaux connus, tailles inconnues, meilleurs événements et rattachements existants agence/propriétaire. Le Gateway fusionne cette source à la page `/admin/storage`.
+- Les erreurs de suppression ZIP sont retryables par la boucle existante et enregistrent compte d’essais + code d’erreur; la page admin expose les retries en attente.
+- J’ai suspendu la suppression d’assets Media prêts, car Designs et Invitations ne fournissent pas encore un inventaire exhaustif de leurs références. Le retry Media ignore les objets prêts en statut `DELETING` au lieu de risquer d’effacer un fichier utilisé; la page Admin compte ces assets bloqués. Les clés de quarantaine sans objet publié restent nettoyables.
+- Migration Invitations `20261004150000_invitation_storage_sizes` est additive uniquement: deux tailles nullable, deux champs de suivi retry avec défaut zéro, et index de consultation. Aucun `DROP`, `TRUNCATE` ou réécriture des données historiques.
+- Typecheck et build Invitations, typecheck Gateway et Web, génération/validation Prisma Invitations passent. Le typecheck Media doit être relancé après le verrouillage conservateur du nettoyage.
+
+### Partiel / non validé
+- La mesure `statfs` existante concerne l’espace libre/capacité du filesystem monté en lecture seule sur `minio_data`; ce n’est pas une mesure du total d’objets MinIO et elle dépend d’un montage local. La page doit donc être comprise comme capacité du volume monté. Le total exact des objets MinIO, sa capacité distante, le breakdown Media par événement/agence, previews expirées, PNG dérivés orphelins et artefacts temporaires ne sont pas consolidés. L’API Prometheus officielle MinIO expose des métriques de cluster/buckets, mais l’intégration sécurisée au MinIO épinglé dans Compose n’est pas encore faite.
+- L’architecture de références Designs/Invitations (réconciliation de versions et snapshots historiques) reste à implémenter. En conséquence, toute suppression d’asset prêt est suspendue; aucun bouton de purge manuelle n’est proposé. Les suppressions d’objets dérivés individuels ne sont pas encore assez sûres pour être activées.
+- Aucun E2E upload → preview → PDF → ZIP → expiration → nettoyage n’existe/ n’a été exécuté. Les tests rembg (PNG alpha, échec, timeout, CPU/RAM, pression stockage et nettoyage temporaire) restent à créer et exécuter. Pas de validation PostgreSQL/MinIO/Chromium en runtime.
+- Les seuils 70/80/90/95 et le blocage d’opérations lourdes existent; la couverture runtime de leurs interactions sous charge stockage reste non testée.
+- Next `spawn EPERM` a été reproduit par `node child_process.spawnSync()` pour lancer simplement `node -e process.exit(0)`, avant le code Next. Cela pointe vers la restriction de création de processus du runtime Windows, pas une preuve d’un défaut frontend. Web `tsc` passe; le build Next de production n’est pas validé ici.
+- Environnement de ce passage: Docker CLI 29.8 présent, mais aucun serveur `desktop-linux` joignable (pipe `npipe:////./pipe/dockerDesktopLinuxEngine` absent). Les tests Invitations et Media ont été exécutés avec succès après autorisation d’exécution élargie; cela ne valide pas les dépendances runtime Docker.
+
+### Validation migrations sur le poste Windows avec Docker Desktop fonctionnel
+Depuis PowerShell à la racine `D:\invitflow\invitaflow`, avec `.env` déjà renseigné et Docker Desktop Linux démarré:
+
+```powershell
+docker compose up -d postgres
+docker compose run --rm media-db-init
+docker compose run --rm --no-deps media pnpm prisma:migrate:deploy
+docker compose run --rm --no-deps invitations pnpm prisma:migrate:deploy
+```
+
+Ces commandes ne réinitialisent pas les volumes et n’appliquent que les migrations en attente. Puis démarrer `docker compose up -d minio minio-bootstrap media invitations gateway` (les dépendances Compose requises démarrent également) et vérifier `docker compose ps`, `docker compose logs --tail=100 media invitations gateway`, `/health/ready` des services et `/v1/admin/storage` avec un token admin valide. Ne pas lancer `down -v` ni `prisma migrate reset`.
+- Validation complémentaire effectuée après le verrouillage: build Invitations passe; typechecks Invitations, Gateway, Media, Web et `prisma validate` Invitations passent. Suites ciblées: Invitations 14/14, Media 5/5 (dont garde anti-suppression sans références); lint ciblé Invitations passe. Warning Node DEP0205 observé au lancement des tests, sans échec.
+
+## Stockage — inventaire MinIO et vérification de références (4 octobre 2026)
+
+### DONE (code et validations locales)
+- Media implémente une signature AWS SigV4 en lecture seule et `ListObjectsV2` paginé sur les buckets configurés. Le compte MinIO `storage-audit` ne possède que `s3:ListBucket`. Les sommes proviennent des tailles retournées par MinIO; aucun `HEAD` par objet ni métrique fabriquée.
+- L’inventaire complet est persisté dans `storage_inventory_snapshots` avec `measuredAt`, `validUntil`, statut, sommes/buckets, compteurs et erreur. La lecture Admin utilise le dernier snapshot, et `POST /v1/admin/storage/refresh` est réservé aux rôles Support/Super Admin, limité à un lancement/minute. Une limite d’objets produit un snapshot INCOMPLETE sans total exact.
+- La page `/admin/storage` distingue objets MinIO réels et capacité filesystem `statfs`, affiche répartition par bucket/catégorie, tailles historiques inconnues, réconciliation disponible, dates/fraîcheur et refresh. Aucun inventaire n’est lancé sur chargement de la page.
+- Media ne se connecte pas aux bases Designs/Invitations. Deux APIs internes protégées par `STORAGE_MONITOR_TOKEN` répondent `REFERENCED`/`UNREFERENCED`; suppression Media exige la réponse positive des deux. Échec/inconnu garde le statut DELETING et réessaie; réponse référencée bloque et est auditée. Les opérations DELETE S3 sont idempotentes.
+- Migrations ajoutées sans destruction: `services/media/prisma/migrations/20261004170000_storage_inventory_snapshots` crée uniquement snapshot + index; `services/invitations/prisma/migrations/20261004150000_invitation_storage_sizes` ajoute tailles nullables/compteurs retry + index. Données historiques de taille restent NULL.
+- Tests locaux: Media 9/9 (parser XML, refus de tailles malformées, suppression bloquée/inconnue/référence absente); Invitations 14/14; Designs document 4/4. Prisma validate Media et Invitations, lint Media/Invitations/Designs, builds Media/Invitations/Designs, typechecks Media/Invitations/Designs/Gateway/Web réussis. Media lint a un avertissement inutilisé corrigé après le lint; à rerun.
+
+### PARTIAL
+- La réconciliation couvre les clés Media reconnues, PDF/ZIP Invitations et ZIP expirés si l’API Invitations a retourné toutes ses pages. La lecture pagine jusqu’à 200 pages; au-delà le résultat est explicitement incomplet. Les previews expirées sont comptées à partir de `updatedAt`, pas depuis leur date d’accès. Elles ne sont pas supprimées automatiquement. Les assets Media orphelins sont échantillonnés, pas purgés.
+- Les buckets `generated` sans convention/metadata propriétaire restent classés non classés; les fichiers du volume filesystem et anciens artefacts locaux ne sont pas tous attribués à une catégorie S3. Les erreurs retryables Media et Invitations apparaissent en compteurs séparés dans l’UI; l’historique des erreurs persistantes n’a pas encore de console détaillée par objet/job.
+- Les vérifications de référence utilisent les données persistées locales à Designs et Invitations et couvrent les documents/versions et snapshots historiques connus. Elles réduisent le risque IDOR/BOLA entre bases et fail-closed sur erreur. Il reste une fenêtre de course entre lecture `UNREFERENCED` et écriture concurrente d’une nouvelle référence; un protocole de lease/réservation transactionnelle inter-service est nécessaire pour une garantie absolue avant d’activer une purge générale. La purge Media demandée par un propriétaire effectue les checks, mais ce protocole de concurrence n’est pas encore disponible.
+- Top événements/agences: chiffres invitations seulement, fournis par les rattachements existants; Media n’a pas de relation évènement/agence persistée permettant cette ventilation. L’UI indique explicitement cette limite.
+
+### NOT TESTED
+- Aucun E2E complet upload → preview → rembg → design → invitation → PDF → ZIP → stats → expiration → nettoyage exécuté; la suite d’intégration automatisée correspondante reste à écrire. Les tests actuels n’utilisent aucun MinIO/DB simulé comme données de production; le test unitaire référence uniquement les frontières.
+- rembg réel non vérifié: PNG alpha, timeout, entrée invalide, erreur processus, limites CPU/RAM, suppression des fichiers temporaires et pression disque.
+- Lint Media après retrait de la variable inutilisée, parcours visuel mobile/admin, collecte réelle d’objets MinIO, politiques/compte read-only dans MinIO, et migrations en DB non testés.
+- La base `media` (images), `invitations` (pdf/zip) et `designs` gardent leurs bases par service. Snapshot d’inventaire est stocké dans DB Media.
+
+### BLOCKED
+- Runtime Docker/PostgreSQL/MinIO/rembg bloqué dans cet environnement: `docker info` et `docker compose ps` échouent avec `permission denied` sur `npipe:////./pipe/dockerDesktopLinuxEngine`. Cela ne prouve pas une panne du code Docker; le daemon Desktop est inaccessible au compte/processus courant.
+- Build Next de production non refait dans cette passe. Le `spawn EPERM` antérieur est reproductible avant Next dans `child_process.spawnSync`, indiquant une restriction du runtime d’exécution, pas une preuve d’erreur de code.
+
+#### Validation locale Windows à faire quand Docker Desktop est accessible
+Depuis `D:\invitflow\invitaflow`, `.env` renseigné avec secrets distincts forts pour `STORAGE_MONITOR_TOKEN`, identifiants MinIO audit et DB:
+
+```powershell
+docker compose up -d postgres minio
+# Attendre postgres/minio healthy puis appliquer les migrations additives du service concerné:
+docker compose run --rm --no-deps media pnpm prisma:migrate:deploy
+docker compose run --rm --no-deps invitations pnpm prisma:migrate:deploy
+# Bootstrap crée les buckets et le compte read-only audit
+docker compose up -d minio-bootstrap designs invitations media gateway
+# Vérifier état/logs, puis demander un inventaire depuis la page Admin Storage
+docker compose ps
+docker compose logs --tail=100 minio-bootstrap media designs invitations gateway
+```
+
+Ne pas exécuter `down -v` ni `prisma migrate reset`. Après migrations, faire les parcours E2E et scénarios rembg sur un environnement de test isolé, inspecter `storage_inventory_snapshots`, confirmer un refresh via Admin avec un utilisateur autorisé, et vérifier qu’une suppression référencée est refusée puis retentée lorsque les services sont indisponibles.
+- Réconciliation Media encore partielle : la comparaison Media couvre les objets assets/<uuid> prêts et les variantes connues; le bucket media-quarantine est mesuré en taille mais ses clés d’upload/quarantaine ne sont pas rapprochées de toutes les lignes transitoires/artefacts. Les références de snapshot sont bornées aux formats PDF/ZIP actuellement produits. Les totaux MinIO restent valides au niveau bucket si tous les listings sont complets, mais ces sous-comptages ne sont pas un inventaire de tous les orphelins.
+
+## Intégration Figma Make InvitaFlow — tranche 1 (4 octobre 2026)
+
+- Analyse des deux dépôts et mapping exhaustif des 32 écrans Figma vers les routes/services actuels consigné dans `docs/FIGMA_MAKE_INTEGRATION.md`. Le prototype Vite, son contexte, son router et ses données codées en dur ne sont pas importés.
+- **DONE**: landing `/` redessinée dans une direction éditoriale plum/or, responsive, CTA vers le vrai flux `/api/auth/login`, liens légaux réels, aucun chiffre/témoignage ni événement d’exemple. Nouvelle navigation commune: sidebar desktop et navigation fixe mobile limitée à cinq destinations, avec chemins réels/contextuels d’événement, logo officiel et styles reduced-motion. Aucun paquet ajouté.
+- **PARTIAL**: les autres pages front-office InvitaFlow sont inchangées et restent à harmoniser par groupes tout en gardant APIs et états. L’auth visuelle reste portée par le thème Keycloak existant. Pas de dark mode global cohérent dans le front existant; non introduit partiellement dans cette tranche.
+- **DONE validation tranche**: Web typecheck passe; lint des fichiers modifiés passe; suite Web 27/27 passe. Le lint global du workspace n’est pas vert: il signale une erreur préexistante dans `apps/web/src/app/events/[eventId]/seating/workspace.tsx:190` (`<a>` au lieu de `Link`) et 6 avertissements préexistants. Les tests Web ont nécessité l’autorisation d’exécution des workers Node après `spawn EPERM` dans sandbox.
+- **NOT TESTED**: rendu visuel multi-navigateurs/appareils et thème Keycloak connecté non inspectés dans un navigateur, pas de build Next de production exécuté.
+- **PARTIAL suite**: Dashboard agrégé, onboarding, profil invité autonome et stats par événement n’ont pas de route dédiée/contrat complet aujourd’hui; ils ne seront pas remplis de fausses données. Voir mapping/ordre dans `docs/FIGMA_MAKE_INTEGRATION.md`.
+
+## Intégration Figma Make — parcours principal (4 octobre 2026)
+
+### DONE
+- `/dashboard` ajouté comme accueil authentifié, alimenté uniquement par le prénom OIDC et les événements réellement retournés par Gateway. Les cartes et prochaines actions n’inventent aucun compteur ni événement.
+- `/events` conserve ses APIs et opérations. Création progressive (type, nom, date/fuseau; description facultative), formulaire repliable et ouverture des cérémonies du nouvel événement après création. La vue événement peut ouvrir l’éditeur existant de cérémonies via `/events?event=<id>`.
+- Vue événement et lien du parcours harmonisés. L’éditeur existant de cérémonies/programme reste l’unique implémentation.
+- Invités harmonisés; ajout manuel inchangé côté API; import CSV/XLSX propose dépôt ou sélection du fichier, puis conserve analyse, mapping, preview, erreurs et confirmation.
+- Styles plum/or/crème, responsive mobile-first, focus visible, reduced-motion et sélecteurs de préparation dark mode ajoutés.
+- Lien interne de la vue seating converti de `<a>` en `next/link`, même destination et comportement.
+- Aucun backend, Prisma, Docker, API, permission, rôle, OIDC, dépendance ou donnée de production simulée modifié.
+
+### PARTIAL
+- Le modèle Event n’a pas de champ `location` ni d’estimation d’invités. Le formulaire ne prétend pas enregistrer ces valeurs; lieu/capacité se règlent par cérémonie, et le total visible vient de la liste réelle des invités.
+- RSVP, table et check-in ne sont présentés que lorsque les informations existent dans les données retournées au workspace; aucune valeur synthétique créée.
+- Dark mode préparé via variables/sélecteurs mais aucun contrôleur global uniforme n’existe dans l’App Router.
+
+### NOT TESTED
+- QA visuelle authentifiée à 375 px, 768 px et desktop. Le serveur Next a démarré, mais `/dashboard` a abouti à `/?auth=unavailable`; l’environnement n’a pas fourni d’authentification OIDC/Gateway locale. Aucun contournement d’auth n’a été utilisé.
+- Parcours de mutations API événement → cérémonie, invité et import en runtime; dépendances Docker/DB non établies ici.
+- Build Next production.
+
+### VALIDATION LOCALE
+- Typecheck Web : réussi après correction d’une incompatibilité de propriété optionnelle stricte.
+- ESLint ciblé sur les pages/workspaces/navbar concernés : réussi sans avertissement ni erreur.
+- Tests Web : 27/27 réussis hors sandbox avec permission pour les workers Node. L’exécution sandboxée échouait avant l’exécution des tests (`spawn EPERM`).
+- `git diff --check` : réussi après les dernières modifications (avertissements Git uniquement sur les conversions LF/CRLF des fichiers déjà modifiés).
+- Compilation Next dev : `/dashboard` et `/events` compilent. `events.css` émet un avertissement Autoprefixer préexistant sur `align-items:end`; aucune erreur de compilation.
+
+## Intégration Figma Make — Designs, Templates et placement (4 octobre 2026)
+
+### DONE
+- Seating affiche les places restantes et les états complet/dépassement/capacité inconnue à partir des données réelles. Création/édition/suppression, recherche, affectation et déplacement reposent sur les APIs existantes.
+- Catalogue Designs harmonisé : recherche, filtres supportés, aperçu des métadonnées réelles, états d’erreur/retry/vide, sélection du template existant et ouverture du design créé.
+- Éditeur : panneaux progressifs mobile Aperçu/Calques/Réglages; aperçu sans crédits avec vrai invité/cérémonie/table lorsque disponibles; IA garde le workflow et les états jobs existants. Aucun rendu final déclenché.
+- CSS local réutilise les tokens partagés, focus visible, responsive et reduced-motion; Autoprefixer `end` remplacé par `flex-end`.
+- Aucun endpoint, modèle, dépendance, backend, rôle ou donnée fictive ajouté.
+
+### PARTIAL
+- Niveau et prix Gratuit/Premium absents du contrat Designs/Billing : aucun badge/prix n’est présenté avant exposition de données fiables.
+- Preview catalogue est une illustration de style dérivée des métadonnées style/couleur, pas le document invitation entièrement rendu. Aucun layout libre de salle n’est persisté par le modèle.
+- Dark selectors préparés sans commutateur global.
+
+### NOT TESTED
+- Interaction et QA visuelle navigateur authentifiée à 375/768/desktop; mutations API, IA, Media privé et persistance DB runtime.
+- Build Next production et tests UI dédiés.
+
+### BLOCKED
+- Preview authentifiée des routes Designs/Seating reste bloquée par l’absence de session OIDC/Gateway locale. En dev, les routes ont répondu avec leur redirect OIDC (307); Seating a émis une compilation réussie. La vue visuelle authentifiée reste non vérifiée.
+
+### VALIDATION LOCALE
+- Typecheck Web: réussi.
+- ESLint ciblé: 0 erreur, 4 avertissements dans Designs workspace (effets React existants et image IA `<img>`).
+- Tests Web: 27/27 réussis hors sandbox; l’exécution sandboxée ne peut créer les workers Node (`spawn EPERM`).
+- PostCSS parse des styles ciblés: réussi. `git diff --check`: réussi avec seuls avertissements de conversion Git LF/CRLF.
+
+## Intégration Figma Make — Inviter, RSVP et Check-in (4 octobre 2026)
+
+### DONE
+- Génération: récapitulatif avec données réelles, solde wallet si disponible, estimation maximale 1 crédit/invitation, quota agence laissé au service, confirmation avant réservation et verrou anti-double-submit. Preview gratuite et règlement sur rendu réel explicités.
+- Sélection invités: tous vs sélection explicite, recherche, total du serveur et limites d’IDs alignées avec Invitations; erreurs/états réels de lots et fichiers.
+- PDF téléchargeables uniquement pour items terminés avec objectKey; ZIP seulement terminé/non expiré/non supprimé; taille/expiration si le service les renvoie; régénération uniquement pour ZIP expiré/supprimé via endpoint existant.
+- Page publique harmonisée: données invité/événement/cérémonies autorisées et RSVP du contrat actuel, réponse existante et édition possible; erreurs invalid/expiré/non disponible, reprise et anti-double-submit. Aucun accès à autre invité, aucune création QR.
+- Check-in mobile: scan caméra réel BarcodeDetector ou saisie, états succès/déjà pointé/refus/invalide/service temporaire, reprise sans bypass; statistiques restent cachées en attente/échec au lieu d’afficher de faux zéros.
+- Réutilisation des tokens et du shell Phases 1/2, CSS mobile/focus/dark-prep/reduced-motion. Aucun changement backend, API, sécurité, crédits, QR ou dépendance.
+- Les anciens avertissements ESLint Designs ont été corrigés sans changer le cycle des effets ni l’accès de l’image API protégée.
+
+### PARTIAL
+- Le contrat de prévalidation n’expose pas la liste d’invités incomplets/invalides; Invitations les valide pendant le lancement et fournit les échecs du lot.
+- Pas de lecture pré-lancement combinée wallet personnel + quota workspace; le solde personnel est affiché et le quota éventuel est vérifié autoritairement par le backend lors de la réservation.
+- API publique sans table/QR; non affichés. L’API scan ne donne pas la table.
+
+### NOT TESTED
+- Aucun OIDC connecté, RSVP soumis, QR/caméra réel, réservation ou settlement Wallet réel, PDF/ZIP téléchargé/régénéré ni taille MinIO vérifiés en runtime.
+- Next build production non exécuté; aucun nouveau test E2E interservice, aucun code backend touché.
+- Navigateur: état d’indisponibilité publique avec token fictif seulement; pas de débordement horizontal à 375/768/1440. Ce n’est pas un test d’une invitation valide. Vues privées redirigées OIDC.
+
+### BLOCKED
+- Parcours complet requiert les services Docker/runtime et session OIDC locale; l’endpoint public répond 503 sans backend. Aucune donnée ou session de test n’a été inventée.
+
+### VALIDATION
+- Typecheck Web réussi; ESLint ciblé: 0 erreur/avertissement sur les fichiers concernés.
+- Tests Web 27/27 hors sandbox; dans sandbox, les workers échouent avec `spawn EPERM` avant tout test.
+- Routes Next dev Invitations, Check-in et Invite compilées; pages privées 307 OIDC; page Invite répond 200 et endpoint de lecture token 503 faute de backend.
+- CSS parse PostCSS et `git diff --check` réussis (avertissements Git LF/CRLF seulement).
+
+## Intégration Figma Make — Wallet / crédits / paiement — 4 octobre 2026
+
+- **DONE (UI/API existantes)**: wallet en crédits distincts des sommes payées; packs/prix dynamiques Billing; récapitulatif avant checkout; verrou double-submit; états/historique Wallet et Payments alimentés par endpoints réels; relecture serveur des paiements actifs; aucune réussite déduite d’un retour URL. Aucun changement métier/backend.
+- **PARTIAL**: historique limité aux 50 entrées/commandes sans pagination; écran uniquement consacré aux packs de crédits, sans options événement/agence; le contrat utilisateur ne fournit aucun reçu/facture.
+- **NOT TESTED**: vrai paiement, webhook, provider, attribution du crédit après succès, OIDC/services locaux et QA authentifiée responsive. Les routes Wallet et proxy Payments compilent en Next dev, mais la page privée redirige OIDC et l’API répond 401 sans session.
+- **BLOCKED**: validation runtime checkout dépend de Keycloak/Gateway/Billing/Payments/Wallet et d’un provider configuré. Next nécessite une autorisation processus locale dans cet environnement, obtenue pour la compilation des routes.
+- **Validation de code**: typecheck Web et ESLint ciblé Wallet passent; 27 tests Web passent en lancement individuel séquentiel. Le runner standard `node --test` échoue avant exécution en sandbox avec `spawn EPERM`. `git diff --check` passe.
+
+## Intégration Figma Make — Espace Agence — 4 octobre 2026
+
+- **DONE (UI et API existantes)**: tableau de bord sans métriques inventées; recherche et détail client dans la page; création client/événement; Événements existants réutilisés par lien; équipe avec rôles/statuts/actions disponibles; plans dynamiques Billing, souscription via endpoint existant et crédits affichés seulement pour abonnement actif; sidebar et navigation mobile limitée à cinq actions.
+- **DONE (correction BFF)**: proxy `/api/agencies` autorise maintenant `PATCH /:workspaceId/members/:memberId`, déjà exposé par Events mais auparavant rejeté par le proxy. Pas de changement au backend métier.
+- **PARTIAL**: service agence ne fournit pas le profil client en modification, paramètres, invitation par e-mail, historique de facturation, reporting ni statistiques récentes; les subjects Keycloak n’ont pas de nom e-mail affichable. L’endpoint de liste événements omet actuellement la relation client-événement; seules les associations connues lors de la création courante sont montrées. Aucun endpoint/backend modifié pour inventer ces fonctions.
+- **NOT TESTED**: isolation A/B et permissions multi-workspace sur runtime authentifié; création/modification de compte client/membre/événement; paiement et activation d’abonnement; QA visuelle aux viewports 375/768/desktop.
+- **BLOCKED**: validation de bout en bout requiert OIDC, Gateway, Events, Billing, Payments et base accessibles avec données de contrôle. `/agencies` renvoie 307 et le proxy membres PATCH 401 sans session locale.
+- **Validation**: Web typecheck OK; ESLint ciblé OK sans avertissement; tests Web 29/29 séquentiels, dont les nouveaux tests agence; Next dev compile page Agence/proxy et renvoie 307/401 sans session; `git diff --check` OK (avertissements line-ending LF/CRLF Git seulement).
+
+## Intégration Figma Make — Espace Partenaire — 4 octobre 2026
+
+- **DONE**: `/partners` harmonisé sans changer backend, API, Gateway, rôles ou auth. Données réelles du dashboard: code/statut, clients attribués, ventes confirmées, commissions groupées et ledger, demandes/historique payout. Lien d’attribution copiable, demande de règlement seulement quand une devise payable est signalée. Demande distincte d’un paiement confirmé; seuls les statuts backend attestent le règlement. Responsive, shell commun, barre mobile <= 5 actions, états vides/erreur, focus et reduced-motion.
+- **DONE (sécurité revue dans le code)**: le service cible le partenaire par `ownerSubject` authentifié et filtre les relations par `partnerId`; le BFF utilise session OIDC, Origin pour mutations, bearer Gateway et allowlist stricte GET `/me` / POST `/attributions` / POST `/me/payouts`. Pas de données invités ni d’API admin dans le parcours.
+- **PARTIAL**: le modèle est celui d’un partenaire commercial. Aucune API métier ne fournit missions, commandes assignées, événements concernés, détails opérationnels, édition de profil ou support; ces écrans Figma sont omis. Aucun moyen de paiement ni règlement automatique n’est implémenté. Le ledger n’est pas paginé côté API.
+- **NOT TESTED**: interaction navigateur authentifiée et QA responsive; appel payout réel; isolation entre deux partenaires en runtime.
+- **BLOCKED**: validation runtime dépend de Keycloak, Gateway, Payments, PostgreSQL et comptes partenaires contrôlés. Aucun état ou jeu de données n’a été simulé pour les contourner.
+- **Validation**: typecheck Web et ESLint ciblé Partenaire/AppNavbar réussis; tests Web existants 29/29 réussis en exécution individuelle séquentielle. Le runner groupé échoue dans le sandbox avant exécution (`spawn EPERM`). Next dev compile `/partners` et `/api/partners/[[...path]]`; sans session la page redirige 307 OIDC et le BFF renvoie 401. `git diff --check` réussi (avertissements Git de normalisation LF/CRLF uniquement).
+
+## Finalisation globale Figma Make — 4 octobre 2026
+
+- **DONE**: ThemeProvider/ThemeToggle partagé (clair/sombre, préférence locale, synchronisation onglets, `prefers-color-scheme`), contrôles accessibles dans shell et pages publiques, overrides ciblés dark mode, mesure responsive navigateur Landing/Legal/RSVP aux six viewports, aucune donnée ou API simulée. Mapping final des 32 parcours et limites ajouté à `docs/FIGMA_MAKE_INTEGRATION.md`.
+- **PARTIAL**: la consolidation de toutes les variantes de composants CSS n’est pas achevée; la QA visuelle, clavier/contraste exhaustive et le thème sombre authentifié des pages privées restent à faire. Les écrans Figma sans contrat backend sont volontairement omis ou remplacés par les routes existantes.
+- **NOT TESTED**: parcours runtime authentifié et mutations OIDC/services (paiement, invitations, check-in, agency/partner); l’invitation de test n’a pas été soumise.
+- **BLOCKED**: QA privée demande Keycloak/Gateway et jeux contrôlés; aucune session de test artificielle n’a été créée.
+- **Validation**: Web typecheck OK; ESLint ciblé/global OK sans avertissements; 29/29 tests existants en exécution séquentielle; Next production build réussi hors sandbox (`spawn EPERM` dans sandbox); Next dev compile Landing, Legal, Invitation, Dashboard, Events, Designs, Invitations, Wallet, Agence et Partenaire; routes privées redirigent OIDC (307); responsive sans débordement sur les pages publiques mesurées; `git diff --check` réussi (warnings LF/CRLF).
+- **Conclusion historique — supersédée par la section Final cleanup ci-dessous.** La QA runtime est distincte du statut UI.
+
+## Final cleanup Figma Make — 4 octobre 2026
+
+- **DONE — UI**: la matrice autoritaire des 32 parcours et la distinction UI/runtime sont dans `docs/FIGMA_MAKE_INTEGRATION.md`. La conclusion précédente `NO` est supersédée: **Figma Make integration complete at UI level: YES**. Aucune tâche de design frontend restante n’a été identifiée pour les capacités backend existantes.
+- **DONE — consolidation vérifiée**: shell/navigation, logo, ThemeProvider et ThemeToggle sont partagés. Pas d’autre doublon équivalent justifiant une abstraction sans risque métier; aucun import/dépendance runtime Figma. Aucune dépendance ni fonctionnalité supprimée.
+- **DONE — correction**: compléments du dark mode Événements/Invités dans `apps/web/src/app/events/journey.css` (formulaires, programme, cérémonies, badges, surfaces et contrastes textuels).
+- **NOT TESTED — runtime UI privée**: QA authentifiée visuelle/interaction aux six largeurs, clavier et screen reader exhaustifs, OIDC, mutations, paiements, RSVP/check-in, IA, agences/partenaires. L’absence de session n’a pas été contournée.
+- **NOT TESTED — viewport privé exhaustif**: responsive navigateur réellement mesuré à 320/375/430/768/1024/1440 uniquement pour Landing, Legal et l’état sans service de l’invitation. Toutes les routes se compilent, ce qui ne certifie pas leurs rendus authentifiés.
+- **Validation cleanup**: typecheck Web OK; ESLint global Web OK; suite Web 29/29 via fichiers exécutés séquentiellement (runner sandboxé standard rencontre `spawn EPERM`); build Next production OK; `git diff --check` OK (avertissements de normalisation LF/CRLF seulement).
+- **Runtime authenticated QA complete: NO**. Les écrans Figma sans support API sont marqués `OMITTED — unsupported by backend`, sans chiffres ou comportement fictifs.
+
+## Fondations du moteur DesignDocument v2 — 4 octobre 2026
+
+- **DONE**: package partagé `@invitaflow/design-document`; schéma v2 fermé, whitelist de bindings, normalisation v1 en mémoire, registre de polices système, variantes zéro/une/deux/trois/multi cérémonies, groupes répétables, visibilité, safe area, ajustement texte déterministe, scale canvas/viewport et ordre z stable. Designs sert les anciens documents sous forme v2 en mémoire et accepte/valide v2 sans migration ni réécriture des lignes existantes.
+- **DONE**: Invitations utilise le résolveur partagé avant toute réservation de crédits, archive le layout résolu par invité dans le snapshot immuable et le worker l’utilise pour son PDF; anciens snapshots sans layout suivent encore le chemin compatible. Web réutilise le même résolveur dans la preview de l’atelier. Fixtures couvrent v1 et v2.
+- **PARTIAL**: aucun nouveau template Botanique/Éditorial, asset graphique, masque aquarelle, résumé IA, ni refonte majeure de l’éditeur; les masques identifiés sont explicitement refusés au rendu tant que le moteur visuel n’existe pas. Les polices restent des fontes système (pas de fontes embarquées). Aucun nouveau E2E interservice complet.
+- **NOT TESTED**: rendu PDF réel avec un design v2 chargé en base et navigateur authentifié; persistance PostgreSQL et vérification runtime de récupération de snapshots v1; affichage navigateur responsive de cette version de preview.
+- **BLOCKED**: validation runtime PDF/DB authentifiée nécessite les services locaux et une invitation de test contrôlée; aucune donnée n’a été fabriquée pour la contourner.
+- **Validation ciblée**: tests package design-document 11/11; tests Invitations `.mjs` 8/8, dont invitation-layout 3/3; adaptateurs Designs v1→v2 et validation v2 exercés directement. Le runner Node passe en `--test-isolation=none`; typecheck Designs/Web/Invitations passe. ESLint ciblé Web passe; ESLint Designs/Invitations ne démarre pas, le plugin local `@typescript-eslint/eslint-plugin` est absent. `git diff --check` passe. Aucun Prisma schema ou migration modifié pour cette fondation.
+- **Outillage**: `pnpm` et la validation du lockfile gelé sont bloqués par `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` (refus d’accès au verrou global dans `%LOCALAPPDATA%`). Les entrées workspace correspondantes ont été ajoutées manuellement à `pnpm-lock.yaml`; aucune dépendance externe n’a été installée.

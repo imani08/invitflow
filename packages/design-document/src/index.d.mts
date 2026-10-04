@@ -1,0 +1,34 @@
+export type OverflowPolicy = 'ERROR' | 'SHRINK_WITH_LIMIT' | 'USE_VARIANT' | 'AI_ASSIST_ALLOWED';
+export type Ceremony = { name?: string | null; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null };
+export type RenderSnapshot = {
+  guest?: { name?: string | null; email?: string | null };
+  table?: { name?: string | null };
+  event?: { title?: string | null; coupleNames?: string | null; invitationText?: string | null; date?: string | null; venue?: string | null };
+  ceremonies?: Ceremony[];
+  contact?: { value?: string | null };
+  qr?: { available?: boolean; url?: string | null };
+  variables?: Record<string, string | null | undefined>;
+};
+export type DesignDocument = Record<string, any> & { schemaVersion: 1 | 2; canvas: { width: number; height: number; unit: 'px' }; elements: Array<Record<string, any>> };
+export type ResolveIssue = { code: string; elementId?: string; message: string; assistanceEligible?: boolean };
+export type ResolvedLayout = {
+  schemaVersion: 1 | 2;
+  variantId: string;
+  canvas: { width: number; height: number; unit: 'px' };
+  safeArea: { top: number; right: number; bottom: number; left: number };
+  bleed: { top: number; right: number; bottom: number; left: number };
+  elements: Array<Record<string, any> & { visible: boolean; resolvedText?: string; resolvedFont?: FontDefinition }>;
+  groups: Array<{ id: string; layoutSlot: string; items: Array<{ index: number; ceremony: Ceremony; bounds: Bounds }> }>;
+  warnings: ResolveIssue[];
+  errors: ResolveIssue[];
+};
+export type Bounds = { x: number; y: number; width: number; height: number };
+export type FontDefinition = { fontId: string; family: string; fallback: string; weights: number[]; styles: string[] };
+export const ALLOWED_BINDINGS: ReadonlySet<string>;
+export const FONT_REGISTRY: Readonly<Record<string, FontDefinition>>;
+export function isAllowedBinding(binding: unknown): binding is string;
+export function normalizeDesignDocumentV2(document: unknown): DesignDocument;
+export function validateDesignDocumentV2(document: unknown): DesignDocument;
+export function resolveDesignLayout(document: unknown, snapshot: RenderSnapshot, selectedVariantId?: string): ResolvedLayout;
+export function fitInvitationText(layer: Record<string, any>, text: string): { fontSize: number; lines: string[]; lineHeight: number; reduced: boolean; overflow: boolean };
+export function scaleLogicalBounds(bounds: Bounds, canvas: { width: number; height: number }, viewport: { width: number; height: number }): Bounds;

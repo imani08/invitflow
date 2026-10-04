@@ -304,9 +304,28 @@ class StorageAdminProxyController {
     if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization)) throw new UnauthorizedException();
     try {
       const upstream = await fetchWithRequestContext(request, `${requiredEnv('MEDIA_SERVICE_URL').replace(/\/$/, '')}/v1/admin/storage`, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(8_000) });
-      return reply.header('Cache-Control', 'private, no-store').code(upstream.status).send(await upstream.json().catch(() => ({ error: 'invalid_storage_response' })));
+      const media = await upstream.json().catch(() => ({ error: 'invalid_storage_response' })) as Record<string, unknown>;
+      if (!upstream.ok) return reply.header('Cache-Control', 'private, no-store').code(upstream.status).send(media);
+      let invitations: unknown = null;
+      try {
+        const invitationResponse = await fetchWithRequestContext(request, `${requiredEnv('INVITATIONS_SERVICE_URL').replace(/\/$/, '')}/v1/admin/storage`, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(8_000) });
+        if (invitationResponse.ok) invitations = await invitationResponse.json();
+      } catch { /* Keep Media measurements and mark invitation measurements unavailable. */ }
+      return reply.header('Cache-Control', 'private, no-store').code(200).send({ ...media, invitations });
     } catch {
       return reply.code(503).send({ error: 'media_storage_unavailable' });
+    }
+  }
+
+  @Post('/refresh')
+  async refresh(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    const authorization = request.headers['authorization'];
+    if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization)) throw new UnauthorizedException();
+    try {
+      const upstream = await fetchWithRequestContext(request, `${requiredEnv('MEDIA_SERVICE_URL').replace(/\/$/, '')}/v1/admin/storage/refresh`, { method: 'POST', headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(120_000) });
+      return reply.header('Cache-Control', 'private, no-store').code(upstream.status).send(await upstream.json().catch(() => ({ error: 'invalid_storage_response' })));
+    } catch {
+      return reply.code(503).send({ error: 'media_storage_inventory_unavailable' });
     }
   }
 }

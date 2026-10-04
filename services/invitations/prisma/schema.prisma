@@ -84,6 +84,9 @@ model InvitationBatch {
   failedItems Int @default(0) @map("failed_items")
   zipExpiresAt DateTime? @map("zip_expires_at") @db.Timestamptz(3)
   zipDeletedAt DateTime? @map("zip_deleted_at") @db.Timestamptz(3)
+  zipSizeBytes BigInt? @map("zip_size_bytes")
+  zipCleanupAttempts Int @default(0) @map("zip_cleanup_attempts")
+  zipCleanupLastError String? @map("zip_cleanup_last_error") @db.VarChar(80)
   cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -100,6 +103,7 @@ model BatchItem {
   snapshot Json
   status BatchItemStatus @default(QUEUED)
   objectKey String? @map("object_key") @db.VarChar(512)
+  sizeBytes BigInt? @map("size_bytes")
   errorCode String? @map("error_code") @db.VarChar(80)
   attempts Int @default(0)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

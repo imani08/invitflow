@@ -33,6 +33,8 @@ export type InvitationBatchAvgAggregateOutputType = {
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
+  zipSizeBytes: number | null
+  zipCleanupAttempts: number | null
 }
 
 export type InvitationBatchSumAggregateOutputType = {
@@ -42,6 +44,8 @@ export type InvitationBatchSumAggregateOutputType = {
   totalItems: number | null
   completedItems: number | null
   failedItems: number | null
+  zipSizeBytes: bigint | null
+  zipCleanupAttempts: number | null
 }
 
 export type InvitationBatchMinAggregateOutputType = {
@@ -63,6 +67,9 @@ export type InvitationBatchMinAggregateOutputType = {
   failedItems: number | null
   zipExpiresAt: Date | null
   zipDeletedAt: Date | null
+  zipSizeBytes: bigint | null
+  zipCleanupAttempts: number | null
+  zipCleanupLastError: string | null
   cancelledAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -87,6 +94,9 @@ export type InvitationBatchMaxAggregateOutputType = {
   failedItems: number | null
   zipExpiresAt: Date | null
   zipDeletedAt: Date | null
+  zipSizeBytes: bigint | null
+  zipCleanupAttempts: number | null
+  zipCleanupLastError: string | null
   cancelledAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -111,6 +121,9 @@ export type InvitationBatchCountAggregateOutputType = {
   failedItems: number
   zipExpiresAt: number
   zipDeletedAt: number
+  zipSizeBytes: number
+  zipCleanupAttempts: number
+  zipCleanupLastError: number
   cancelledAt: number
   createdAt: number
   updatedAt: number
@@ -125,6 +138,8 @@ export type InvitationBatchAvgAggregateInputType = {
   totalItems?: true
   completedItems?: true
   failedItems?: true
+  zipSizeBytes?: true
+  zipCleanupAttempts?: true
 }
 
 export type InvitationBatchSumAggregateInputType = {
@@ -134,6 +149,8 @@ export type InvitationBatchSumAggregateInputType = {
   totalItems?: true
   completedItems?: true
   failedItems?: true
+  zipSizeBytes?: true
+  zipCleanupAttempts?: true
 }
 
 export type InvitationBatchMinAggregateInputType = {
@@ -155,6 +172,9 @@ export type InvitationBatchMinAggregateInputType = {
   failedItems?: true
   zipExpiresAt?: true
   zipDeletedAt?: true
+  zipSizeBytes?: true
+  zipCleanupAttempts?: true
+  zipCleanupLastError?: true
   cancelledAt?: true
   createdAt?: true
   updatedAt?: true
@@ -179,6 +199,9 @@ export type InvitationBatchMaxAggregateInputType = {
   failedItems?: true
   zipExpiresAt?: true
   zipDeletedAt?: true
+  zipSizeBytes?: true
+  zipCleanupAttempts?: true
+  zipCleanupLastError?: true
   cancelledAt?: true
   createdAt?: true
   updatedAt?: true
@@ -203,6 +226,9 @@ export type InvitationBatchCountAggregateInputType = {
   failedItems?: true
   zipExpiresAt?: true
   zipDeletedAt?: true
+  zipSizeBytes?: true
+  zipCleanupAttempts?: true
+  zipCleanupLastError?: true
   cancelledAt?: true
   createdAt?: true
   updatedAt?: true
@@ -314,6 +340,9 @@ export type InvitationBatchGroupByOutputType = {
   failedItems: number
   zipExpiresAt: Date | null
   zipDeletedAt: Date | null
+  zipSizeBytes: bigint | null
+  zipCleanupAttempts: number
+  zipCleanupLastError: string | null
   cancelledAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -361,6 +390,9 @@ export type InvitationBatchWhereInput = {
   failedItems?: Prisma.IntFilter<"InvitationBatch"> | number
   zipExpiresAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
   zipDeletedAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
+  zipSizeBytes?: Prisma.BigIntNullableFilter<"InvitationBatch"> | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFilter<"InvitationBatch"> | number
+  zipCleanupLastError?: Prisma.StringNullableFilter<"InvitationBatch"> | string | null
   cancelledAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
@@ -386,6 +418,9 @@ export type InvitationBatchOrderByWithRelationInput = {
   failedItems?: Prisma.SortOrder
   zipExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   zipDeletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
+  zipCleanupLastError?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelledAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -415,6 +450,9 @@ export type InvitationBatchWhereUniqueInput = Prisma.AtLeast<{
   failedItems?: Prisma.IntFilter<"InvitationBatch"> | number
   zipExpiresAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
   zipDeletedAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
+  zipSizeBytes?: Prisma.BigIntNullableFilter<"InvitationBatch"> | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFilter<"InvitationBatch"> | number
+  zipCleanupLastError?: Prisma.StringNullableFilter<"InvitationBatch"> | string | null
   cancelledAt?: Prisma.DateTimeNullableFilter<"InvitationBatch"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"InvitationBatch"> | Date | string
@@ -440,6 +478,9 @@ export type InvitationBatchOrderByWithAggregationInput = {
   failedItems?: Prisma.SortOrder
   zipExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   zipDeletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
+  zipCleanupLastError?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelledAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -472,6 +513,9 @@ export type InvitationBatchScalarWhereWithAggregatesInput = {
   failedItems?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
   zipExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"InvitationBatch"> | Date | string | null
   zipDeletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"InvitationBatch"> | Date | string | null
+  zipSizeBytes?: Prisma.BigIntNullableWithAggregatesFilter<"InvitationBatch"> | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntWithAggregatesFilter<"InvitationBatch"> | number
+  zipCleanupLastError?: Prisma.StringNullableWithAggregatesFilter<"InvitationBatch"> | string | null
   cancelledAt?: Prisma.DateTimeNullableWithAggregatesFilter<"InvitationBatch"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"InvitationBatch"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"InvitationBatch"> | Date | string
@@ -496,6 +540,9 @@ export type InvitationBatchCreateInput = {
   failedItems?: number
   zipExpiresAt?: Date | string | null
   zipDeletedAt?: Date | string | null
+  zipSizeBytes?: bigint | number | null
+  zipCleanupAttempts?: number
+  zipCleanupLastError?: string | null
   cancelledAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -521,6 +568,9 @@ export type InvitationBatchUncheckedCreateInput = {
   failedItems?: number
   zipExpiresAt?: Date | string | null
   zipDeletedAt?: Date | string | null
+  zipSizeBytes?: bigint | number | null
+  zipCleanupAttempts?: number
+  zipCleanupLastError?: string | null
   cancelledAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -546,6 +596,9 @@ export type InvitationBatchUpdateInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -571,6 +624,9 @@ export type InvitationBatchUncheckedUpdateInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -596,6 +652,9 @@ export type InvitationBatchCreateManyInput = {
   failedItems?: number
   zipExpiresAt?: Date | string | null
   zipDeletedAt?: Date | string | null
+  zipSizeBytes?: bigint | number | null
+  zipCleanupAttempts?: number
+  zipCleanupLastError?: string | null
   cancelledAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -620,6 +679,9 @@ export type InvitationBatchUpdateManyMutationInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -644,6 +706,9 @@ export type InvitationBatchUncheckedUpdateManyInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -673,6 +738,9 @@ export type InvitationBatchCountOrderByAggregateInput = {
   failedItems?: Prisma.SortOrder
   zipExpiresAt?: Prisma.SortOrder
   zipDeletedAt?: Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
+  zipCleanupLastError?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -685,6 +753,8 @@ export type InvitationBatchAvgOrderByAggregateInput = {
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
 }
 
 export type InvitationBatchMaxOrderByAggregateInput = {
@@ -706,6 +776,9 @@ export type InvitationBatchMaxOrderByAggregateInput = {
   failedItems?: Prisma.SortOrder
   zipExpiresAt?: Prisma.SortOrder
   zipDeletedAt?: Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
+  zipCleanupLastError?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -730,6 +803,9 @@ export type InvitationBatchMinOrderByAggregateInput = {
   failedItems?: Prisma.SortOrder
   zipExpiresAt?: Prisma.SortOrder
   zipDeletedAt?: Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
+  zipCleanupLastError?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -742,6 +818,8 @@ export type InvitationBatchSumOrderByAggregateInput = {
   totalItems?: Prisma.SortOrder
   completedItems?: Prisma.SortOrder
   failedItems?: Prisma.SortOrder
+  zipSizeBytes?: Prisma.SortOrder
+  zipCleanupAttempts?: Prisma.SortOrder
 }
 
 export type InvitationBatchScalarRelationFilter = {
@@ -759,6 +837,14 @@ export type BoolFieldUpdateOperationsInput = {
 
 export type NullableDateTimeFieldUpdateOperationsInput = {
   set?: Date | string | null
+}
+
+export type NullableBigIntFieldUpdateOperationsInput = {
+  set?: bigint | number | null
+  increment?: bigint | number
+  decrement?: bigint | number
+  multiply?: bigint | number
+  divide?: bigint | number
 }
 
 export type InvitationBatchCreateNestedOneWithoutItemsInput = {
@@ -794,6 +880,9 @@ export type InvitationBatchCreateWithoutItemsInput = {
   failedItems?: number
   zipExpiresAt?: Date | string | null
   zipDeletedAt?: Date | string | null
+  zipSizeBytes?: bigint | number | null
+  zipCleanupAttempts?: number
+  zipCleanupLastError?: string | null
   cancelledAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -818,6 +907,9 @@ export type InvitationBatchUncheckedCreateWithoutItemsInput = {
   failedItems?: number
   zipExpiresAt?: Date | string | null
   zipDeletedAt?: Date | string | null
+  zipSizeBytes?: bigint | number | null
+  zipCleanupAttempts?: number
+  zipCleanupLastError?: string | null
   cancelledAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -858,6 +950,9 @@ export type InvitationBatchUpdateWithoutItemsInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -882,6 +977,9 @@ export type InvitationBatchUncheckedUpdateWithoutItemsInput = {
   failedItems?: Prisma.IntFieldUpdateOperationsInput | number
   zipExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   zipDeletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  zipSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  zipCleanupAttempts?: Prisma.IntFieldUpdateOperationsInput | number
+  zipCleanupLastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -937,6 +1035,9 @@ export type InvitationBatchSelect<ExtArgs extends runtime.Types.Extensions.Inter
   failedItems?: boolean
   zipExpiresAt?: boolean
   zipDeletedAt?: boolean
+  zipSizeBytes?: boolean
+  zipCleanupAttempts?: boolean
+  zipCleanupLastError?: boolean
   cancelledAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -963,6 +1064,9 @@ export type InvitationBatchSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   failedItems?: boolean
   zipExpiresAt?: boolean
   zipDeletedAt?: boolean
+  zipSizeBytes?: boolean
+  zipCleanupAttempts?: boolean
+  zipCleanupLastError?: boolean
   cancelledAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -987,6 +1091,9 @@ export type InvitationBatchSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   failedItems?: boolean
   zipExpiresAt?: boolean
   zipDeletedAt?: boolean
+  zipSizeBytes?: boolean
+  zipCleanupAttempts?: boolean
+  zipCleanupLastError?: boolean
   cancelledAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1011,12 +1118,15 @@ export type InvitationBatchSelectScalar = {
   failedItems?: boolean
   zipExpiresAt?: boolean
   zipDeletedAt?: boolean
+  zipSizeBytes?: boolean
+  zipCleanupAttempts?: boolean
+  zipCleanupLastError?: boolean
   cancelledAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type InvitationBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "designId" | "designVersion" | "status" | "idempotencyKey" | "reservationReference" | "agencyReservationReference" | "agencyWorkspaceId" | "agencyReservedCredits" | "walletReservedCredits" | "reservationReleasePending" | "totalItems" | "completedItems" | "failedItems" | "zipExpiresAt" | "zipDeletedAt" | "cancelledAt" | "createdAt" | "updatedAt", ExtArgs["result"]["invitationBatch"]>
+export type InvitationBatchOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "designId" | "designVersion" | "status" | "idempotencyKey" | "reservationReference" | "agencyReservationReference" | "agencyWorkspaceId" | "agencyReservedCredits" | "walletReservedCredits" | "reservationReleasePending" | "totalItems" | "completedItems" | "failedItems" | "zipExpiresAt" | "zipDeletedAt" | "zipSizeBytes" | "zipCleanupAttempts" | "zipCleanupLastError" | "cancelledAt" | "createdAt" | "updatedAt", ExtArgs["result"]["invitationBatch"]>
 export type InvitationBatchInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   items?: boolean | Prisma.InvitationBatch$itemsArgs<ExtArgs>
   _count?: boolean | Prisma.InvitationBatchCountOutputTypeDefaultArgs<ExtArgs>
@@ -1048,6 +1158,9 @@ export type $InvitationBatchPayload<ExtArgs extends runtime.Types.Extensions.Int
     failedItems: number
     zipExpiresAt: Date | null
     zipDeletedAt: Date | null
+    zipSizeBytes: bigint | null
+    zipCleanupAttempts: number
+    zipCleanupLastError: string | null
     cancelledAt: Date | null
     createdAt: Date
     updatedAt: Date
@@ -1493,6 +1606,9 @@ export interface InvitationBatchFieldRefs {
   readonly failedItems: Prisma.FieldRef<"InvitationBatch", 'Int'>
   readonly zipExpiresAt: Prisma.FieldRef<"InvitationBatch", 'DateTime'>
   readonly zipDeletedAt: Prisma.FieldRef<"InvitationBatch", 'DateTime'>
+  readonly zipSizeBytes: Prisma.FieldRef<"InvitationBatch", 'BigInt'>
+  readonly zipCleanupAttempts: Prisma.FieldRef<"InvitationBatch", 'Int'>
+  readonly zipCleanupLastError: Prisma.FieldRef<"InvitationBatch", 'String'>
   readonly cancelledAt: Prisma.FieldRef<"InvitationBatch", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"InvitationBatch", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"InvitationBatch", 'DateTime'>

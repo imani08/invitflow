@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "canvas": { "width": 1080, "height": 1920, "unit": "px" },
+  "constraints": { "safeMargin": 64 },
+  "elements": [
+    { "id": "background", "type": "BACKGROUND", "x": 0, "y": 0, "width": 1080, "height": 1920, "fill": "#f5f0e8", "zIndex": 0 },
+    { "id": "guest", "type": "TEXT", "role": "GUEST_NAME", "text": "{{guest_name}}", "x": 100, "y": 200, "width": 880, "height": 100, "fontSize": 48, "maxLines": 2, "zIndex": 1 }
+  ]
+}

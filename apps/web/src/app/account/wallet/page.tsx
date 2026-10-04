@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import AppNavbar from '@/components/AppNavbar';
 import { PaymentActions } from './payment-actions';
+import '../../events/journey.css';
 import './wallet.css';
 
 type Balance = { availableCredits: number; reservedCredits: number; totalCredits: number; updatedAt: string };
@@ -37,9 +38,9 @@ export default async function WalletPage() {
   const paymentsPayload = await paymentsResponse.json() as { items: Payment[] };
   if (!Number.isSafeInteger(balance.availableCredits) || !Array.isArray(entriesPayload.items) || !Array.isArray(catalog.packs) || !Number.isInteger(catalog.version) || !Array.isArray(paymentsPayload.items)) return <Unavailable />;
 
-  return <main className="wallet-page"><AppNavbar />
+  return <main className="wallet-page events-shell"><AppNavbar />
     <header className="wallet-heading"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Crédits & tarifs</h1><p>Consultez le solde réel de votre portefeuille et la grille tarifaire en vigueur.</p></header>
-    <section className="wallet-balance" aria-label="Solde de crédits"><div><span>Crédits disponibles</span><strong>{balance.availableCredits.toLocaleString('fr-FR')}</strong></div><div><span>Crédits réservés</span><strong>{balance.reservedCredits.toLocaleString('fr-FR')}</strong></div><small>Grille tarifaire version {catalog.version} · mise à jour du portefeuille {new Date(balance.updatedAt).toLocaleString('fr-FR')}</small></section>
+    <section className="wallet-balance" aria-label="Solde de crédits"><div><span>Crédits disponibles</span><strong>{balance.availableCredits.toLocaleString('fr-FR')} <small>crédits</small></strong></div><div><span>Crédits réservés</span><strong>{balance.reservedCredits.toLocaleString('fr-FR')} <small>crédits</small></strong></div><small>Ce portefeuille contient des crédits, jamais de l’argent. · Mis à jour le {new Date(balance.updatedAt).toLocaleString('fr-FR')}</small></section>
     <section className="wallet-section"><div className="wallet-section-title"><div><span className="eyebrow">TARIFS EN VIGUEUR</span><h2>Packs de crédits</h2></div><small>Version {catalog.version} · à partir du {new Date(catalog.effectiveAt).toLocaleDateString('fr-FR')}</small></div><PaymentActions packs={catalog.packs} payments={paymentsPayload.items} scheduleVersion={catalog.version} /><p className="wallet-note">Le crédit du portefeuille intervient uniquement après vérification de la transaction par le serveur. Les aperçus et tests sont gratuits ; une invitation personnalisée finale générée coûte {catalog.rules.find((rule) => rule.operation === 'invitation.final.personalized')?.creditCost ?? '—'} crédit.</p></section>
     <section className="wallet-section"><div className="wallet-section-title"><div><span className="eyebrow">JOURNAL IMMUTABLE</span><h2>Opérations récentes</h2></div><small>Les corrections apparaissent comme des écritures inverses.</small></div>{entriesPayload.items.length ? <div className="wallet-ledger">{entriesPayload.items.map((entry) => <article key={entry.id}><div><strong>{entryLabel(entry.type)}</strong><small>{new Date(entry.createdAt).toLocaleString('fr-FR')}{entry.referenceId ? ` · ${entry.referenceType ?? 'Référence'} ${entry.referenceId}` : ''}</small></div><span className={entry.availableDelta > 0 ? 'ledger-positive' : entry.availableDelta < 0 ? 'ledger-negative' : ''}>{entry.availableDelta > 0 ? '+' : ''}{entry.availableDelta} disponible{entry.reservedDelta ? ` · ${entry.reservedDelta > 0 ? '+' : ''}${entry.reservedDelta} réservé${Math.abs(entry.reservedDelta) > 1 ? 's' : ''}` : ''}</span></article>)}</div> : <div className="wallet-empty">Aucune opération de crédit pour le moment.</div>}</section>
   </main>;
@@ -51,5 +52,5 @@ function entryLabel(type: string) {
 }
 
 function Unavailable() {
-  return <main className="wallet-page"><AppNavbar /><section className="wallet-unavailable"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Informations momentanément indisponibles</h1><p>Le portefeuille et la grille tarifaire n’ont pas pu être chargés. Réessayez dans quelques instants.</p><a href="/account/wallet">Réessayer</a></section></main>;
+  return <main className="wallet-page events-shell"><AppNavbar /><section className="wallet-unavailable"><span className="eyebrow">VOTRE PORTEFEUILLE</span><h1>Informations momentanément indisponibles</h1><p>Le portefeuille et la grille tarifaire n’ont pas pu être chargés. Réessayez dans quelques instants.</p><a href="/account/wallet">Réessayer</a></section></main>;
 }

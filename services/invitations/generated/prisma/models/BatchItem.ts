@@ -27,10 +27,12 @@ export type AggregateBatchItem = {
 }
 
 export type BatchItemAvgAggregateOutputType = {
+  sizeBytes: number | null
   attempts: number | null
 }
 
 export type BatchItemSumAggregateOutputType = {
+  sizeBytes: bigint | null
   attempts: number | null
 }
 
@@ -41,6 +43,7 @@ export type BatchItemMinAggregateOutputType = {
   guestId: string | null
   status: $Enums.BatchItemStatus | null
   objectKey: string | null
+  sizeBytes: bigint | null
   errorCode: string | null
   attempts: number | null
   createdAt: Date | null
@@ -54,6 +57,7 @@ export type BatchItemMaxAggregateOutputType = {
   guestId: string | null
   status: $Enums.BatchItemStatus | null
   objectKey: string | null
+  sizeBytes: bigint | null
   errorCode: string | null
   attempts: number | null
   createdAt: Date | null
@@ -68,6 +72,7 @@ export type BatchItemCountAggregateOutputType = {
   snapshot: number
   status: number
   objectKey: number
+  sizeBytes: number
   errorCode: number
   attempts: number
   createdAt: number
@@ -77,10 +82,12 @@ export type BatchItemCountAggregateOutputType = {
 
 
 export type BatchItemAvgAggregateInputType = {
+  sizeBytes?: true
   attempts?: true
 }
 
 export type BatchItemSumAggregateInputType = {
+  sizeBytes?: true
   attempts?: true
 }
 
@@ -91,6 +98,7 @@ export type BatchItemMinAggregateInputType = {
   guestId?: true
   status?: true
   objectKey?: true
+  sizeBytes?: true
   errorCode?: true
   attempts?: true
   createdAt?: true
@@ -104,6 +112,7 @@ export type BatchItemMaxAggregateInputType = {
   guestId?: true
   status?: true
   objectKey?: true
+  sizeBytes?: true
   errorCode?: true
   attempts?: true
   createdAt?: true
@@ -118,6 +127,7 @@ export type BatchItemCountAggregateInputType = {
   snapshot?: true
   status?: true
   objectKey?: true
+  sizeBytes?: true
   errorCode?: true
   attempts?: true
   createdAt?: true
@@ -219,6 +229,7 @@ export type BatchItemGroupByOutputType = {
   snapshot: runtime.JsonValue
   status: $Enums.BatchItemStatus
   objectKey: string | null
+  sizeBytes: bigint | null
   errorCode: string | null
   attempts: number
   createdAt: Date
@@ -256,6 +267,7 @@ export type BatchItemWhereInput = {
   snapshot?: Prisma.JsonFilter<"BatchItem">
   status?: Prisma.EnumBatchItemStatusFilter<"BatchItem"> | $Enums.BatchItemStatus
   objectKey?: Prisma.StringNullableFilter<"BatchItem"> | string | null
+  sizeBytes?: Prisma.BigIntNullableFilter<"BatchItem"> | bigint | number | null
   errorCode?: Prisma.StringNullableFilter<"BatchItem"> | string | null
   attempts?: Prisma.IntFilter<"BatchItem"> | number
   createdAt?: Prisma.DateTimeFilter<"BatchItem"> | Date | string
@@ -272,6 +284,7 @@ export type BatchItemOrderByWithRelationInput = {
   snapshot?: Prisma.SortOrder
   status?: Prisma.SortOrder
   objectKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  sizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
   attempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -292,6 +305,7 @@ export type BatchItemWhereUniqueInput = Prisma.AtLeast<{
   snapshot?: Prisma.JsonFilter<"BatchItem">
   status?: Prisma.EnumBatchItemStatusFilter<"BatchItem"> | $Enums.BatchItemStatus
   objectKey?: Prisma.StringNullableFilter<"BatchItem"> | string | null
+  sizeBytes?: Prisma.BigIntNullableFilter<"BatchItem"> | bigint | number | null
   errorCode?: Prisma.StringNullableFilter<"BatchItem"> | string | null
   attempts?: Prisma.IntFilter<"BatchItem"> | number
   createdAt?: Prisma.DateTimeFilter<"BatchItem"> | Date | string
@@ -308,6 +322,7 @@ export type BatchItemOrderByWithAggregationInput = {
   snapshot?: Prisma.SortOrder
   status?: Prisma.SortOrder
   objectKey?: Prisma.SortOrderInput | Prisma.SortOrder
+  sizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   errorCode?: Prisma.SortOrderInput | Prisma.SortOrder
   attempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -330,6 +345,7 @@ export type BatchItemScalarWhereWithAggregatesInput = {
   snapshot?: Prisma.JsonWithAggregatesFilter<"BatchItem">
   status?: Prisma.EnumBatchItemStatusWithAggregatesFilter<"BatchItem"> | $Enums.BatchItemStatus
   objectKey?: Prisma.StringNullableWithAggregatesFilter<"BatchItem"> | string | null
+  sizeBytes?: Prisma.BigIntNullableWithAggregatesFilter<"BatchItem"> | bigint | number | null
   errorCode?: Prisma.StringNullableWithAggregatesFilter<"BatchItem"> | string | null
   attempts?: Prisma.IntWithAggregatesFilter<"BatchItem"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"BatchItem"> | Date | string
@@ -342,6 +358,7 @@ export type BatchItemCreateInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -358,6 +375,7 @@ export type BatchItemUncheckedCreateInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -370,6 +388,7 @@ export type BatchItemUpdateInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -386,6 +405,7 @@ export type BatchItemUncheckedUpdateInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -400,6 +420,7 @@ export type BatchItemCreateManyInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -412,6 +433,7 @@ export type BatchItemUpdateManyMutationInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -426,6 +448,7 @@ export type BatchItemUncheckedUpdateManyInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -455,6 +478,7 @@ export type BatchItemCountOrderByAggregateInput = {
   snapshot?: Prisma.SortOrder
   status?: Prisma.SortOrder
   objectKey?: Prisma.SortOrder
+  sizeBytes?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -462,6 +486,7 @@ export type BatchItemCountOrderByAggregateInput = {
 }
 
 export type BatchItemAvgOrderByAggregateInput = {
+  sizeBytes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
 }
 
@@ -472,6 +497,7 @@ export type BatchItemMaxOrderByAggregateInput = {
   guestId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   objectKey?: Prisma.SortOrder
+  sizeBytes?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -485,6 +511,7 @@ export type BatchItemMinOrderByAggregateInput = {
   guestId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   objectKey?: Prisma.SortOrder
+  sizeBytes?: Prisma.SortOrder
   errorCode?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -492,6 +519,7 @@ export type BatchItemMinOrderByAggregateInput = {
 }
 
 export type BatchItemSumOrderByAggregateInput = {
+  sizeBytes?: Prisma.SortOrder
   attempts?: Prisma.SortOrder
 }
 
@@ -589,6 +617,7 @@ export type BatchItemCreateWithoutInvitationInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -603,6 +632,7 @@ export type BatchItemUncheckedCreateWithoutInvitationInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -646,6 +676,7 @@ export type BatchItemScalarWhereInput = {
   snapshot?: Prisma.JsonFilter<"BatchItem">
   status?: Prisma.EnumBatchItemStatusFilter<"BatchItem"> | $Enums.BatchItemStatus
   objectKey?: Prisma.StringNullableFilter<"BatchItem"> | string | null
+  sizeBytes?: Prisma.BigIntNullableFilter<"BatchItem"> | bigint | number | null
   errorCode?: Prisma.StringNullableFilter<"BatchItem"> | string | null
   attempts?: Prisma.IntFilter<"BatchItem"> | number
   createdAt?: Prisma.DateTimeFilter<"BatchItem"> | Date | string
@@ -658,6 +689,7 @@ export type BatchItemCreateWithoutBatchInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -672,6 +704,7 @@ export type BatchItemUncheckedCreateWithoutBatchInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -711,6 +744,7 @@ export type BatchItemCreateManyInvitationInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -723,6 +757,7 @@ export type BatchItemUpdateWithoutInvitationInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -737,6 +772,7 @@ export type BatchItemUncheckedUpdateWithoutInvitationInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -750,6 +786,7 @@ export type BatchItemUncheckedUpdateManyWithoutInvitationInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -763,6 +800,7 @@ export type BatchItemCreateManyBatchInput = {
   snapshot: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: $Enums.BatchItemStatus
   objectKey?: string | null
+  sizeBytes?: bigint | number | null
   errorCode?: string | null
   attempts?: number
   createdAt?: Date | string
@@ -775,6 +813,7 @@ export type BatchItemUpdateWithoutBatchInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -789,6 +828,7 @@ export type BatchItemUncheckedUpdateWithoutBatchInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -802,6 +842,7 @@ export type BatchItemUncheckedUpdateManyWithoutBatchInput = {
   snapshot?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.EnumBatchItemStatusFieldUpdateOperationsInput | $Enums.BatchItemStatus
   objectKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   errorCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   attempts?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -818,6 +859,7 @@ export type BatchItemSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   snapshot?: boolean
   status?: boolean
   objectKey?: boolean
+  sizeBytes?: boolean
   errorCode?: boolean
   attempts?: boolean
   createdAt?: boolean
@@ -834,6 +876,7 @@ export type BatchItemSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   snapshot?: boolean
   status?: boolean
   objectKey?: boolean
+  sizeBytes?: boolean
   errorCode?: boolean
   attempts?: boolean
   createdAt?: boolean
@@ -850,6 +893,7 @@ export type BatchItemSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   snapshot?: boolean
   status?: boolean
   objectKey?: boolean
+  sizeBytes?: boolean
   errorCode?: boolean
   attempts?: boolean
   createdAt?: boolean
@@ -866,13 +910,14 @@ export type BatchItemSelectScalar = {
   snapshot?: boolean
   status?: boolean
   objectKey?: boolean
+  sizeBytes?: boolean
   errorCode?: boolean
   attempts?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type BatchItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "batchId" | "invitationId" | "guestId" | "snapshot" | "status" | "objectKey" | "errorCode" | "attempts" | "createdAt" | "updatedAt", ExtArgs["result"]["batchItem"]>
+export type BatchItemOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "batchId" | "invitationId" | "guestId" | "snapshot" | "status" | "objectKey" | "sizeBytes" | "errorCode" | "attempts" | "createdAt" | "updatedAt", ExtArgs["result"]["batchItem"]>
 export type BatchItemInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   batch?: boolean | Prisma.InvitationBatchDefaultArgs<ExtArgs>
   invitation?: boolean | Prisma.InvitationDefaultArgs<ExtArgs>
@@ -900,6 +945,7 @@ export type $BatchItemPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     snapshot: runtime.JsonValue
     status: $Enums.BatchItemStatus
     objectKey: string | null
+    sizeBytes: bigint | null
     errorCode: string | null
     attempts: number
     createdAt: Date
@@ -1336,6 +1382,7 @@ export interface BatchItemFieldRefs {
   readonly snapshot: Prisma.FieldRef<"BatchItem", 'Json'>
   readonly status: Prisma.FieldRef<"BatchItem", 'BatchItemStatus'>
   readonly objectKey: Prisma.FieldRef<"BatchItem", 'String'>
+  readonly sizeBytes: Prisma.FieldRef<"BatchItem", 'BigInt'>
   readonly errorCode: Prisma.FieldRef<"BatchItem", 'String'>
   readonly attempts: Prisma.FieldRef<"BatchItem", 'Int'>
   readonly createdAt: Prisma.FieldRef<"BatchItem", 'DateTime'>

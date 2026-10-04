@@ -13,6 +13,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@invitaflow/design-document": "workspace:*",
     "@nestjs/common": "11.2.4",
     "@nestjs/core": "11.2.4",
     "@nestjs/platform-fastify": "11.2.4",

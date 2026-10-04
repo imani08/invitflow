@@ -4,6 +4,8 @@ import { getSession, sessionCookieName } from '@/lib/auth-session';
 import AppNavbar from '@/components/AppNavbar';
 import { CheckInWorkspace } from './workspace';
 import './check-in.css';
+import '../../journey.css';
+import './check-in-journey.css';
 
 export const dynamic = 'force-dynamic';
 export default async function CheckInPage({ params }: { params: Promise<{ eventId: string }> }) {

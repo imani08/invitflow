@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
 import AppNavbar from '@/components/AppNavbar';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import '../events.css';
+import '../journey.css';
 import './event-overview.css';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +44,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
         <section className="events-notice">
           <h1>Événement momentanément indisponible</h1>
           <p>Vérifiez la connexion aux services puis réessayez.</p>
-          <a href={`/events/${encodeURIComponent(eventId)}`}>Réessayer</a>
+          <Link href={`/events/${encodeURIComponent(eventId)}`}>Réessayer</Link>
         </section>
       </main>
     );
@@ -57,7 +59,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     ['Check-in', 'Accueillez vos invités avec leur QR privé'],
   ] as const;
   const urls = [
-    '#ceremonies',
+    `/events?event=${encodeURIComponent(eventId)}`,
     `/events/${encodeURIComponent(eventId)}/guests`,
     `/events/${encodeURIComponent(eventId)}/seating`,
     `/events/${encodeURIComponent(eventId)}/designs`,
@@ -83,7 +85,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
                 <strong>{title}</strong>
                 <small>{description}</small>
               </div>
-              <a href={urls[index]}>Ouvrir →</a>
+              <Link href={urls[index]!}>Ouvrir →</Link>
             </li>
           ))}
         </ol>

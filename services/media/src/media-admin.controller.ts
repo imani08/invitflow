@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get, Headers, Req, UseGuards } from '@nestjs/common';
+import { Controller, ForbiddenException, Get, Headers, Post, Req, UseGuards } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { IdentityGuard, type AuthenticatedRequest } from './identity.guard.js';
@@ -16,6 +16,14 @@ export class MediaStorageAdminController {
     if (!roles.some((role) => role === 'SUPER_ADMIN' || role === 'SUPPORT_ADMIN'))
       throw new ForbiddenException('Permission d’administration requise.');
     return this.media.getAdminStorageStats();
+  }
+
+  @Post('/refresh')
+  refresh(@Req() request: FastifyRequest) {
+    const identity = (request as AuthenticatedRequest).identity;
+    if (!identity?.roles.some((role) => role === 'SUPER_ADMIN' || role === 'SUPPORT_ADMIN'))
+      throw new ForbiddenException('Permission d’administration requise.');
+    return this.media.refreshMinioInventory(identity.subject);
   }
 }
 

@@ -4,6 +4,8 @@ import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import { InvitationsWorkspace } from './workspace';
 import './invitations.css';
+import '../../journey.css';
+import './invitations-journey.css';
 
 export const dynamic = 'force-dynamic';
 export default async function InvitationsPage({ params }: { params: Promise<{ eventId: string }> }) {

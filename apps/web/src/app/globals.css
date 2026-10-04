@@ -6,3 +6,41 @@
 .brand-logo{display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;line-height:0;text-decoration:none;transition:transform .15s ease}.brand-logo:hover{transform:scale(1.015)}.brand-logo img{display:block;height:auto;max-width:100%}.brand-logo-horizontal{width:min(235px,30vw)}.brand-logo-mobile-icon{display:none;width:42px}.brand-logo--icon .brand-logo-icon{width:42px}.brand-logo--compact{gap:9px}.brand-logo-compact{width:40px}.brand-logo-wordmark{font-weight:650;font-size:17px;letter-spacing:-.6px;color:var(--brand-purple,#32163a);line-height:1}.brand-logo:focus-visible{outline:3px solid var(--brand-focus,#725080);outline-offset:4px;border-radius:4px}.brand-footer{display:flex;align-items:center;justify-content:space-between;gap:14px}@media(max-width:760px){.brand-logo-horizontal{width:min(210px,34vw)}}@media(max-width:600px){.brand-logo-horizontal{display:none}.brand-logo-mobile-icon{display:block}.brand-footer{align-items:flex-start;flex-direction:column}}@media(prefers-reduced-motion:reduce){.brand-logo{transition:none}.brand-logo:hover{transform:none}}@media(prefers-reduced-motion:no-preference){.home-brand .brand-logo-horizontal{animation:brand-arrive .35s ease-out}@keyframes brand-arrive{from{opacity:.7;transform:translateY(3px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}}
 .brand-logo-picture{display:block;flex:0 1 auto;min-width:0}.brand-logo-picture .brand-logo-horizontal{height:auto}@media(max-width:600px){.brand-logo-horizontal{display:block!important;width:42px!important;height:42px!important;object-fit:contain}}
 .footer-brand .brand-logo-horizontal{width:170px}
+
+/* Global appearance tokens: shared by the public and authenticated front-office. */
+html[data-theme='dark'],html.dark{color-scheme:dark;--brand-purple:#4a2451;--brand-plum:#704e78;--brand-gold:#dfbd7d;--brand-ivory:#1d1820;--brand-neutral:#c1b6c7;--ink:#f4edf5;--muted:#c1b6c7;--accent:#704e78;--paper:#1d1820;--line:#45394a;--brand-focus:#dfbd7d;background:#1d1820;color:#f4edf5}
+html[data-theme='dark'] body,html.dark body{background:var(--paper);color:var(--ink)}
+html[data-theme='dark'] body:has(.app-sidebar),html.dark body:has(.app-sidebar){background:#1d1820}
+html[data-theme='dark'] .page-shell,html.dark .page-shell{background:radial-gradient(ellipse at 76% 45%,#352b38 0%,transparent 43%),var(--paper);color:var(--ink)}
+html[data-theme='dark'] :is(input,select,textarea),html.dark :is(input,select,textarea){color-scheme:dark;background-color:#211b25;border-color:#52465a;color:#f4edf5}
+html[data-theme='dark'] :is(input,select,textarea)::placeholder,html.dark :is(input,select,textarea)::placeholder{color:#b7aabd;opacity:1}
+html[data-theme='dark'] :is(.home-shell,.legal-shell,.report-shell,.notifications-page,.admin-shell){background-color:var(--paper);color:var(--ink)}
+html[data-theme='dark'] :is(.home-shell,.legal-shell,.report-shell,.notifications-page,.admin-shell) :is(h1,h2,h3,strong){color:#f4edf5}
+html[data-theme='dark'] .home-theme-toggle{border-color:#52465a;background:#29222d}
+html[data-theme='dark'] .rsvp-topbar{border-color:#45394a}
+html[data-theme='dark'] .rsvp-shell{background:#1d1820;color:#f4edf5}
+html[data-theme='dark'] .rsvp-card{background:#29222d;border-color:#45394a;color:#f4edf5}
+html[data-theme='dark'] .rsvp-card :is(h1,h2,p,label){color:#f4edf5}
+html[data-theme='dark'] .rsvp-card :is(input,select,textarea){background:#211b25;border-color:#52465a;color:#f4edf5}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}}
+html[data-theme='dark'] :is(.account-shell,.notifications-page,.report-shell){background:var(--paper);color:var(--ink)}
+html[data-theme='dark'] :is(.account-card,.notification-controls,.notification-preference,.notification-item,.notification-empty,.notifications-unavailable,.report-shell section){background:#29222d;border-color:#45394a;color:#f4edf5}
+html[data-theme='dark'] :is(.account-card,.notifications-page,.report-shell) :is(h1,h2,h3,strong,label){color:#f4edf5}
+html[data-theme='dark'] :is(.account-copy,.notification-copy p,.notification-copy time,.notification-preference small,.notifications-heading p,.report-shell p){color:#c1b6c7}
+html[data-theme='dark'] :is(.account-nav,.identity-row,.notification-list,.notification-item,.legal-list,.legal-list li){border-color:#45394a}
+html[data-theme='dark'] .account-shell{background:radial-gradient(ellipse at 80% 42%,#352b38 0%,transparent 43%),var(--paper)}
+html[data-theme='dark'] .account-card{border-radius:16px;box-shadow:0 20px 65px #0005}
+html[data-theme='dark'] .profile-form :is(input,select){background:#211b25;color:#f4edf5;border-color:#52465a}
+html[data-theme='dark'] .dashboard-next{background:linear-gradient(125deg,#302736,#29222d);border-color:#45394a;color:#f4edf5}
+html[data-theme='dark'] .dashboard-next h2,html[data-theme='dark'] .dashboard-next>a,html[data-theme='dark'] .dashboard-event-row{color:#f4edf5}
+html[data-theme='dark'] .dashboard-next p:not(.eyebrow),html[data-theme='dark'] .dashboard-event-row small{color:#c1b6c7}
+html[data-theme='dark'] .dashboard-event-row{background:#29222d;border-color:#45394a}
+html[data-theme='dark'] .dashboard-event-mark{background:#352c3a;color:#dfbd7d}
+html[data-theme='dark'] .legal-shell{color:#f4edf5}
+html[data-theme='dark'] .legal-intro,html[data-theme='dark'] .legal-blocker,html[data-theme='dark'] .legal-list small{color:#c1b6c7}
+html[data-theme='dark'] .legal-blocker{background:#29222d;border-color:#dfbd7d}
+html[data-theme='dark'] .report-form :is(input,select,textarea){background:#211b25;color:#f4edf5;border-color:#52465a}
+html[data-theme='dark'] .notification-controls button,html[data-theme='dark'] .notification-preference button,html[data-theme='dark'] .notification-read,html[data-theme='dark'] .notification-load-more{border-color:#62536a;background:#352c3a;color:#f4edf5}
+html[data-theme='dark'] :is(.notification-status,.form-status){background:#26352b;color:#cfe3c8}
+html[data-theme='dark'] .brand-logo-wordmark{color:#f4edf5}
+html[data-theme='dark'] :is(.legal-status,.legal-brand span,.legal-list a>span:last-child,.legal-list a:hover strong,.legal-list a:focus-visible strong){color:#dfbd7d}

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import AppNavbar from '@/components/AppNavbar';
 import { AgencyWorkspace, type Agency, type AgencyPlan } from './workspace';
+import '../events/journey.css';
 import './agency.css';
 
 export const dynamic = 'force-dynamic';
@@ -28,5 +29,5 @@ export default async function AgenciesPage() {
       if (catalog && typeof catalog === 'object' && Array.isArray((catalog as { packs?: unknown }).packs)) plans = (catalog as { packs: AgencyPlan[] }).packs.filter((plan) => plan.segment === 'AGENCY');
     }
   } catch { unavailable = true; }
-  return <main className="agency-shell"><AppNavbar /><header><span>ESPACE AGENCE</span><h1>Vos clients,<br/><em>vos événements.</em></h1><p>Suivez les membres, clients, événements et crédits à partir des données du workspace.</p></header>{unavailable ? <section className="agency-message"><h2>Service agence indisponible</h2><p>Réessayez lorsque les services et la base seront disponibles.</p><a href="/agencies">Réessayer</a></section> : <AgencyWorkspace initialAgencies={agencies} plans={plans}/>}</main>;
+  return <main className="agency-shell events-shell"><AppNavbar area="agency" /><header className="agency-page-header"><span>ESPACE AGENCE</span><h1>Vos clients,<br/><em>vos événements.</em></h1><p>Gérez les projets et crédits de votre agence depuis un espace unique.</p></header>{unavailable ? <section className="agency-message"><h2>Service agence indisponible</h2><p>Réessayez lorsque les services seront disponibles.</p><a href="/agencies">Réessayer</a></section> : <AgencyWorkspace initialAgencies={agencies} plans={plans}/>}</main>;
 }

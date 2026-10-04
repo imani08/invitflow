@@ -13,11 +13,12 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
   if (path.length > 4 || path.some((part) => !/^[A-Za-z0-9._-]{1,200}$/.test(part))) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   const allowed = request.method === 'GET' && (path.length === 0 || (path.length === 2 && ['members', 'clients', 'events', 'quota'].includes(path[1] ?? '')))
     || request.method === 'POST' && (path.length === 0 || (path.length === 2 && ['members', 'clients', 'events', 'subscriptions'].includes(path[1] ?? '')))
+    || request.method === 'PATCH' && path.length === 3 && path[1] === 'members'
     || request.method === 'DELETE' && path.length === 3 && path[1] === 'clients';
   const quotaAction = request.method === 'POST' && ((path.length === 3 && path[1] === 'quota' && path[2] === 'reservations') || (path.length === 4 && path[1] === 'quota' && ['consume', 'release'].includes(path[3] ?? '')));
   if (!allowed && !quotaAction) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   let body: string | undefined;
-  if (request.method === 'POST') {
+  if (request.method === 'POST' || request.method === 'PATCH') {
     if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return NextResponse.json({ error: 'unsupported_media_type' }, { status: 415 });
     body = await request.text();
     if (body.length > 32_768) return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
@@ -34,4 +35,5 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
 
 export const GET = forward;
 export const POST = forward;
+export const PATCH = forward;
 export const DELETE = forward;

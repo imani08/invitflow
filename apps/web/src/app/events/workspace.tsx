@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import type { Ceremony, CeremonyProgramItem, Event } from './types';
 
 const typeLabels: Record<string, string> = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', GRADUATION: 'Graduation', BAPTISM: 'Baptême', BABY_SHOWER: 'Baby shower', CONFERENCE: 'Conférence', GALA: 'Gala', DINNER: 'Dîner', CORPORATE: 'Événement professionnel', CEREMONY: 'Cérémonie', RELIGIOUS: 'Cérémonie religieuse', ANNIVERSARY: 'Anniversaire de mariage', OTHER: 'Autre' };
@@ -86,13 +87,28 @@ function CeremonyProgramEditor({ eventId, ceremony, editable, onRefresh, onMessa
   </section>;
 }
 
-export function EventsWorkspace({ initialEvents }: { initialEvents: Event[] }) {
+export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEvents: Event[]; expandedEventId: string | undefined }) {
   const [events, setEvents] = useState(initialEvents);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(expandedEventId ?? null);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [editingCeremony, setEditingCeremony] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    const openCreateFromHash = () => {
+      if (window.location.hash !== '#create-event') return;
+      setCreating(true);
+      window.requestAnimationFrame(() => {
+        const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
+        document.getElementById('create-event')?.scrollIntoView({ behavior, block: 'start' });
+      });
+    };
+    openCreateFromHash();
+    window.addEventListener('hashchange', openCreateFromHash);
+    return () => window.removeEventListener('hashchange', openCreateFromHash);
+  }, []);
 
   async function refresh() {
     const result = await api('?limit=50') as { items: Event[] };
@@ -105,8 +121,10 @@ export function EventsWorkspace({ initialEvents }: { initialEvents: Event[] }) {
       const timezone = String(form.get('timezone'));
       const start = String(form.get('startAt') ?? '');
       const end = String(form.get('endAt') ?? '');
-      await api('', 'POST', { name: form.get('name'), eventType: form.get('eventType'), description: form.get('description') || null, timezone, ...(start ? { startAt: localTimeInZone(start, timezone) } : {}), ...(end ? { endAt: localTimeInZone(end, timezone) } : {}) });
+      const created = await api('', 'POST', { name: form.get('name'), eventType: form.get('eventType'), description: form.get('description') || null, timezone, ...(start ? { startAt: localTimeInZone(start, timezone) } : {}), ...(end ? { endAt: localTimeInZone(end, timezone) } : {}) }) as Event;
       await refresh();
+      setCreating(false);
+      if (created?.id) setExpanded(created.id);
       setMessage('Événement créé. Ajoutez une cérémonie pour pouvoir le publier.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Création impossible.'); }
     finally { setBusy(false); }
@@ -164,11 +182,11 @@ export function EventsWorkspace({ initialEvents }: { initialEvents: Event[] }) {
   function submitCeremony(event: FormEvent<HTMLFormElement>, id: string) { event.preventDefault(); void addCeremony(id, new FormData(event.currentTarget)); }
 
   return <section className="events-content">
-    <div className="events-list-head"><div><p className="eyebrow">VOTRE AGENDA</p><h2>Mes événements <span>{events.length.toString().padStart(2, '0')}</span></h2></div><a className="subtle-link" href="#create-event">+ Nouvel événement</a></div>
+    <div className="events-list-head"><div><p className="eyebrow">VOTRE AGENDA</p><h2>Mes événements <span>{events.length.toString().padStart(2, '0')}</span></h2></div><button className="subtle-link create-toggle" type="button" onClick={() => setCreating((open) => !open)} aria-expanded={creating} aria-controls="create-event">{creating ? 'Fermer' : '+ Nouvel événement'}</button></div>
     <p className="workspace-status" role="status" aria-live="polite">{message}</p>
     {events.length === 0 ? <div className="empty-events"><span className="empty-mark">✳</span><h3>Le premier chapitre commence ici.</h3><p>Créez un événement, puis ajoutez les cérémonies qui composent votre journée.</p></div> : <div className="event-grid">{events.map((event) => <article className="event-card" key={event.id}>
       <div className="event-card-top"><span className={`status-pill ${event.status.toLowerCase()}`}>{statusLabels[event.status] ?? event.status}</span><span className="event-type">{typeLabels[event.eventType] ?? event.eventType}</span>{event.status === 'DRAFT' && <button className="cancel-action" onClick={() => setEditingEvent(editingEvent === event.id ? null : event.id)}>Modifier</button>}</div>
-      <h3>{event.name}</h3><p className="event-date">{localDate(event.startAt ?? event.ceremonies[0]?.startAt ?? null, event.timezone)}</p><p className="event-description">{event.description || 'Une belle occasion de se réunir.'}</p><div className="event-workspace-links"><a className="subtle-link" href={`/events/${event.id}/designs`}>Créer une invitation →</a><a className="subtle-link" href={`/events/${event.id}/guests`}>Gérer les invités →</a><a className="subtle-link" href={`/events/${event.id}/seating`}>Plan de salle →</a></div>
+      <h3>{event.name}</h3><p className="event-date">{localDate(event.startAt ?? event.ceremonies[0]?.startAt ?? null, event.timezone)}</p><p className="event-description">{event.description || 'Une belle occasion de se réunir.'}</p><div className="event-workspace-links"><Link className="subtle-link" href={`/events/${event.id}/designs`}>Créer une invitation →</Link><Link className="subtle-link" href={`/events/${event.id}/guests`}>Gérer les invités →</Link><Link className="subtle-link" href={`/events/${event.id}/seating`}>Plan de salle →</Link><Link className="subtle-link" href={`/events/${event.id}`}>Vue événement →</Link></div>
       {editingEvent === event.id && <form className="ceremony-form" onSubmit={(e) => { e.preventDefault(); void updateEvent(event.id, new FormData(e.currentTarget)); }}><strong>Modifier l’événement</strong><input name="name" defaultValue={event.name} minLength={2} maxLength={120} required /><div className="form-pair"><select name="eventType" defaultValue={event.eventType}>{Object.entries(typeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><select name="timezone" defaultValue={event.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></div><div className="form-pair"><input name="startAt" type="datetime-local" defaultValue={dateTimeInput(event.startAt, event.timezone)} /><input name="endAt" type="datetime-local" defaultValue={dateTimeInput(event.endAt, event.timezone)} /></div><textarea name="description" defaultValue={event.description ?? ''} maxLength={4000} /><button className="small-action" disabled={busy}>Enregistrer</button></form>}
       <button className="event-expand" onClick={() => setExpanded(expanded === event.id ? null : event.id)}>{expanded === event.id ? 'Masquer le programme' : `Programme · ${event.ceremonies.length} cérémonie${event.ceremonies.length > 1 ? 's' : ''}`} <span>↗</span></button>
       {expanded === event.id && <div className="ceremony-panel">
@@ -178,6 +196,6 @@ export function EventsWorkspace({ initialEvents }: { initialEvents: Event[] }) {
         <div className="event-actions">{event.status === 'DRAFT' && <button className="publish-action" onClick={() => void eventAction(event.id, 'publish')} disabled={busy || event.ceremonies.length === 0}>Publier l’événement</button>}{event.status !== 'CANCELLED' && event.status !== 'COMPLETED' && <button className="cancel-action" onClick={() => void eventAction(event.id, 'cancel')} disabled={busy}>Annuler</button>}</div>
       </div>}
     </article>)}</div>}
-    <div id="create-event" className="create-event"><div><p className="eyebrow">COMMENCER</p><h2>Créer un événement</h2><p>Un événement publié ne peut plus être modifié, mais peut être annulé.</p></div><form onSubmit={submitCreate}><label>Nom de l’événement<input name="name" placeholder="Ex. Mariage de Nadia & Samuel" minLength={2} maxLength={120} required /></label><div className="form-pair"><label>Type<select name="eventType" defaultValue="WEDDING">{Object.entries(typeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Fuseau horaire<select name="timezone" defaultValue="Africa/Kinshasa"><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></label></div><div className="form-pair"><label>Date de début (facultative)<input name="startAt" type="datetime-local" /></label><label>Date de fin (facultative)<input name="endAt" type="datetime-local" /></label></div><label>Description (facultatif)<textarea name="description" maxLength={4000} placeholder="Quelques mots sur votre événement…" /></label><button className="create-button" disabled={busy}>{busy ? 'Enregistrement…' : 'Créer mon événement'} <span>→</span></button></form></div>
+    <div id="create-event" className={`create-event${creating ? ' is-open' : ''}`} hidden={!creating}><div><p className="eyebrow">ÉTAPE 1 · LES ESSENTIELS</p><h2>Créer un événement</h2><p>Choisissez le type, donnez-lui un nom et fixez sa date. Le lieu et la capacité se configurent ensuite par cérémonie.</p></div><form onSubmit={submitCreate}><label>Type d’événement<select name="eventType" defaultValue="WEDDING">{Object.entries(typeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Nom de l’événement<input name="name" placeholder="Ex. Mariage de Nadia & Samuel" minLength={2} maxLength={120} required /></label><div className="form-pair"><label>Date et heure de début<input name="startAt" type="datetime-local" /></label><label>Fuseau horaire<select name="timezone" defaultValue="Africa/Kinshasa"><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></label></div><details className="create-advanced"><summary>Ajouter une description</summary><label>Description<textarea name="description" maxLength={4000} placeholder="Quelques mots sur votre événement…" /></label></details><p className="create-note">Le lieu et la capacité sont enregistrés sur chaque cérémonie. Le nombre d’invités affiché ensuite viendra de votre liste réelle.</p><button className="create-button" disabled={busy}>{busy ? 'Enregistrement…' : 'Créer et continuer'} <span>→</span></button></form></div>
   </section>;
 }

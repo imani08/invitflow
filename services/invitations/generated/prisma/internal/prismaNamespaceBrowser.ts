@@ -122,6 +122,9 @@ export const InvitationBatchScalarFieldEnum = {
   failedItems: 'failedItems',
   zipExpiresAt: 'zipExpiresAt',
   zipDeletedAt: 'zipDeletedAt',
+  zipSizeBytes: 'zipSizeBytes',
+  zipCleanupAttempts: 'zipCleanupAttempts',
+  zipCleanupLastError: 'zipCleanupLastError',
   cancelledAt: 'cancelledAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -138,6 +141,7 @@ export const BatchItemScalarFieldEnum = {
   snapshot: 'snapshot',
   status: 'status',
   objectKey: 'objectKey',
+  sizeBytes: 'sizeBytes',
   errorCode: 'errorCode',
   attempts: 'attempts',
   createdAt: 'createdAt',

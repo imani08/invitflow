@@ -132,3 +132,17 @@ model MediaCleanupEntry {
   @@index([createdAt(sort: Desc)])
   @@map("media_cleanup_entries")
 }
+
+model StorageInventorySnapshot {
+  id          String   @id @default(uuid()) @db.Uuid
+  status      String   @db.VarChar(24)
+  startedAt   DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  measuredAt  DateTime? @map("measured_at") @db.Timestamptz(3)
+  validUntil  DateTime? @map("valid_until") @db.Timestamptz(3)
+  totalBytes  BigInt?  @map("total_bytes")
+  objectCount BigInt?  @map("object_count")
+  summary     Json?
+  errorCode   String?  @map("error_code") @db.VarChar(80)
+  @@index([startedAt(sort: Desc)])
+  @@map("storage_inventory_snapshots")
+}

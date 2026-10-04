@@ -13,7 +13,7 @@ import { statfs } from 'node:fs/promises';
 import { AntivirusScanError, scanWithClamAV } from '../antivirus-scan.mjs';
 import { ImageValidationError, inspectUserImage } from '../image-validation.mjs';
 import { ImageTranscodeError, transcodeUserImage } from '../image-transcode.mjs';
-import { MediaAssetCategory, MediaAssetPurpose, MediaAssetStatus, MediaTransformationStatus, MediaTransformationType } from '../generated/prisma/client.js';
+import { MediaAssetCategory, MediaAssetPurpose, MediaAssetStatus, MediaTransformationStatus, MediaTransformationType, Prisma } from '../generated/prisma/client.js';
 import { storageLevel } from './storage-policy.mjs';
 import { requiredEnv, validatedServicePort } from './env.js';
 import { MediaStorage } from './media-storage.js';
@@ -41,6 +41,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   private cleanupTimer?: NodeJS.Timeout;
   private cleanupLastRunAt: Date | null = null;
   private cleanupFailures = 0;
+  private inventoryRunning = false;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -312,22 +313,33 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const asset = await this.prisma.mediaAsset.findFirst({ where: { id, ownerSubject, status: { not: MediaAssetStatus.DELETED } }, include: { derivedJob: { select: { id: true } } } });
     if (!asset) throw new NotFoundException('Média introuvable.');
     if (asset.status === MediaAssetStatus.DELETED) return { id: asset.id, status: asset.status };
-    await this.prisma.mediaAsset.updateMany({ where: { id: asset.id, ownerSubject, status: { not: MediaAssetStatus.DELETED } }, data: { status: MediaAssetStatus.DELETING } });
+    if (asset.status === MediaAssetStatus.DELETING) return { id: asset.id, status: asset.status };
+    const claimed = await this.prisma.mediaAsset.updateMany({ where: { id: asset.id, ownerSubject, status: asset.status }, data: { status: MediaAssetStatus.DELETING } });
+    if (!claimed.count) throw new ConflictException('Une opération de stockage est déjà en cours pour ce média.');
     try {
+      if (asset.objectKey) {
+        const reference = await this.checkStorageReferences(asset.id, asset.objectKey);
+        if (reference === 'REFERENCED') {
+          await this.prisma.mediaAsset.updateMany({ where: { id: asset.id, status: MediaAssetStatus.DELETING }, data: { status: MediaAssetStatus.READY } });
+          await this.prisma.mediaCleanupEntry.create({ data: { fileId: asset.id, category: asset.category, sizeBytes: asset.sizeBytes, reason: 'REFERENCE_PRESENT', jobId: asset.derivedJob?.id ?? null, status: 'BLOCKED' } });
+          throw new ConflictException({ code: 'MEDIA_ASSET_REFERENCED', message: 'Ce fichier est encore référencé par un design ou une invitation.' });
+        }
+      }
       await this.deleteAssetObjects(asset);
       await this.finishAssetDelete(asset, 'USER_REQUEST');
       return { id: asset.id, status: MediaAssetStatus.DELETED };
-    } catch {
+    } catch (error) {
+      if (error instanceof ConflictException) throw error;
       this.cleanupFailures += 1;
       await this.recordCleanupFailure(asset, 'USER_REQUEST');
       this.logger.warn(`Media deletion deferred for ${asset.id}`);
-      throw new ServiceUnavailableException('La suppression est enregistrée et sera réessayée.');
+      throw new ServiceUnavailableException('La suppression est en attente de vérification des références ou de stockage; elle sera réessayée.');
     }
   }
 
   async getAdminStorageStats() {
     const where = { status: MediaAssetStatus.READY, deletedAt: null };
-    const [groups, totalFileCount, previewCount, thumbnailCount, previewSizes, largestFiles, disk, deleted] = await Promise.all([
+    const [groups, totalFileCount, previewCount, thumbnailCount, previewSizes, largestFiles, disk, deleted, referenceBlocked] = await Promise.all([
       this.prisma.mediaAsset.groupBy({ by: ['category'], where, _sum: { sizeBytes: true }, _count: { _all: true } }),
       this.prisma.mediaAsset.count({ where }),
       this.prisma.mediaAsset.count({ where: { ...where, previewSizeBytes: { not: null } } }),
@@ -336,6 +348,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
       this.prisma.mediaAsset.findMany({ where, orderBy: { sizeBytes: 'desc' }, take: 10, select: { id: true, originalName: true, category: true, sizeBytes: true, createdAt: true } }),
       this.getDiskStats(),
       this.prisma.mediaCleanupEntry.aggregate({ where: { deletedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }, status: 'DELETED' }, _sum: { sizeBytes: true } }),
+      this.prisma.mediaCleanupEntry.count({ where: { status: 'BLOCKED', reason: 'REFERENCE_PRESENT' } }),
     ]);
     const categoryTotals = Object.fromEntries(groups.map((group) => [group.category, { bytes: group._sum.sizeBytes ?? 0, count: group._count._all }])) as Record<string, { bytes: number; count: number }>;
     const previewBytes = (previewSizes._sum.previewSizeBytes ?? 0) + (previewSizes._sum.thumbnailSizeBytes ?? 0);
@@ -344,8 +357,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const thresholds = { warning: storageEnvInt('STORAGE_WARNING_PERCENT', 70, 1, 97), serious: storageEnvInt('STORAGE_SERIOUS_PERCENT', 80, 2, 98), critical: storageEnvInt('STORAGE_CRITICAL_PERCENT', 90, 3, 99), emergency: storageEnvInt('STORAGE_EMERGENCY_PERCENT', 95, 4, 100) };
     let level: string;
     try { level = percentage === null ? 'UNKNOWN' : storageLevel(percentage, thresholds); } catch { level = storageLevel(percentage ?? -1); }
+    const [lastInventory, lastInventoryAttempt] = await Promise.all([
+      this.prisma.storageInventorySnapshot.findFirst({ where: { status: { in: ['COMPLETE', 'INCOMPLETE'] } }, orderBy: { measuredAt: 'desc' } }),
+      this.prisma.storageInventorySnapshot.findFirst({ orderBy: { startedAt: 'desc' } }),
+    ]);
     return {
       disk: { ...disk, percentage, level, thresholds },
+      minio: lastInventory ? { status: lastInventory.status, measuredAt: lastInventory.measuredAt?.toISOString() ?? null, validUntil: lastInventory.validUntil?.toISOString() ?? null, fresh: lastInventory.status === 'COMPLETE' && Boolean(lastInventory.validUntil && lastInventory.validUntil > new Date()), totalBytes: lastInventory.totalBytes === null ? null : Number(lastInventory.totalBytes), objectCount: lastInventory.objectCount === null ? null : Number(lastInventory.objectCount), summary: lastInventory.summary } : null,
+      inventory: { lastAttemptAt: lastInventoryAttempt?.startedAt.toISOString() ?? null, lastAttemptStatus: lastInventoryAttempt?.status ?? null, lastErrorCode: lastInventoryAttempt?.errorCode ?? null, running: this.inventoryRunning },
       application: { totalUsedBytes, totalFileCount: totalFileCount + previewCount + thumbnailCount, breakdownByCategory: {
         originals: categoryTotals['ORIGINAL_MEDIA'] ?? { bytes: 0, count: 0 },
         derived: categoryTotals['DERIVED_MEDIA'] ?? { bytes: 0, count: 0 },
@@ -354,8 +373,142 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
         zip: categoryTotals['ZIP_EXPORT'] ?? { bytes: 0, count: 0 },
         temp: ['TEMP_RENDER', 'IMPORT_TEMP', 'FAILED_JOB_ARTIFACT'].reduce((sum, category) => ({ bytes: sum.bytes + (categoryTotals[category]?.bytes ?? 0), count: sum.count + (categoryTotals[category]?.count ?? 0) }), { bytes: 0, count: 0 }),
       }, breakdownByEvent: null, breakdownByAgency: null, largestFiles },
-      cleanup: { deletedBytesLast24h: deleted._sum.sizeBytes ?? 0, failures: this.cleanupFailures, lastRunAt: this.cleanupLastRunAt?.toISOString() ?? null, nextRunAt: this.cleanupLastRunAt ? new Date(this.cleanupLastRunAt.getTime() + 60_000).toISOString() : null },
+      cleanup: { deletedBytesLast24h: deleted._sum.sizeBytes ?? 0, failures: this.cleanupFailures + await this.prisma.mediaCleanupEntry.count({ where: { status: 'RETRYABLE' } }), referenceBlocked, pendingDeletion: await this.prisma.mediaAsset.count({ where: { status: MediaAssetStatus.DELETING } }), lastRunAt: this.cleanupLastRunAt?.toISOString() ?? null, nextRunAt: this.cleanupLastRunAt ? new Date(this.cleanupLastRunAt.getTime() + 60_000).toISOString() : null },
     };
+  }
+
+  async refreshMinioInventory(actor: string) {
+    if (this.inventoryRunning) throw new ConflictException({ code: 'STORAGE_INVENTORY_RUNNING', message: 'Un inventaire MinIO est déjà en cours.' });
+    const now = new Date();
+    const recent = await this.prisma.storageInventorySnapshot.findFirst({ where: { startedAt: { gt: new Date(now.getTime() - 60_000) } }, orderBy: { startedAt: 'desc' } });
+    if (recent) throw new ConflictException({ code: 'STORAGE_INVENTORY_RATE_LIMITED', message: 'Un nouvel inventaire ne peut être lancé qu’après une minute.' });
+    const attempt = await this.prisma.storageInventorySnapshot.create({ data: { status: 'RUNNING', summary: { requestedBy: actor } } });
+    this.inventoryRunning = true;
+    try {
+      const buckets = (process.env['MINIO_STORAGE_AUDIT_BUCKETS'] ?? 'media,media-quarantine,previews,generated,temporary,invitations').split(',').map((bucket) => bucket.trim()).filter(Boolean);
+      if (!buckets.length || buckets.some((bucket) => !/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket))) throw new Error('INVALID_BUCKET_CONFIGURATION');
+      const bucketData: Record<string, { bytes: number | null; objectCount: number; complete: boolean }> = {};
+      const objectSets: Record<string, Array<{ key: string; sizeBytes: number }>> = {};
+      let complete = true;
+      for (const bucket of buckets) {
+        const listing = await this.storage.listBucketObjects(bucket);
+        objectSets[bucket] = listing.objects;
+        const bytes = listing.objects.reduce((sum, object) => sum + object.sizeBytes, 0);
+        bucketData[bucket] = { bytes: listing.complete ? bytes : null, objectCount: listing.objects.length, complete: listing.complete };
+        complete &&= listing.complete;
+      }
+      const category = (keys: Array<{ key: string; sizeBytes: number }>) => keys.reduce((sum, entry) => ({ bytes: sum.bytes + entry.sizeBytes, count: sum.count + 1 }), { bytes: 0, count: 0 });
+      const mediaObjects = objectSets['media'] ?? [];
+      const invitationObjects = objectSets['invitations'] ?? [];
+      const knownAssets = await this.prisma.mediaAsset.findMany({ where: { status: { not: MediaAssetStatus.DELETED } }, select: { id: true, objectKey: true, category: true, previewSizeBytes: true, thumbnailSizeBytes: true } });
+      const assetsById = new Map(knownAssets.map((asset) => [asset.id, asset]));
+      const regularMediaObjects = mediaObjects.filter((object) => /^assets\/[0-9a-f-]{36}$/i.test(object.key));
+      const byCategory = {
+        originals: category(regularMediaObjects.filter((object) => assetsById.get(object.key.split('/')[1]!)?.category === MediaAssetCategory.ORIGINAL_MEDIA)),
+        derived: category(regularMediaObjects.filter((object) => assetsById.get(object.key.split('/')[1]!)?.category === MediaAssetCategory.DERIVED_MEDIA)),
+        mediaUnclassified: category(regularMediaObjects.filter((object) => !assetsById.has(object.key.split('/')[1]!))),
+        previews: category([...(objectSets['previews'] ?? []), ...mediaObjects.filter((object) => /^assets\/[0-9a-f-]{36}\/(?:preview|thumbnail)$/i.test(object.key))]),
+        pdfFinal: category(invitationObjects.filter((object) => object.key.startsWith('pdf/'))),
+        zip: category(invitationObjects.filter((object) => /^batches\/[0-9a-f-]{36}\.zip$/i.test(object.key))),
+        temp: category([...(objectSets['temporary'] ?? []), ...(objectSets['media-quarantine'] ?? [])]),
+        generatedUnclassified: category(objectSets['generated'] ?? []),
+      };
+      const expectedKeys = new Set<string>();
+      for (const asset of knownAssets) {
+        if (asset.objectKey) expectedKeys.add(asset.objectKey);
+        if (asset.previewSizeBytes !== null) expectedKeys.add(`assets/${asset.id}/preview`);
+        if (asset.thumbnailSizeBytes !== null) expectedKeys.add(`assets/${asset.id}/thumbnail`);
+      }
+      const actualKeys = new Set(mediaObjects.map((object) => object.key));
+      const mediaKeyRe = /^assets\/[0-9a-f-]{36}(?:\/(?:preview|thumbnail))?$/i;
+      const metadataMissing = [...expectedKeys].filter((key) => mediaKeyRe.test(key) && !actualKeys.has(key));
+      const untrackedObjects = mediaObjects.filter((object) => mediaKeyRe.test(object.key) && !expectedKeys.has(object.key));
+      let invitationMetadataAvailable = false;
+      let invitationPdfKeys = new Set<string>();
+      let invitationZipKeys = new Set<string>();
+      let expiredZipKeys = new Set<string>();
+      let unknownZipSizeCount: number | null = null;
+      try {
+        const metadata = await this.loadInvitationObjectMetadata();
+        invitationMetadataAvailable = metadata.complete;
+        invitationPdfKeys = metadata.pdfKeys;
+        invitationZipKeys = metadata.zipKeys;
+        expiredZipKeys = metadata.expiredZipKeys;
+        unknownZipSizeCount = metadata.unknownZipSizeCount;
+      } catch { /* S3 inventory remains usable; cross-service reconciliation stays UNKNOWN. */ }
+      const zipObjects = invitationObjects.filter((object) => /^batches\/[0-9a-f-]{36}\.zip$/i.test(object.key));
+      const actualInvitationKeys = new Set(invitationObjects.map((object) => object.key));
+      const invitationMetadataMissing = invitationMetadataAvailable ? [...invitationPdfKeys, ...invitationZipKeys].filter((key) => !actualInvitationKeys.has(key)) : null;
+      const untrackedInvitationObjects = invitationMetadataAvailable ? invitationObjects.filter((object) => /^(?:pdf\/|batches\/.*\.zip$)/i.test(object.key) && !invitationPdfKeys.has(object.key) && !invitationZipKeys.has(object.key)) : null;
+      const expiredZipObjectsPresent = invitationMetadataAvailable ? zipObjects.filter((object) => expiredZipKeys.has(object.key)).length : null;
+      const expiredPreviewCandidateCount = await this.prisma.mediaAsset.count({ where: { status: MediaAssetStatus.READY, previewSizeBytes: { not: null }, updatedAt: { lt: new Date(Date.now() - storageEnvInt('STORAGE_PREVIEW_TTL_DAYS', 30, 1, 3650) * 24 * 60 * 60 * 1000) } } });
+      const totalBytes = complete ? Object.values(bucketData).reduce((sum, bucket) => sum + (bucket.bytes ?? 0), 0) : null;
+      const objectCount = Object.values(bucketData).reduce((sum, bucket) => sum + bucket.objectCount, 0);
+      const measuredAt = new Date();
+      const validUntil = new Date(measuredAt.getTime() + storageEnvInt('STORAGE_INVENTORY_TTL_SECONDS', 900, 60, 86_400) * 1000);
+      const summary = { complete, buckets: bucketData, categories: complete ? byCategory : null, reconciliation: { mediaMetadataObjectsMissingInMinio: metadataMissing.length, mediaObjectsWithoutMetadata: untrackedObjects.length, mediaMetadataMissingSamples: metadataMissing.slice(0, 50), mediaOrphanSamples: untrackedObjects.slice(0, 50).map(({ key }) => key), invitationMetadataAvailable, invitationMetadataObjectsMissingInMinio: invitationMetadataMissing?.length ?? null, invitationObjectsWithoutMetadata: untrackedInvitationObjects?.length ?? null, expiredZipObjectsPresent, unknownInvitationZipSizeCount: unknownZipSizeCount, expiredPreviewCandidateCount, deletionAutomatic: false }, requestedBy: actor };
+      return await this.prisma.storageInventorySnapshot.update({ where: { id: attempt.id }, data: { status: complete ? 'COMPLETE' : 'INCOMPLETE', measuredAt, validUntil, totalBytes: totalBytes === null ? null : BigInt(totalBytes), objectCount: BigInt(objectCount), summary: summary as Prisma.InputJsonValue } });
+    } catch (error) {
+      await this.prisma.storageInventorySnapshot.update({ where: { id: attempt.id }, data: { status: 'FAILED', errorCode: error instanceof Error && /^[A-Z0-9_]{1,80}$/.test(error.message) ? error.message : 'MINIO_INVENTORY_FAILED' } });
+      throw new ServiceUnavailableException('L’inventaire MinIO a échoué; les objets ambigus ne seront pas supprimés.');
+    } finally { this.inventoryRunning = false; }
+  }
+
+  private async checkStorageReferences(assetId: string, objectKey: string): Promise<'REFERENCED' | 'UNREFERENCED'> {
+    const token = requiredEnv('STORAGE_MONITOR_TOKEN');
+    const baseUrls = [requiredEnv('DESIGNS_SERVICE_URL', 'http://designs:3007'), requiredEnv('INVITATIONS_SERVICE_URL', 'http://invitations:3013')];
+    const checks = await Promise.all(baseUrls.map(async (baseUrl) => {
+      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/internal/storage/reference-check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-storage-monitor-token': token },
+        body: JSON.stringify({ assetId, objectKey }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) throw new Error('REFERENCE_SERVICE_UNAVAILABLE');
+      const body = await response.json() as { status?: unknown };
+      if (body.status !== 'REFERENCED' && body.status !== 'UNREFERENCED') throw new Error('REFERENCE_RESULT_UNKNOWN');
+      return body.status;
+    }));
+    return checks.some((status) => status === 'REFERENCED') ? 'REFERENCED' : 'UNREFERENCED';
+  }
+
+  private async loadInvitationObjectMetadata() {
+    const pdfKeys = new Set<string>();
+    const zipKeys = new Set<string>();
+    const expiredZipKeys = new Set<string>();
+    let unknownZipSizeCount = 0;
+    let pdfCursor: string | undefined;
+    let zipCursor: string | undefined;
+    const token = requiredEnv('STORAGE_MONITOR_TOKEN');
+    for (let page = 0; page < 200; page += 1) {
+      const query = new URLSearchParams();
+      if (pdfCursor) query.set('pdfCursor', pdfCursor);
+      if (zipCursor) query.set('zipCursor', zipCursor);
+      const response = await fetch(`${requiredEnv('INVITATIONS_SERVICE_URL', 'http://invitations:3013').replace(/\/$/, '')}/v1/internal/storage/object-keys${query.size ? `?${query}` : ''}`, { headers: { 'x-storage-monitor-token': token }, cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) throw new Error('INVITATIONS_METADATA_UNAVAILABLE');
+      const result = await response.json() as { pdfKeys?: unknown; zipKeys?: unknown; nextPdfCursor?: unknown; nextZipCursor?: unknown };
+      if (!Array.isArray(result.pdfKeys) || !Array.isArray(result.zipKeys)) throw new Error('INVITATIONS_METADATA_INVALID');
+      for (const key of result.pdfKeys) {
+        if (typeof key !== 'string' || !/^pdf\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.pdf$/i.test(key)) throw new Error('INVITATIONS_METADATA_INVALID');
+        pdfKeys.add(key);
+      }
+      for (const row of result.zipKeys) {
+        if (!row || typeof row !== 'object') throw new Error('INVITATIONS_METADATA_INVALID');
+        const item = row as { key?: unknown; expiresAt?: unknown; sizeKnown?: unknown };
+        if (typeof item.key !== 'string' || !/^batches\/[0-9a-f-]{36}\.zip$/i.test(item.key) || typeof item.expiresAt !== 'string' || typeof item.sizeKnown !== 'boolean') throw new Error('INVITATIONS_METADATA_INVALID');
+        zipKeys.add(item.key);
+        if (Date.parse(item.expiresAt) <= Date.now()) expiredZipKeys.add(item.key);
+        if (!item.sizeKnown) unknownZipSizeCount += 1;
+      }
+      const nextPdfCursor = typeof result.nextPdfCursor === 'string' ? result.nextPdfCursor : undefined;
+      const nextZipCursor = typeof result.nextZipCursor === 'string' ? result.nextZipCursor : undefined;
+      if (!nextPdfCursor && !nextZipCursor) return { pdfKeys, zipKeys, expiredZipKeys, unknownZipSizeCount, complete: true };
+      if (nextPdfCursor === pdfCursor && nextZipCursor === zipCursor) throw new Error('INVITATIONS_CURSOR_STALLED');
+      pdfCursor = nextPdfCursor;
+      zipCursor = nextZipCursor;
+    }
+    return { pdfKeys, zipKeys, expiredZipKeys, unknownZipSizeCount, complete: false };
   }
 
   private async getDiskStats() {
@@ -395,6 +548,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const deletedAt = new Date();
     await this.prisma.$transaction([
       this.prisma.mediaAsset.updateMany({ where: { id: asset.id, status: MediaAssetStatus.DELETING }, data: { status: MediaAssetStatus.DELETED, deletedAt, originalName: 'deleted', declaredMimeType: 'application/octet-stream', detectedMimeType: null, sizeBytes: 0, width: null, height: null, sha256: null, objectKey: null, uploadKey: null } }),
+      this.prisma.mediaCleanupEntry.updateMany({ where: { fileId: asset.id, status: { in: ['RETRYABLE', 'BLOCKED'] } }, data: { status: 'RESOLVED' } }),
       this.prisma.mediaCleanupEntry.create({ data: { fileId: asset.id, category: asset.category, sizeBytes: asset.sizeBytes, reason, jobId: asset.derivedJob?.id ?? null, status: 'DELETED', deletedAt } }),
     ]);
   }
@@ -495,6 +649,14 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const deleting = await this.prisma.mediaAsset.findMany({ where: { status: MediaAssetStatus.DELETING }, orderBy: { updatedAt: 'asc' }, take: batchSize, include: { derivedJob: { select: { id: true } } } });
     for (const asset of deleting) {
       try {
+        if (asset.objectKey) {
+          const references = await this.checkStorageReferences(asset.id, asset.objectKey);
+          if (references === 'REFERENCED') {
+            await this.prisma.mediaAsset.updateMany({ where: { id: asset.id, status: MediaAssetStatus.DELETING }, data: { status: MediaAssetStatus.READY } });
+            await this.prisma.mediaCleanupEntry.create({ data: { fileId: asset.id, category: asset.category, sizeBytes: asset.sizeBytes, reason: 'REFERENCE_PRESENT', jobId: asset.derivedJob?.id ?? null, status: 'BLOCKED' } });
+            continue;
+          }
+        }
         await this.deleteAssetObjects(asset);
         await this.finishAssetDelete(asset, 'RETRY');
       } catch {

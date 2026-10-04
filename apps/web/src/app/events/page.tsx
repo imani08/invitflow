@@ -6,10 +6,12 @@ import AppNavbar from '@/components/AppNavbar';
 import { EventsWorkspace } from './workspace';
 import type { Event } from './types';
 import './events.css';
+import './journey.css';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EventsPage() {
+export default async function EventsPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
+  const { event: expandedEventId } = await searchParams;
   const cookieStore = await cookies();
   const session = await getSession(cookieStore.get(sessionCookieName())?.value);
   if (!session) redirect('/api/auth/login?returnTo=%2Fevents');
@@ -33,6 +35,6 @@ export default async function EventsPage() {
   return <main className="events-shell">
     <AppNavbar />
     <header className="events-heading"><p className="eyebrow">ESPACE ÉVÉNEMENTS</p><h1>Vos événements,<br /><em>vos moments.</em></h1><p>Organisez mariages, anniversaires, conférences et rencontres au même endroit.</p></header>
-    {unavailable ? <section className="events-notice"><h2>Les événements sont momentanément indisponibles</h2><p>La plateforme n’a pas pu joindre son service. Vérifiez que les dépendances et la base sont démarrées, puis réessayez.</p><Link href="/events">Réessayer</Link></section> : <EventsWorkspace initialEvents={initialEvents} />}
+    {unavailable ? <section className="events-notice"><h2>Les événements sont momentanément indisponibles</h2><p>La plateforme n’a pas pu joindre son service. Vérifiez que les dépendances et la base sont démarrées, puis réessayez.</p><Link href="/events">Réessayer</Link></section> : <EventsWorkspace initialEvents={initialEvents} expandedEventId={expandedEventId} />}
   </main>;
 }

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "metadata": {},
+  "canvas": { "width": 1080, "height": 1920, "unit": "px" },
+  "safeArea": { "top": 64, "right": 64, "bottom": 64, "left": 64 },
+  "bleed": 0,
+  "theme": { "category": "WEDDING", "style": "CLASSIC", "palette": ["#F5F0E8", "#32163A"], "tokens": { "background": "#F5F0E8", "primary": "#32163A", "secondary": "#BD8742", "font": "Georgia" } },
+  "assets": [],
+  "variables": [],
+  "constraints": { "safeMargin": 64, "allowOverflow": false },
+  "layouts": [{ "id": "portrait", "name": "Portrait", "width": 1080, "height": 1920 }],
+  "ceremonyRules": [],
+  "exportProfiles": [{ "id": "portrait", "width": 1080, "height": 1920, "unit": "px" }],
+  "version": 1,
+  "elements": [
+    { "id": "background", "type": "BACKGROUND", "name": "Fond", "x": 0, "y": 0, "width": 1080, "height": 1920, "rotation": 0, "locked": true, "editable": false, "fill": "#F5F0E8", "zIndex": 0 },
+    { "id": "guest", "type": "TEXT", "name": "Invité", "role": "GUEST_NAME", "text": "", "binding": "guest.name", "fontId": "georgia", "fontFamily": "Georgia", "preferredFontSize": 48, "fontSize": 48, "minFontSize": 24, "maxFontSize": 48, "maxLines": 3, "lineHeight": 1.2, "overflowPolicy": "SHRINK_WITH_LIMIT", "hideWhenEmpty": false, "collapseSpace": false, "fontWeight": 400, "align": "center", "color": "#32163A", "x": 100, "y": 200, "width": 880, "height": 120, "rotation": 0, "locked": false, "editable": true, "zIndex": 2 },
+    { "id": "table", "type": "TEXT", "name": "Table", "role": "TABLE_INFO", "text": "", "binding": "guest.table", "visibility": { "type": "binding-exists", "binding": "guest.table" }, "fontId": "arial", "fontFamily": "Arial", "preferredFontSize": 30, "fontSize": 30, "minFontSize": 20, "maxFontSize": 30, "maxLines": 2, "lineHeight": 1.2, "overflowPolicy": "SHRINK_WITH_LIMIT", "hideWhenEmpty": true, "collapseSpace": true, "fontWeight": 400, "align": "center", "color": "#32163A", "x": 100, "y": 340, "width": 880, "height": 70, "rotation": 0, "locked": false, "editable": true, "zIndex": 3 },
+    { "id": "ceremony-name", "type": "TEXT", "name": "Nom de cérémonie", "groupId": "ceremony-list", "role": "BODY", "text": "{{ceremony_name}}", "binding": "ceremony.name", "fontId": "arial", "fontFamily": "Arial", "preferredFontSize": 28, "fontSize": 28, "minFontSize": 18, "maxFontSize": 28, "maxLines": 2, "lineHeight": 1.2, "overflowPolicy": "SHRINK_WITH_LIMIT", "hideWhenEmpty": false, "collapseSpace": false, "fontWeight": 400, "align": "center", "color": "#32163A", "x": 120, "y": 520, "width": 840, "height": 90, "rotation": 0, "locked": false, "editable": true, "zIndex": 4 },
+    { "id": "qr", "type": "QR", "name": "QR", "source": "guest_access_token", "binding": "qr", "visibility": { "type": "binding-exists", "binding": "qr" }, "minSize": 96, "maxSize": 256, "quietZone": 4, "x": 900, "y": 1700, "width": 100, "height": 100, "rotation": 0, "locked": false, "editable": true, "zIndex": 5 }
+  ],
+  "groups": [
+    { "id": "ceremony-list", "binding": "ceremonies", "layoutSlot": "main-program", "bounds": { "x": 100, "y": 500, "width": 880, "height": 500 }, "elementIds": ["ceremony-name"], "direction": "vertical", "columns": 1, "gap": 12 }
+  ],
+  "layoutVariants": [
+    { "id": "noCeremony", "when": { "type": "ceremony-count", "operator": "eq", "value": 0 }, "overrides": [], "groupLayouts": [] },
+    { "id": "singleCeremony", "when": { "type": "ceremony-count", "operator": "eq", "value": 1 }, "overrides": [], "groupLayouts": [] },
+    { "id": "twoCeremonies", "when": { "type": "ceremony-count", "operator": "eq", "value": 2 }, "overrides": [], "groupLayouts": [] },
+    { "id": "threeCeremonies", "when": { "type": "ceremony-count", "operator": "eq", "value": 3 }, "overrides": [], "groupLayouts": [] },
+    { "id": "multiCeremony", "when": { "type": "ceremony-count", "operator": "gte", "value": 4 }, "overrides": [], "groupLayouts": [] }
+  ]
+}

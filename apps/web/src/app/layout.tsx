@@ -1,8 +1,18 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import '@/components/AppNavbar.css';
+import { ThemeProvider } from '@/components/theme-provider';
+
+const metadataBase = (() => {
+  try {
+    return new URL(process.env['PUBLIC_WEB_URL'] ?? process.env['WEB_ORIGIN'] ?? 'http://localhost:3000');
+  } catch {
+    return new URL('http://localhost:3000');
+  }
+})();
 
 export const metadata: Metadata = {
+  metadataBase,
   applicationName: 'InvitaFlow',
   title: { default: 'InvitaFlow — Invitations et événements', template: '%s · InvitaFlow' },
   description: 'Créez, personnalisez et gérez vos invitations depuis un seul espace.',
@@ -12,5 +22,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="fr"><body>{children}</body></html>;
+  return <html lang="fr"><body><ThemeProvider>{children}</ThemeProvider></body></html>;
 }

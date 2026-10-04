@@ -5,6 +5,8 @@ import { getSession, sessionCookieName } from '@/lib/auth-session';
 import { DesignsWorkspace } from './workspace';
 import './designs.css';
 import './designs-step1.css';
+import '../../journey.css';
+import './designs-journey.css';
 
 type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
 

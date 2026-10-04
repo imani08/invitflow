@@ -16,6 +16,7 @@ function makeService() {
   const outboxEntries: unknown[] = [];
   const cleanupEntries: unknown[] = [];
   let failObjectDelete = false;
+  let deletionCalls = 0;
   const asset = {
     id: assetId,
     ownerSubject: 'owner-1',
@@ -34,7 +35,7 @@ function makeService() {
     intentExpiresAt: new Date('2026-10-01T00:00:00Z'),
     uploadExpiresAt: new Date('2026-10-01T00:00:00Z'),
     quarantineExpiresAt: null,
-  };
+  } as { id: string; ownerSubject: string; purpose: MediaAssetPurpose; category: MediaAssetCategory; status: MediaAssetStatus; originalName: string; declaredMimeType: string; detectedMimeType: string; sizeBytes: number; width: number; height: number; sha256: string; objectKey: string | null; createdAt: Date; intentExpiresAt: Date; uploadExpiresAt: Date; quarantineExpiresAt: Date | null; uploadKey?: string | null; quarantineKey?: string; updatedAt?: Date; previewSizeBytes?: number | null; thumbnailSizeBytes?: number | null; deletedAt?: Date | null; derivedJob?: { id: string } | null };
   const prisma = {
     mediaAsset: {
       findFirst: async ({ where }: { where: { ownerSubject: string; id: string } }) => {
@@ -44,13 +45,13 @@ function makeService() {
       },
       updateMany: async ({ data }: { data: Record<string, unknown> }) => { Object.assign(asset, data); return { count: 1 }; },
       create: async ({ data }: { data: Record<string, unknown> }) => data,
-      findMany: async ({ where }: { where?: { status?: MediaAssetStatus } }) => where?.status === MediaAssetStatus.DELETING ? [{ ...asset }] : [],
+      findMany: async ({ where }: { where?: { status?: MediaAssetStatus; objectKey?: null } }) => where?.status === MediaAssetStatus.DELETING && asset.status === MediaAssetStatus.DELETING && (where.objectKey === undefined || where.objectKey === null && asset.objectKey === null) ? [{ ...asset }] : [],
     },
     mediaTransformationJob: {
       findFirst: async () => null,
       create: async ({ data }: { data: Record<string, unknown> }) => ({ id: '660e8400-e29b-41d4-a716-446655440000', status: 'PENDING', ...data }),
     },
-    mediaCleanupEntry: { create: async ({ data }: { data: unknown }) => { cleanupEntries.push(data); return data; } },
+    mediaCleanupEntry: { create: async ({ data }: { data: unknown }) => { cleanupEntries.push(data); return data; }, updateMany: async () => ({ count: 0 }) },
     outboxMessage: { create: async (entry: { data: unknown }) => { outboxEntries.push(entry); return entry.data; } },
     $transaction: async (work: (tx: unknown) => unknown) => typeof work === 'function' ? work(prisma) : Promise.all(work as Promise<unknown>[]),
   } as unknown as PrismaService;
@@ -63,11 +64,11 @@ function makeService() {
       readKeys.push(key);
       return Buffer.from('sanitized webp');
     },
-    deleteQuarantine: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
-    deleteReady: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
-    deleteVariants: async () => { if (failObjectDelete) throw new Error('MinIO unavailable'); },
+    deleteQuarantine: async () => { deletionCalls += 1; if (failObjectDelete) throw new Error('MinIO unavailable'); },
+    deleteReady: async () => { deletionCalls += 1; if (failObjectDelete) throw new Error('MinIO unavailable'); },
+    deleteVariants: async () => { deletionCalls += 1; if (failObjectDelete) throw new Error('MinIO unavailable'); },
   } as unknown as MediaStorage;
-  return { service: new MediaService(prisma, storage), requestedKeys, readKeys, outboxEntries, cleanupEntries, setObjectDeleteFailure: (value: boolean) => { failObjectDelete = value; }, asset };
+  return { service: new MediaService(prisma, storage), requestedKeys, readKeys, outboxEntries, cleanupEntries, setObjectDeleteFailure: (value: boolean) => { failObjectDelete = value; }, asset, deletionCalls: () => deletionCalls };
 }
 
 test('creates owner-scoped download URLs only for the original and fixed variants', async () => {
@@ -83,6 +84,26 @@ test('creates owner-scoped download URLs only for the original and fixed variant
     assert.equal(result.variant, variant);
     assert.equal(result.download.url, 'https://storage.example.test/signed');
     assert.equal(requestedKeys.at(-1), expectedKey);
+  }
+});
+
+test('keeps deletion retryable and never calls MinIO while a reference service is unavailable', async () => {
+  const { service, cleanupEntries, asset, deletionCalls } = makeService();
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
+  process.env['STORAGE_MONITOR_TOKEN'] = 'unit-test-storage-token';
+  globalThis.fetch = async () => { throw new Error('service unavailable'); };
+  try {
+    await assert.rejects(service.deleteAsset('owner-1', assetId));
+    assert.equal(asset.status, MediaAssetStatus.DELETING);
+    assert.equal(deletionCalls(), 0);
+    await (service as unknown as { cleanupExpired(): Promise<void> }).cleanupExpired();
+    assert.equal(asset.status, MediaAssetStatus.DELETING);
+    assert.equal(deletionCalls(), 0);
+    assert.ok(cleanupEntries.every((entry) => (entry as { status: string }).status === 'RETRYABLE'));
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env['STORAGE_MONITOR_TOKEN']; else process.env['STORAGE_MONITOR_TOKEN'] = originalToken;
   }
 });
 
@@ -119,15 +140,42 @@ test('creates a private derived-media job and a transactional RabbitMQ outbox ev
   assert.equal(event.data.payload['derivedAssetId'], result.derivedAssetId);
 });
 
-test('keeps a MinIO deletion retryable and finalizes it in a cleanup pass', async () => {
-  const { service, cleanupEntries, setObjectDeleteFailure, asset } = makeService();
-  setObjectDeleteFailure(true);
-  await assert.rejects(service.deleteAsset('owner-1', assetId));
-  assert.equal(asset.status, MediaAssetStatus.DELETING);
-  setObjectDeleteFailure(false);
-  await (service as unknown as { cleanupExpired(): Promise<void> }).cleanupExpired();
-  assert.equal(asset.status, MediaAssetStatus.DELETED);
-  assert.equal(cleanupEntries.length, 2);
-  assert.ok(cleanupEntries.some((entry) => (entry as { status: string }).status === 'RETRYABLE'));
-  assert.ok(cleanupEntries.some((entry) => (entry as { status: string }).status === 'DELETED'));
+test('does not delete a ready MinIO object when cross-service references cannot be verified', async () => {
+  const { service, cleanupEntries, asset } = makeService();
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
+  process.env['STORAGE_MONITOR_TOKEN'] = 'unit-test-storage-token';
+  globalThis.fetch = async () => new Response(JSON.stringify({ status: 'REFERENCED' }), { status: 200 });
+  try {
+    await assert.rejects(service.deleteAsset('owner-1', assetId), (error: unknown) =>
+      error instanceof Error && 'response' in error && (error as { response?: { code?: string } }).response?.code === 'MEDIA_ASSET_REFERENCED',
+    );
+    assert.equal(asset.status, MediaAssetStatus.READY);
+    await (service as unknown as { cleanupExpired(): Promise<void> }).cleanupExpired();
+    assert.equal(asset.status, MediaAssetStatus.READY);
+    assert.equal(cleanupEntries.length, 1);
+    assert.equal((cleanupEntries[0] as { status: string }).status, 'BLOCKED');
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env['STORAGE_MONITOR_TOKEN']; else process.env['STORAGE_MONITOR_TOKEN'] = originalToken;
+  }
+});
+
+test('deletes a Media object only after both reference services confirm it is unreferenced', async () => {
+  const { service, asset, deletionCalls } = makeService();
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
+  process.env['STORAGE_MONITOR_TOKEN'] = 'unit-test-storage-token';
+  let checkedServices = 0;
+  globalThis.fetch = async () => { checkedServices += 1; return new Response(JSON.stringify({ status: 'UNREFERENCED' }), { status: 200 }); };
+  try {
+    const result = await service.deleteAsset('owner-1', assetId);
+    assert.equal(result.status, MediaAssetStatus.DELETED);
+    assert.equal(asset.status, MediaAssetStatus.DELETED);
+    assert.equal(checkedServices, 2);
+    assert.equal(deletionCalls(), 3);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env['STORAGE_MONITOR_TOKEN']; else process.env['STORAGE_MONITOR_TOKEN'] = originalToken;
+  }
 });

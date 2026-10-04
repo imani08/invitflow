@@ -6,6 +6,7 @@ import { HealthController } from './health.controller.js';
 import { IdentityGuard } from './identity.guard.js';
 import { OutboxPublisher } from './outbox-publisher.js';
 import { PrismaService } from './prisma.service.js';
+import { StorageMonitorGuard, StorageReferenceController } from './storage-reference.controller.js';
 
-@Module({ controllers: [HealthController, DesignsController], providers: [PrismaService, IdentityGuard, EventsClient, DesignsService, OutboxPublisher] })
+@Module({ controllers: [HealthController, DesignsController, StorageReferenceController], providers: [PrismaService, IdentityGuard, StorageMonitorGuard, EventsClient, DesignsService, OutboxPublisher] })
 export class DesignsModule {}

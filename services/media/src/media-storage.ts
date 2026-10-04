@@ -21,6 +21,59 @@ export class MediaStorage {
   private readonly region = requiredEnv('MINIO_REGION', 'us-east-1');
   private readonly accessKey = requiredEnv('MINIO_MEDIA_ACCESS_KEY');
   private readonly secretKey = requiredEnv('MINIO_MEDIA_SECRET_KEY');
+  private readonly inventoryAccessKey = requiredEnv('MINIO_STORAGE_AUDIT_ACCESS_KEY');
+  private readonly inventorySecretKey = requiredEnv('MINIO_STORAGE_AUDIT_SECRET_KEY');
+
+  async listBucketObjects(bucket: string, maxObjects = 100_000) {
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket) || !Number.isInteger(maxObjects) || maxObjects < 1 || maxObjects > 500_000)
+      throw new ServiceUnavailableException('Storage inventory parameters are invalid');
+    const objects: Array<{ key: string; sizeBytes: number }> = [];
+    let continuationToken: string | undefined;
+    let truncated = false;
+    do {
+      const target = new URL(this.endpoint.toString());
+      target.pathname = `${target.pathname.replace(/\/$/, '')}/${awsEncode(bucket)}`;
+      const params = new URLSearchParams([['list-type', '2']]);
+      if (continuationToken) params.set('continuation-token', continuationToken);
+      target.search = canonicalQuery(params);
+      const response = await this.signedInventoryGet(target);
+      const xml = await response.text();
+      const page = parseListObjectsPage(xml);
+      for (const object of page.objects) {
+        objects.push(object);
+        if (objects.length >= maxObjects && page.isTruncated) { truncated = true; break; }
+      }
+      if (truncated || !page.isTruncated) break;
+      if (!page.nextContinuationToken || page.nextContinuationToken === continuationToken)
+        throw new ServiceUnavailableException('MinIO returned an invalid inventory continuation token');
+      continuationToken = page.nextContinuationToken;
+    } while (true);
+    return { objects, complete: !truncated, truncated };
+  }
+
+  private async signedInventoryGet(target: URL) {
+    const payloadHash = sha256(new Uint8Array());
+    const now = new Date().toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const day = now.slice(0, 8);
+    const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+    const canonicalHeaders = `host:${target.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${now}\n`;
+    const canonicalRequest = `GET\n${target.pathname}\n${target.search.slice(1)}\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`;
+    const scope = `${day}/${this.region}/s3/aws4_request`;
+    const stringToSign = `AWS4-HMAC-SHA256\n${now}\n${scope}\n${sha256(canonicalRequest)}`;
+    const signingKey = hmac(hmac(hmac(hmac(`AWS4${this.inventorySecretKey}`, day), this.region), 's3'), 'aws4_request');
+    const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+    try {
+      const response = await fetch(target, { headers: {
+        'x-amz-content-sha256': payloadHash,
+        'x-amz-date': now,
+        authorization: `AWS4-HMAC-SHA256 Credential=${this.inventoryAccessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
+      }, cache: 'no-store', signal: AbortSignal.timeout(30_000) });
+      if (response.ok) return response;
+      throw new Error(`MinIO ListObjectsV2 returned ${response.status}`);
+    } catch {
+      throw new ServiceUnavailableException('MinIO inventory is unavailable');
+    }
+  }
 
   async createUploadUrl(
     key: string,
@@ -249,4 +302,27 @@ function awsEncode(value: string) {
     /[!'()*]/g,
     (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
   );
+}
+
+function canonicalQuery(params: URLSearchParams) {
+  const encode = (value: string) => encodeURIComponent(value).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return [...params.entries()].map(([key, value]) => [encode(key), encode(value)] as const).sort(([ak, av], [bk, bv]) => ak.localeCompare(bk) || av.localeCompare(bv)).map(([key, value]) => `${key}=${value}`).join('&');
+}
+
+export function parseListObjectsPage(xml: string) {
+  if (!xml.includes('<ListBucketResult')) throw new ServiceUnavailableException('MinIO inventory XML is invalid');
+  const decode = (value: string) => value.replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16))).replace(/&#(\d+);/g, (_, number: string) => String.fromCodePoint(Number(number))).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const objects: Array<{ key: string; sizeBytes: number }> = [];
+  for (const match of xml.matchAll(/<Contents>([\s\S]*?)<\/Contents>/g)) {
+    const key = match[1]?.match(/<Key>([\s\S]*?)<\/Key>/)?.[1];
+    const size = match[1]?.match(/<Size>(\d+)<\/Size>/)?.[1];
+    const sizeBytes = Number(size);
+    if (key === undefined || !Number.isSafeInteger(sizeBytes) || sizeBytes < 0) throw new ServiceUnavailableException('MinIO object inventory entry is invalid');
+    objects.push({ key: decode(key), sizeBytes });
+  }
+  return {
+    objects,
+    isTruncated: /<IsTruncated>true<\/IsTruncated>/.test(xml),
+    nextContinuationToken: xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/)?.[1] ? decode(xml.match(/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/)![1]!) : undefined,
+  };
 }

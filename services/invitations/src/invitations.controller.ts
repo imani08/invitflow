@@ -1,10 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, CanActivate, Controller, ExecutionContext, ForbiddenException, Get, Headers, Injectable, Param, Post, Query, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyReply } from 'fastify';
 import { Readable } from 'node:stream';
 import type { AuthenticatedRequest } from './identity.guard.js';
 import { IdentityGuard } from './identity.guard.js';
 import { InvitationService } from './invitation.service.js';
 import { InternalServiceGuard } from './internal-service.guard.js';
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Controller('/v1') @UseGuards(IdentityGuard)
 export class InvitationsController {
@@ -22,6 +25,18 @@ export class InvitationsController {
   @Post('/invitations/batches/:batchId/regenerate') regenerate(@Req() req: AuthenticatedRequest, @Param('batchId') id: string) { return this.invitations.regenerateZip(req.identity!.subject, id); }
   @Get('/invitations/batches/:batchId/download') async zip(@Req() req: AuthenticatedRequest, @Param('batchId') id: string, @Res() reply: FastifyReply) { const file = await this.invitations.download(req.identity!.subject, id); return reply.header('content-type', file.type).header('content-disposition', `attachment; filename="${file.name}"`).header('cache-control','private, no-store').send(Readable.fromWeb(file.body as unknown as import('node:stream/web').ReadableStream)); }
   @Get('/invitations/batches/:batchId/items/:itemId/download') async pdf(@Req() req: AuthenticatedRequest, @Param('batchId') batch: string, @Param('itemId') item: string, @Res() reply: FastifyReply) { const file = await this.invitations.download(req.identity!.subject, batch, item); return reply.header('content-type', file.type).header('content-disposition', `attachment; filename="${file.name}"`).header('cache-control','private, no-store').send(Readable.fromWeb(file.body as unknown as import('node:stream/web').ReadableStream)); }
+}
+
+@Controller('/v1/admin/storage')
+@UseGuards(IdentityGuard)
+export class InvitationStorageAdminController {
+  constructor(private readonly invitations: InvitationService) {}
+  @Get()
+  stats(@Req() req: AuthenticatedRequest) {
+    if (!req.identity?.roles.some((role) => role === 'SUPER_ADMIN' || role === 'SUPPORT_ADMIN'))
+      throw new ForbiddenException('Permission d’administration requise.');
+    return this.invitations.getAdminStorageStats();
+  }
 }
 
 @Controller('/v1/public/invitations')
@@ -46,5 +61,35 @@ export class InternalCheckInController {
   summary(@Param('eventId') eventId: string, @Headers('x-event-owner-subject') owner: string, @Query('ceremonyId') ceremonyId: string) {
     if (!owner || owner.length > 255 || /[\s\u0000-\u001f\u007f]/.test(owner)) throw new BadRequestException('Identité propriétaire invalide.');
     return this.invitations.checkInSummary(owner, eventId, ceremonyId);
+  }
+}
+
+@Injectable()
+export class InvitationStorageMonitorGuard implements CanActivate {
+  canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest<import('fastify').FastifyRequest>();
+    const presented = request.headers['x-storage-monitor-token'];
+    const expected = process.env['STORAGE_MONITOR_TOKEN'];
+    if (typeof presented !== 'string' || !expected || expected.length < 32 || presented.length > 512) throw new UnauthorizedException();
+    if (!timingSafeEqual(createHash('sha256').update(presented).digest(), createHash('sha256').update(expected).digest())) throw new UnauthorizedException();
+    return true;
+  }
+}
+
+@Controller('/v1/internal/storage')
+@UseGuards(InvitationStorageMonitorGuard)
+export class InvitationStorageReferenceController {
+  constructor(private readonly invitations: InvitationService) {}
+  @Get('/object-keys')
+  objectKeys(@Query('pdfCursor') pdfCursor?: string, @Query('zipCursor') zipCursor?: string) {
+    if (pdfCursor !== undefined && !uuid.test(pdfCursor) || zipCursor !== undefined && !uuid.test(zipCursor)) throw new BadRequestException('Curseur de stockage invalide.');
+    return this.invitations.getStorageInventoryPage(pdfCursor, zipCursor);
+  }
+  @Post('/reference-check')
+  check(@Body() body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Requête de référence invalide.');
+    const input = body as Record<string, unknown>;
+    if (Object.keys(input).some((key) => !['assetId', 'objectKey'].includes(key)) || typeof input.assetId !== 'string' || !uuid.test(input.assetId) || typeof input.objectKey !== 'string' || !/^assets\/[0-9a-f-]{36}(?:\/(?:preview|thumbnail))?$/i.test(input.objectKey)) throw new BadRequestException('Requête de référence invalide.');
+    return this.invitations.checkStorageReference(input.assetId, input.objectKey);
   }
 }
