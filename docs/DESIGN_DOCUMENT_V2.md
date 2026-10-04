@@ -27,3 +27,13 @@ Designs normalise les anciens documents servis en v2 et valide les documents v2 
 ## Hors portée
 
 Aucune migration Prisma, modification Wallet/Billing/Payments, publication de templates, création d’assets visuels, masque aquarelle, résumé IA, éditeur majeur ou génération finale supplémentaire n’est incluse. Les profils de police sont des polices système; aucune police binaire n’est embarquée.
+
+## Phase 2 — Preview / PDF
+
+Le renderer partagé `renderResolvedLayoutSvg()` sérialise un `ResolvedLayout` sans effectuer de fetch ni accès DB. Il utilise les lignes et tailles déjà calculées, le registre typographique et la géométrie d’image partagée. Web réutilise ces valeurs dans son SVG React éditable; Invitations utilise le sérialiseur commun pour les snapshots v2. Les anciens snapshots conservent le renderer historique v1.
+
+`imageRenderBounds()` définit la géométrie crop cover/contain, zoom et position utilisée dans Web et PDF. `logicalCanvasTransform()` applique une échelle uniforme centrée pour les viewports; l’export A5 garde le `viewBox` logique avec `preserveAspectRatio="xMidYMid meet"`. Le contenu peut donc être letterboxé selon le ratio du canevas; il n’est pas étiré.
+
+Le font registry actuel garantit family/fallback, poids 400/700 et style normal/italic. Le text fitting inclut maintenant le `letterSpacing` dans ses estimations de largeur et le render tree fournit les lignes/line-height résolus. Les fontes demeurent celles présentes sur le système Chromium.
+
+La couverture des tests partagés est détaillée dans `docs/REMAINING_WORK.md`. Aucune comparaison visuelle réelle Chromium ni génération PDF runtime n’a été menée pour cette phase.

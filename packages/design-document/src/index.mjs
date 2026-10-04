@@ -300,19 +300,19 @@ function resolveFont(layer) {
   return FONT_REGISTRY[id];
 }
 
-function estimatedWidth(text, fontSize) {
-  return [...text].reduce((sum, char) => sum + fontSize * (/[MW@#%]/u.test(char) ? 0.82 : /[il.,' ]/u.test(char) ? 0.3 : 0.56), 0);
+function estimatedWidth(text, fontSize, letterSpacing = 0) {
+  return [...text].reduce((sum, char) => sum + fontSize * (/[MW@#%]/u.test(char) ? 0.82 : /[il.,' ]/u.test(char) ? 0.3 : 0.56), 0) + Math.max(0, [...text].length - 1) * letterSpacing;
 }
-function wrapText(text, width, fontSize) {
+function wrapText(text, width, fontSize, letterSpacing = 0) {
   const result = [];
   for (const paragraph of text.split(/\r?\n/u)) {
     let line = '';
     for (const word of paragraph.split(/\s+/u).filter(Boolean)) {
       const candidate = line ? `${line} ${word}` : word;
-      if (line && estimatedWidth(candidate, fontSize) > width) { result.push(line); line = word; } else line = candidate;
-      if (estimatedWidth(line, fontSize) > width) {
+      if (line && estimatedWidth(candidate, fontSize, letterSpacing) > width) { result.push(line); line = word; } else line = candidate;
+      if (estimatedWidth(line, fontSize, letterSpacing) > width) {
         const chars = [...line]; let part = '';
-        for (const char of chars) { if (part && estimatedWidth(part + char, fontSize) > width) { result.push(part); part = char; } else part += char; }
+        for (const char of chars) { if (part && estimatedWidth(part + char, fontSize, letterSpacing) > width) { result.push(part); part = char; } else part += char; }
         line = part;
       }
     }
@@ -328,22 +328,23 @@ export function fitInvitationText(layer, text) {
   const minimum = Math.max(8, Math.min(preferred, finite(layer.minFontSize, preferred)));
   const maxLines = Math.max(1, Math.min(30, finite(layer.maxLines, 4)));
   const lineHeight = Math.max(0.85, Math.min(2, finite(layer.lineHeight, 1.2)));
+  const letterSpacing = Math.max(-2, Math.min(20, finite(layer.letterSpacing, 0)));
   const policy = layer.overflowPolicy ?? 'SHRINK_WITH_LIMIT';
   const canShrink = policy === 'SHRINK_WITH_LIMIT' || policy === 'AI_ASSIST_ALLOWED' || policy === 'USE_VARIANT' || policy === 'ERROR' && layer.sourceSchemaVersion === 1;
   const nameNeedsFit = /guest|invite|invité/i.test(String(layer.role ?? layer.name ?? '')) && [...text].length > 48;
   const start = canShrink ? preferred : minimum;
   const stop = canShrink ? minimum : start;
   for (let size = start; size >= stop; size -= 1) {
-    const lines = wrapText(text, width, size);
+    const lines = wrapText(text, width, size, letterSpacing);
     if (lines.length <= maxLines && lines.length * size * lineHeight <= height && (!nameNeedsFit || size < preferred)) return { fontSize: size, lines, lineHeight, reduced: size < preferred, overflow: false };
   }
-  return { fontSize: stop, lines: wrapText(text, width, stop), lineHeight, reduced: stop < preferred, overflow: true };
+  return { fontSize: stop, lines: wrapText(text, width, stop, letterSpacing), lineHeight, reduced: stop < preferred, overflow: true };
 }
 
 function withinCanvas(element, canvas) { return element.x >= 0 && element.y >= 0 && element.x + element.width <= canvas.width && element.y + element.height <= canvas.height; }
 function withinSafeArea(element, safeArea) { return element.x >= safeArea.left && element.y >= safeArea.top && element.x + element.width <= element.canvasWidth - safeArea.right && element.y + element.height <= element.canvasHeight - safeArea.bottom; }
 
-export function resolveDesignLayout(input, rawSnapshot, selectedVariantId) {
+export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, assets = {}) {
   const sourceSchemaVersion = isObject(input) ? input.schemaVersion : undefined;
   const document = normalizeDesignDocumentV2(input);
   if (sourceSchemaVersion === 2) validateDesignDocumentV2(document);
@@ -370,12 +371,15 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId) {
       resolvedText = resolveText(layer, { ...snapshot, variables: { ...(Array.isArray(document.variables) ? Object.fromEntries(document.variables.filter((item) => typeof item?.key === 'string').map((item) => [item.key, stringOrEmpty(rawSnapshot.variables?.[item.key] ?? item.defaultValue)])) : {}), ...snapshot.variables } }, ceremony);
       if (!resolvedText.trim() && (layer.hideWhenEmpty || layer.binding)) return;
     }
-    const resolved = { ...layer, visible: true, ...(resolvedText !== undefined ? { resolvedText } : {}), ...(ceremony ? { repeatIndex: repetitionIndex } : {}), ...(layer.type === 'TEXT' ? { resolvedFont: resolveFont(layer) } : {}) };
+    const font = layer.type === 'TEXT' ? resolveFont(layer) : undefined;
+    const requestedWeight = finite(layer.fontWeight, 400);
+    const resolved = { ...layer, visible: true, ...(resolvedText !== undefined ? { resolvedText } : {}), ...(ceremony ? { repeatIndex: repetitionIndex } : {}), ...(font ? { resolvedFont: font, resolvedFontWeight: font.weights.reduce((best, weight) => Math.abs(weight - requestedWeight) < Math.abs(best - requestedWeight) ? weight : best, font.weights[0]), resolvedFontStyle: font.styles.includes(layer.fontStyle) ? layer.fontStyle : 'normal' } : {}), ...(layer.type === 'IMAGE' ? { resolvedAsset: { assetId: typeof layer.assetId === 'string' ? layer.assetId : null, href: typeof assets?.[layer.assetId] === 'string' ? assets[layer.assetId] : null } } : {}) };
     if (!withinCanvas(resolved, canvas)) errors.push({ code: 'OUTSIDE_CANVAS', elementId: resolved.id, message: 'Un élément dépasse le canevas logique.' });
     if (resolved.type === 'TEXT' && ['GUEST_NAME', 'TABLE_INFO', 'EVENT_TITLE', 'COUPLE_NAMES'].includes(String(resolved.role)) && !withinSafeArea({ ...resolved, canvasWidth: canvas.width, canvasHeight: canvas.height }, safeArea)) errors.push({ code: 'OUTSIDE_SAFE_AREA', elementId: resolved.id, message: 'Un texte essentiel dépasse la zone de sécurité.' });
     if (resolved.type === 'TEXT') {
       const fit = fitInvitationText(resolved, resolvedText);
       resolved.resolvedFontSize = fit.fontSize;
+      resolved.resolvedLineHeight = fit.lineHeight;
       resolved.resolvedLines = fit.lines;
       if (fit.reduced) warnings.push({ code: 'FONT_REDUCED', elementId: resolved.id, message: 'La taille a été réduite dans la limite configurée.' });
       if (fit.overflow) errors.push({ code: resolved.overflowPolicy === 'AI_ASSIST_ALLOWED' ? 'TEXT_OVERFLOW_ASSISTANCE_AVAILABLE' : resolved.overflowPolicy === 'USE_VARIANT' ? 'TEXT_OVERFLOW_VARIANT_REQUIRED' : 'TEXT_OVERFLOW', elementId: resolved.id, message: 'Le texte ne tient pas dans la zone du modèle.', assistanceEligible: resolved.overflowPolicy === 'AI_ASSIST_ALLOWED' });
@@ -408,7 +412,49 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId) {
 }
 
 export function scaleLogicalBounds(bounds, canvas, viewport) {
-  const scaleX = viewport.width / canvas.width;
-  const scaleY = viewport.height / canvas.height;
-  return { x: bounds.x * scaleX, y: bounds.y * scaleY, width: bounds.width * scaleX, height: bounds.height * scaleY };
+  const transform = logicalCanvasTransform(canvas, viewport);
+  return { x: bounds.x * transform.scale + transform.offsetX, y: bounds.y * transform.scale + transform.offsetY, width: bounds.width * transform.scale, height: bounds.height * transform.scale };
+}
+
+export function logicalCanvasTransform(canvas, viewport) {
+  const scale = Math.min(viewport.width / canvas.width, viewport.height / canvas.height);
+  return { scale, offsetX: (viewport.width - canvas.width * scale) / 2, offsetY: (viewport.height - canvas.height * scale) / 2 };
+}
+
+export function imageRenderBounds(layer) {
+  const x = finite(layer.x), y = finite(layer.y), width = Math.max(1, finite(layer.width, 1)), height = Math.max(1, finite(layer.height, 1));
+  const sourceWidth = Math.max(1, finite(layer.sourceWidth, 1)), sourceHeight = Math.max(1, finite(layer.sourceHeight, 1));
+  const ratio = sourceWidth / sourceHeight, boxRatio = width / height, cover = layer.fit !== 'contain';
+  const frameWidth = cover ? (ratio > boxRatio ? height * ratio : width) : (ratio > boxRatio ? width : height * ratio);
+  const frameHeight = frameWidth / ratio, cropScale = Math.max(1, Math.min(3, finite(layer.cropScale, 1)));
+  const renderedWidth = frameWidth * cropScale, renderedHeight = frameHeight * cropScale;
+  return { x: x + (width - renderedWidth) * Math.max(0, Math.min(100, finite(layer.cropX, 50))) / 100, y: y + (height - renderedHeight) * Math.max(0, Math.min(100, finite(layer.cropY, 50))) / 100, width: renderedWidth, height: renderedHeight };
+}
+
+const svgEscape = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
+/** Serialize an already-resolved tree. Assets and QR hrefs are supplied by the caller; this function performs no I/O. */
+export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '' } = {}) {
+  const { width, height } = layout.canvas;
+  const parts = [];
+  for (const layer of layout.elements) {
+    const x = finite(layer.x), y = finite(layer.y), w = finite(layer.width), h = finite(layer.height), rotation = finite(layer.rotation);
+    const transform = rotation ? ` transform="rotate(${rotation} ${x + w / 2} ${y + h / 2})"` : '';
+    if (layer.type === 'QR') {
+      parts.push(`<g${transform}><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#fff"/>${qrHref ? `<image href="${svgEscape(qrHref)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none"/>` : `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#777" stroke-dasharray="8 6"/>`}</g>`);
+    } else if (layer.type === 'IMAGE') {
+      const href = assets[layer.assetId] ?? layer.resolvedAsset?.href ?? '';
+      if (href) {
+        const bounds = imageRenderBounds(layer), clipId = `clip-${String(layer.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+        parts.push(`<defs><clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs><image href="${svgEscape(href)}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="none" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}" clip-path="url(#${clipId})"${rotation ? ` transform="rotate(${rotation} ${x + w / 2} ${y + h / 2})"` : ''}/>`);
+      }
+    } else if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE') {
+      parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${svgEscape(layer.fill === 'transparent' ? 'none' : layer.fill ?? 'none')}" stroke="${svgEscape(layer.stroke ?? 'none')}" stroke-width="${finite(layer.strokeWidth)}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}/>`);
+    } else if (layer.type === 'TEXT') {
+      const font = layer.resolvedFont ?? resolveFont(layer), size = finite(layer.resolvedFontSize, finite(layer.fontSize, 16)), lines = Array.isArray(layer.resolvedLines) ? layer.resolvedLines : [stringOrEmpty(layer.resolvedText)];
+      const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle', tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
+      const lineHeight = finite(layer.resolvedLineHeight, finite(layer.lineHeight, 1.2)), firstY = y + h / 2 - (lines.length - 1) * size * lineHeight / 2;
+      parts.push(`<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${svgEscape(line)}</tspan>`).join('')}</text>`);
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${parts.join('')}</svg>`;
 }

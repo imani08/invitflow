@@ -497,3 +497,33 @@ Ne pas exécuter `down -v` ni `prisma migrate reset`. Après migrations, faire l
 - **BLOCKED**: validation runtime PDF/DB authentifiée nécessite les services locaux et une invitation de test contrôlée; aucune donnée n’a été fabriquée pour la contourner.
 - **Validation ciblée**: tests package design-document 11/11; tests Invitations `.mjs` 8/8, dont invitation-layout 3/3; adaptateurs Designs v1→v2 et validation v2 exercés directement. Le runner Node passe en `--test-isolation=none`; typecheck Designs/Web/Invitations passe. ESLint ciblé Web passe; ESLint Designs/Invitations ne démarre pas, le plugin local `@typescript-eslint/eslint-plugin` est absent. `git diff --check` passe. Aucun Prisma schema ou migration modifié pour cette fondation.
 - **Outillage**: `pnpm` et la validation du lockfile gelé sont bloqués par `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK` (refus d’accès au verrou global dans `%LOCALAPPDATA%`). Les entrées workspace correspondantes ont été ajoutées manuellement à `pnpm-lock.yaml`; aucune dépendance externe n’a été installée.
+
+## Phase 2 — parité Preview / PDF et moteur visuel v2 — 4 octobre 2026
+
+### DONE
+- Le package partagé produit le layout résolu déterministe : texte/variables, cérémonie et champs associés, visibilité, variantes, ordre z, fit de texte/lignes, fonte du registre, asset référencé, diagnostics et géométrie logique. Aucun accès réseau/DB dans le resolver.
+- Le calcul cover/contain/crop est maintenant partagé par Web et Invitations. La transformation logique vers un viewport utilise un facteur uniforme centré et garde les proportions.
+- L’aperçu React consomme les lignes, la taille, le line-height, le poids/style de police et les valeurs résolues du resolver; les champs réels disponibles sur l’événement et ses cérémonies sont passés au snapshot. Le PDF v2 sérialise le même render tree avec les mêmes bornes, lignes et paramètres typographiques; l’URL QR est remplacée par l’URL propre à l’invitation au rendu.
+- Les snapshots/documents historiques v1 gardent le renderer précédent; aucun schéma Prisma ni migration n’a été modifié. Résolution/validation est toujours avant la réservation des crédits; Wallet/Billing ne sont pas touchés.
+- Tests ajoutés pour le renderer SVG partagé, résolution asset sans fetch, crop, rotation, opacité, z-order, transformation uniforme, accents/majuscules/ponctuation/espacement typographique et texte long. Pas de noms ni données tirés des JPG de référence.
+
+### PARTIAL
+- Web rend avec React SVG et le PDF avec le sérialiseur SVG partagé. Les valeurs, géométries, wrapping et réglages typographiques sont communs, mais une comparaison pixel-par-pixel Web/Chromium n’existe pas encore; l’antialiasing et la disponibilité des fontes système restent susceptibles de varier.
+- Le registre garde les fontes système existantes (Georgia, Arial, Times New Roman); aucune police n’est embarquée. Les valeurs de champs cérémonie absentes sont correctement omises, mais il n’y a pas encore de capture visuelle couvrant un vrai événement pour chacune des variantes 0–4.
+- Aucun changement de `pnpm-lock.yaml` ou installation n’a été nécessaire pour ces changements de code; l’acceptation du lockfile par pnpm n’a pas pu être validée.
+
+### NOT TESTED
+- Chromium réel, PDF A5 généré et inspection de pages n’ont pas été exécutés ici. Runtime Docker/DB, parcours v1 historique chargé depuis la base et test E2E invité/QR/PDF non vérifiés.
+- Les tests du service Designs TypeScript n’ont pas pu s’exécuter : le runner `tsx --test` échoue sur `spawn EPERM` avant les assertions; l’exécution Node directe ne résout pas `design-document.js` sans transpilation. Le typecheck Designs passe; aucune spec ne porte encore sur le serializer PDF dans ce package.
+
+### BLOCKED
+- La validation pnpm/lockfile (`pnpm install --lockfile-only --offline`) s’arrête avant installation sur `ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK`: Windows refuse l’ouverture de `%LOCALAPPDATA%\\pnpm-store-operation-locks\\all-stores.lock` (Accès refusé). Le store global n’a pas été supprimé ni modifié.
+- Runtime PDF/Chromium bloqué par l’absence de lancement Docker/runtime dans cette session.
+
+### Validation ciblée
+- `packages/design-document`: 13/13 tests OK.
+- `services/invitations/src/*.spec.mjs`: 8/8 tests OK.
+- Typechecks Web, Designs et Invitations: OK (`tsc --noEmit --incremental false`).
+- ESLint ciblé Web: OK sans sortie/diagnostic.
+- `git diff --check`: OK (seuls avertissements Git de conversion LF/CRLF sur fichiers concernés).
+- ESLint Invitations ciblé: OK. ESLint Designs ciblé: deux erreurs `no-explicit-any` préexistantes dans `src/design-document.ts` (lignes 241 et 244), fichier non modifié dans cette phase. Build/runtime Chromium non validés dans cette passe.

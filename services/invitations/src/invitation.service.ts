@@ -26,6 +26,7 @@ import { requiredEnv } from './env.js';
 import { invitationIdFromToken, invitationToken } from './invitation-token.mjs';
 import { renderInvitationImage } from './invitation-image-render.mjs';
 import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
+import { renderResolvedLayoutSvg } from '@invitaflow/design-document';
 
 type Obj = Record<string, unknown>;
 const object = (v: unknown): Obj =>
@@ -1352,7 +1353,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       if (typeof key !== 'string' || !['image/webp', 'image/png'].includes(String(mimeType))) throw new Error('Invitation image snapshot is missing');
       imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType)));
     }
-    const layers = renderElements
+    const legacyLayers = renderElements
       .map((value: unknown) => {
         const layer = object(value);
         const x = Number(layer.x) || 0;
@@ -1384,9 +1385,12 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         return `<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${esc(object(layer.resolvedFont).family ?? layer.fontFamily ?? 'Georgia')}" font-size="${fontSize}" font-weight="${Number(layer.fontWeight) || 400}" fill="${esc(layer.color ?? '#29251f')}"${transform}>${fit.lines.map((line: string, index: number) => `<tspan x="${tx}" dy="${index ? fontSize * fit.lineHeight : 0}">${esc(line)}</tspan>`).join('')}</text>`;
       })
       .join('');
+    const layers = doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements)
+      ? renderResolvedLayoutSvg({ ...resolvedLayout, elements: resolvedLayout.elements.map((element: Obj) => element.binding === 'qr.url' ? { ...element, resolvedText: qrTarget, resolvedLines: [qrTarget] } : element) } as never, { assets: Object.fromEntries(imageData), qrHref: 'file://QR_FILE' })
+      : legacyLayers;
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
     const hasDesignQr = renderElements.some((item: unknown) => object(item).type === 'QR');
-    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img">${layers}</svg>` : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
+    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');
     const output = join(dir, 'invitation.pdf');

@@ -4,13 +4,13 @@ import AppNavbar from '@/components/AppNavbar';
 import Image from 'next/image';
 import Link from 'next/link';
 import { resolveGuestPreviewValues } from '@/lib/design-guest-preview.mjs';
-import { resolveDesignLayout } from '@invitaflow/design-document';
+import { imageRenderBounds, resolveDesignLayout } from '@invitaflow/design-document';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type Layer = Record<string, unknown> & { id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE' | 'IMAGE' | 'QR'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; source?: 'guest_access_token'; assetId?: string; originalAssetId?: string; derivedAssetId?: string; sourceWidth?: number; sourceHeight?: number; fit?: 'cover' | 'contain'; cropX?: number; cropY?: number; cropScale?: number; opacity?: number; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
 type Document = { schemaVersion: 1; metadata: Record<string, unknown>; canvas: { width: number; height: number; unit: 'px' }; theme: { category: string; style: string; palette: string[]; tokens: { primary: string; secondary: string; background: string; font: string } }; assets: Record<string, unknown>[]; elements: Layer[]; variables: { key: string; label: string; type: 'TEXT'; defaultValue: string; required: boolean }[]; constraints: { safeMargin: number | { top: number; right: number; bottom: number; left: number }; allowOverflow: boolean }; layouts: { id: string; name: string; width: number; height: number }[]; ceremonyRules: Record<string, unknown>[]; exportProfiles: { id: string; width: number; height: number; unit: 'px' }[]; version: number };
-type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
+type Event = { id: string; name: string; status: string; timezone: string; startAt?: string | null; venue?: string | null; coupleNames?: string | null; invitationText?: string | null; ceremonies: { id: string; name: string; ceremonyType: string; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null }[] };
 type PreviewGuest = { id: string; fullName: string; email: string | null; phone: string | null };
 type Template = { id: string; slug: string; version: number; name: string; description: string; category: string; style: string; tags: string[]; ceremonyTypes: string[]; preview: { background: string; accent: string; style: string } };
 type Design = { id: string; name: string; templateSlug: string | null; version: number; document: Document; createdAt: string; updatedAt: string };
@@ -31,46 +31,12 @@ async function api<T>(eventId: string, path: string, method = 'GET', data?: unkn
 }
 
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T; }
-function renderText(text: string, values: Record<string, string>) {
-  return text.replace(/\{\{([a-zA-Z][a-zA-Z0-9_]*)\}\}/g, (_, key: string) => values[key] ?? '');
-}
-
-function wrapText(text: string, capacity: number) {
-  const rows: string[] = [];
-  for (const paragraph of text.split('\n')) {
-    let row = '';
-    for (const word of paragraph.split(/\s+/)) {
-      if (row && `${row} ${word}`.length > capacity) { rows.push(row); row = word; }
-      else row = row ? `${row} ${word}` : word;
-      while (row.length > capacity) { rows.push(row.slice(0, capacity)); row = row.slice(capacity); }
-    }
-    rows.push(row);
-  }
-  return rows.length ? rows : [''];
-}
-
 function svgRect(layer: Layer, scale: number, key: string) {
   return <rect key={key} x={layer.x * scale} y={layer.y * scale} width={layer.width * scale} height={layer.height * scale} fill={layer.fill === 'transparent' ? 'none' : layer.fill} stroke={layer.stroke} strokeWidth={(layer.strokeWidth ?? 0) * scale} />;
 }
 
 function imageBounds(layer: Layer) {
-  const sourceWidth = layer.sourceWidth ?? layer.width;
-  const sourceHeight = layer.sourceHeight ?? layer.height;
-  const ratio = sourceWidth / sourceHeight;
-  const boxRatio = layer.width / layer.height;
-  const baseWidth = (layer.fit ?? 'cover') === 'cover'
-    ? (ratio > boxRatio ? layer.height * ratio : layer.width)
-    : (ratio > boxRatio ? layer.width : layer.height * ratio);
-  const baseHeight = baseWidth / ratio;
-  const scale = Math.max(1, layer.cropScale ?? 1);
-  const width = baseWidth * scale;
-  const height = baseHeight * scale;
-  return {
-    x: layer.x + (layer.width - width) * ((layer.cropX ?? 50) / 100),
-    y: layer.y + (layer.height - height) * ((layer.cropY ?? 50) / 100),
-    width,
-    height,
-  };
+  return imageRenderBounds(layer);
 }
 
 function ImageInspector({ layer, canvas, uploading, backgroundStatus, backgroundDerivedAssetId, onRemoveBackground, onUseOriginal, onUseDerived, onRetryBackground, onReplace, onDelete, onChange }: {
@@ -589,10 +555,11 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   const resolvedPreview = selected ? resolveDesignLayout(selected.document, {
     guest: { name: previewGuest?.fullName ?? '', email: previewGuest?.email ?? '' },
     table: { name: previewTableName },
-    event: { title: event.name },
-    ceremonies: event.ceremonies.map((ceremony) => ({ name: ceremony.name })),
+    event: { title: event.name, date: event.startAt ?? null, venue: event.venue ?? null, coupleNames: event.coupleNames ?? null, invitationText: event.invitationText ?? null },
+    ceremonies: event.ceremonies.map((ceremony) => ({ name: ceremony.name, date: ceremony.date ?? null, time: ceremony.time ?? null, venue: ceremony.venue ?? null, address: ceremony.address ?? null, reference: ceremony.reference ?? null, dressCode: ceremony.dressCode ?? null })),
     qr: { available: false },
-  }) : null;
+    variables: variableMap,
+  }, undefined, imageUrls) : null;
   const resolvedBySourceId = new Map((resolvedPreview?.elements ?? []).map((element) => [element['sourceElementId'] ?? element['id'], element]));
   const canvas = selected?.document.canvas;
   const rawSafeMargin = selected?.document.constraints.safeMargin ?? 64;
@@ -638,7 +605,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
                 {layer.type === 'SHAPE' && svgRect(layer, 1, `${layer.id}-shape`)}
                 {layer.type === 'IMAGE' && <>{imageUrls[layer.assetId ?? ''] ? <><defs><clipPath id={`clip-${layer.id}`}><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} /></clipPath></defs><image href={imageUrls[layer.assetId ?? '']} {...imageBounds(layer)} preserveAspectRatio="none" opacity={layer.opacity ?? 1} clipPath={`url(#clip-${layer.id})`} /></> : <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} rx={12} fill="#f2eadf" stroke="#b58b58" strokeDasharray="12 8" /><text x={layer.x + layer.width / 2} y={layer.y + layer.height / 2} textAnchor="middle" dominantBaseline="middle" fontFamily="Arial" fontSize={Math.min(28, layer.width / 12)} fill="#59465a">{Object.hasOwn(imageUrls, layer.assetId ?? '') ? 'Aperçu indisponible' : 'Chargement photo…'}</text></>}</>}
                 {layer.type === 'QR' && <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="#f7f3ed" stroke="#8d7c91" strokeWidth={3 / fontScale} strokeDasharray={`${12 / fontScale} ${8 / fontScale}`} /><text x={layer.x + layer.width / 2} y={layer.y + layer.height / 2} textAnchor="middle" dominantBaseline="middle" fontFamily="Arial" fontSize={Math.max(10, layer.width * 0.09)} fill="#62576a">Emplacement QR</text><text x={layer.x + layer.width / 2} y={layer.y + layer.height * 0.68} textAnchor="middle" fontFamily="Arial" fontSize={Math.max(8, layer.width * 0.045)} fill="#62576a">ajouté au rendu invité</text></>}
-                {layer.type === 'TEXT' && <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="transparent" /><text x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} y={layer.y + layer.height / 2} dominantBaseline="middle" textAnchor={layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle'} fontFamily={resolvedBySourceId.get(layer.id)?.resolvedFont?.family ?? layer.fontFamily} fontSize={resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize} fontWeight={layer.fontWeight} fill={layer.color}>{wrapText(resolvedBySourceId.get(layer.id)?.['resolvedText'] ?? renderText(layer.text ?? '', variableMap), Math.max(1, Math.floor(layer.width / (((resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize) || 16) * 0.58)))).map((line, index, lines) => <tspan key={index} x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} dy={index === 0 ? `${-((lines.length - 1) * ((resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize) || 16) * 1.2) / 2}px` : `${((resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize) || 16) * 1.2}px`}>{line}</tspan>)}</text></>}
+                {layer.type === 'TEXT' && <><rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="transparent" /><text x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} y={layer.y + layer.height / 2} dominantBaseline="middle" textAnchor={layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle'} fontFamily={`${resolvedBySourceId.get(layer.id)?.resolvedFont?.family ?? layer.fontFamily}, ${resolvedBySourceId.get(layer.id)?.resolvedFont?.fallback ?? 'serif'}`} fontSize={resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize} fontWeight={resolvedBySourceId.get(layer.id)?.['resolvedFontWeight'] ?? layer.fontWeight} fontStyle={String(resolvedBySourceId.get(layer.id)?.['resolvedFontStyle'] ?? 'normal')} letterSpacing={layer['letterSpacing'] as number | undefined} fill={layer.color} opacity={layer.opacity ?? 1}>{((resolvedBySourceId.get(layer.id)?.['resolvedLines'] as string[] | undefined) ?? ['']).map((line, index, lines) => { const size = Number(resolvedBySourceId.get(layer.id)?.['resolvedFontSize'] ?? layer.fontSize) || 16; const lineHeight = Number(resolvedBySourceId.get(layer.id)?.['resolvedLineHeight'] ?? layer['lineHeight']) || 1.2; return <tspan key={index} x={layer.align === 'left' ? layer.x : layer.align === 'right' ? layer.x + layer.width : layer.x + layer.width / 2} dy={index === 0 ? `${-((lines.length - 1) * size * lineHeight) / 2}px` : `${size * lineHeight}px`}>{line}</tspan>; })}</text></>}
                 {isActive && layer.type !== 'BACKGROUND' && <rect x={layer.x} y={layer.y} width={layer.width} height={layer.height} fill="none" stroke="#ba8065" strokeWidth={4 / fontScale} strokeDasharray={`${8 / fontScale} ${6 / fontScale}`} pointerEvents="none" />}
               </g>;
             })}

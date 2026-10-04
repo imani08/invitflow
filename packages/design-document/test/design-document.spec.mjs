@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { fitInvitationText, isAllowedBinding, normalizeDesignDocumentV2, resolveDesignLayout, scaleLogicalBounds, validateDesignDocumentV2 } from '../src/index.mjs';
+import { fitInvitationText, imageRenderBounds, isAllowedBinding, logicalCanvasTransform, normalizeDesignDocumentV2, renderResolvedLayoutSvg, resolveDesignLayout, scaleLogicalBounds, validateDesignDocumentV2 } from '../src/index.mjs';
 
 const fixture = async (name) => JSON.parse(await readFile(resolve(import.meta.dirname, 'fixtures', name), 'utf8'));
 
@@ -97,4 +97,32 @@ test('legacy ceremony placeholders still receive the ordered ceremony names', as
 
 test('logical bounds scale uniformly from the canvas coordinates', () => {
   assert.deepEqual(scaleLogicalBounds({ x: 10, y: 20, width: 100, height: 40 }, { width: 1000, height: 2000 }, { width: 500, height: 1000 }), { x: 5, y: 10, width: 50, height: 20 });
+  assert.deepEqual(logicalCanvasTransform({ width: 1000, height: 2000 }, { width: 1000, height: 1000 }), { scale: 0.5, offsetX: 250, offsetY: 0 });
+  assert.deepEqual(scaleLogicalBounds({ x: 0, y: 0, width: 100, height: 100 }, { width: 1000, height: 2000 }, { width: 1000, height: 1000 }), { x: 250, y: 0, width: 50, height: 50 });
+});
+
+test('shared SVG renderer uses resolved lines, typography, crop, rotation, opacity and z-order', async () => {
+  const document = await fixture('portrait-two-ceremonies-v2.json');
+  const image = { id: 'photo', type: 'IMAGE', x: 100, y: 200, width: 400, height: 300, sourceWidth: 1200, sourceHeight: 800, fit: 'cover', cropX: 25, cropY: 70, cropScale: 1.4, opacity: 0.6, rotation: 12, assetId: 'asset-a', zIndex: 5 };
+  document.elements.push(image);
+  const layout = resolveDesignLayout(document, { guest: { name: 'Éléonore Alexandra de la Très Longue Famille — O’Connor!' }, ceremonies: [{ name: 'Cérémonie civile', date: '2026-10-04', time: '09:30', venue: 'Église Saint-Jean', address: 'Avenue des Érables', reference: 'Réf. A-4', dressCode: 'Élégance' }, { name: 'Réception' }] }, undefined, { 'asset-a': 'blob:test-photo' });
+  const guest = layout.elements.find((element) => element.id === 'guest');
+  assert.ok(guest.resolvedLines.length >= 1);
+  assert.equal(guest.resolvedFontWeight, 400);
+  assert.equal(layout.elements.find((element) => element.id === 'photo').resolvedAsset.href, 'blob:test-photo');
+  assert.deepEqual(imageRenderBounds(image), { x: 42.5, y: 116, width: 630, height: 420 });
+  const svg = renderResolvedLayoutSvg(layout);
+  assert.match(svg, /preserveAspectRatio="xMidYMid meet"/);
+  assert.match(svg, /blob:test-photo/);
+  assert.match(svg, /letter-spacing=/);
+  assert.match(svg, /rotate\(12 300 350\)/);
+  assert.ok(svg.indexOf('background') < svg.indexOf('photo'));
+});
+
+test('text fitting is deterministic for accents, upper case, punctuation and long copy including spacing', () => {
+  const layer = { width: 720, height: 210, preferredFontSize: 40, minFontSize: 18, maxLines: 5, lineHeight: 1.25, letterSpacing: 1, overflowPolicy: 'SHRINK_WITH_LIMIT' };
+  const copy = 'ÉLÉONORE — Cérémonie, célébration & réception : bienvenue à toutes et tous !';
+  assert.deepEqual(fitInvitationText(layer, copy), fitInvitationText(layer, copy));
+  assert.equal(fitInvitationText(layer, 'Ada').overflow, false);
+  assert.ok(fitInvitationText(layer, copy).lines.every((line) => line.length > 0));
 });
