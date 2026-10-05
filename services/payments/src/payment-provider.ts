@@ -1,14 +1,23 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { FlexPayProvider } from './providers/flexpay/flexpay.provider.js';
+import { EasyPayProvider } from './providers/easypay/easypay.provider.js';
 
-export type PaymentSnapshot = { id: string; amountMinor: number; currency: string; packName: string; ownerSubject: string };
+export type PaymentChannel = 'CARD_ONLY' | 'MOBILE_MONEY_ONLY' | 'CARD_AND_MOBILE_MONEY';
+export type PaymentLanguage = 'FR' | 'EN';
+export type PaymentSnapshot = {
+  id: string; amountMinor: number; currency: string; packName: string; ownerSubject: string;
+  providerOrderRef?: string; customerName?: string; customerEmail?: string; channel?: PaymentChannel;
+  language?: PaymentLanguage; successUrl?: string; cancelUrl?: string; errorUrl?: string; ipnUrl?: string;
+};
 export type ProviderCheckout = { checkoutUrl: string | null; providerReference: string | null };
-export type ProviderConfirmation = { reference: string; transactionId: string; status: 'SUCCEEDED' | 'FAILED' | 'PROCESSING'; providerStatus: string; amountMinor: number; currency: string };
+export type ProviderConfirmation = { reference: string; transactionId: string; status: 'SUCCEEDED' | 'FAILED' | 'PROCESSING' | 'CANCELLED' | 'EXPIRED'; providerStatus: string; amountMinor: number; currency: string; providerOrderRef?: string; providerReference?: string };
 export type ProviderRefund = { status: 'REFUND_PENDING' | 'REFUNDED'; providerRefundId: string | null };
 
 export interface PaymentProvider {
   readonly name: string;
+  createOrderReference?(): string;
+  extractNotificationReference?(body: unknown): string;
   validateCheckout?(amountMinor: number, currency: string): void;
   createPayment(payment: PaymentSnapshot): Promise<ProviderCheckout>;
   verifyPayment(request: { headers: Record<string, string | string[] | undefined>; body: unknown }): Promise<ProviderConfirmation>;
@@ -56,5 +65,6 @@ export function selectedProvider(): PaymentProvider {
     return new MockPaymentProvider();
   }
   if (selected === 'flexpay') return new FlexPayProvider();
+  if (selected === 'easypay') return new EasyPayProvider();
   throw new Error(`Unsupported PAYMENT_PROVIDER: ${selected}`);
 }

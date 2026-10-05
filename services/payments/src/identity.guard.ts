@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from './env.js';
 
-export type PaymentIdentity = { subject: string; email: string; roles: string[] };
+export type PaymentIdentity = { subject: string; email: string; name: string; roles: string[] };
 export type AuthenticatedRequest = FastifyRequest & { identity?: PaymentIdentity };
 
 @Injectable()
@@ -22,7 +22,9 @@ export class IdentityGuard implements CanActivate {
       if (typeof payload['sub'] !== 'string' || payload['azp'] !== this.clientId || payload['email_verified'] !== true || typeof payload['email'] !== 'string') throw new Error('Invalid identity claims');
       const access = payload['realm_access'];
       const roles = access && typeof access === 'object' && 'roles' in access && Array.isArray(access.roles) ? access.roles.filter((role): role is string => typeof role === 'string') : [];
-      request.identity = { subject: payload['sub'], email: payload['email'].toLowerCase(), roles };
+      const names = [payload['given_name'], payload['family_name']].filter((value): value is string => typeof value === 'string' && !!value.trim());
+      const claimedName = typeof payload['name'] === 'string' && payload['name'].trim() ? payload['name'].trim() : names.join(' ');
+      request.identity = { subject: payload['sub'], email: payload['email'].toLowerCase(), name: claimedName.slice(0, 120), roles };
       return true;
     } catch { throw new UnauthorizedException('Invalid or expired identity token'); }
   }

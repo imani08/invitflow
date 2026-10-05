@@ -11,12 +11,26 @@ export class PaymentsController {
 
   @Post()
   create(@Req() request: AuthenticatedRequest, @Headers('authorization') authorization: string, @Headers('idempotency-key') key: string, @Body() body: unknown) {
-    return this.payments.create(request.identity!.subject, authorization, key, body);
+    return this.payments.create(request.identity!.subject, authorization, key, body, { name: request.identity!.name, email: request.identity!.email });
   }
 
   @Get('/me') list(@Req() request: AuthenticatedRequest, @Query('limit') limit?: string, @Query('cursor') cursor?: string) { return this.payments.list(request.identity!.subject, limit, cursor); }
   @Get('/:paymentId') get(@Req() request: AuthenticatedRequest, @Param('paymentId') paymentId: string) { return this.payments.get(request.identity!.subject, paymentId); }
+  @Get('/:paymentId/status') status(@Req() request: AuthenticatedRequest, @Param('paymentId') paymentId: string) { return this.payments.reconcilePayment(request.identity!.subject, paymentId); }
   @Post('/:paymentId/mock-confirm') mockConfirm(@Req() request: AuthenticatedRequest, @Param('paymentId') paymentId: string) { return this.payments.mockConfirm(request.identity!.subject, paymentId); }
+}
+
+@Controller('/v1/payments/providers/easypay')
+export class EasyPayIpnController {
+  constructor(private readonly payments: PaymentsService) {}
+
+  @Post('/ipn')
+  @HttpCode(200)
+  receive(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    if (!request.headers['content-type']?.toLowerCase().startsWith('application/json')) throw new BadRequestException('Le format de notification EasyPay doit être JSON.');
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Notification EasyPay invalide.');
+    return this.payments.easyPayIpn(body);
+  }
 }
 
 @Controller('/v1/payments/webhooks')

@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 
 type Pack = { id: string; key: string; name: string; credits: number; priceMinor: number; currency: string };
 type Payment = { id: string; status: string; provider: string; checkoutUrl: string | null; failureCode: string | null; createdAt: string; mockConfirmationAvailable: boolean; order: { packName: string; credits: number; amountMinor: number; currency: string; priceScheduleVersion: number } };
+type PaymentChannel = 'CARD_ONLY' | 'MOBILE_MONEY_ONLY' | 'CARD_AND_MOBILE_MONEY';
 
 export function PaymentActions({ packs, payments, scheduleVersion }: { packs: Pack[]; payments: Payment[]; scheduleVersion: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [selectedPack, setSelectedPack] = useState<Pack | null>(null);
+  const [channel, setChannel] = useState<PaymentChannel>('CARD_AND_MOBILE_MONEY');
   const [pollError, setPollError] = useState('');
   const inFlight = useRef(false);
   const idempotencyKeys = useRef(new Map<string, string>());
@@ -39,17 +41,18 @@ export function PaymentActions({ packs, payments, scheduleVersion }: { packs: Pa
     return () => { active = false; window.clearInterval(timer); };
   }, [payments, router]);
 
-  async function buy(pack: Pack) {
+  async function buy(pack: Pack, paymentChannel: PaymentChannel) {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(pack.id); setMessage('');
     try {
-      const idempotencyKey = idempotencyKeys.current.get(pack.id) ?? crypto.randomUUID();
-      idempotencyKeys.current.set(pack.id, idempotencyKey);
-      const response = await fetch('/api/payments', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey }, body: JSON.stringify({ packId: pack.id }) });
+      const idempotencySlot = `${pack.id}:${paymentChannel}`;
+      const idempotencyKey = idempotencyKeys.current.get(idempotencySlot) ?? crypto.randomUUID();
+      idempotencyKeys.current.set(idempotencySlot, idempotencyKey);
+      const response = await fetch('/api/payments', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': idempotencyKey }, body: JSON.stringify({ packId: pack.id, channel: paymentChannel }) });
       const payment = await response.json() as Payment & { error?: string };
       if (!response.ok) throw new Error(payment.error === 'payments_service_unavailable' ? 'Le service de paiement est momentanément indisponible.' : 'La commande n’a pas pu être créée. Réessayez.');
-      idempotencyKeys.current.delete(pack.id);
+      idempotencyKeys.current.delete(idempotencySlot);
       if (payment.checkoutUrl) { window.location.assign(payment.checkoutUrl); return; }
       if (payment.mockConfirmationAvailable) { setMessage(`Commande ${payment.id} créée. Confirmez le paiement de test dans l’historique ci-dessous.`); window.location.reload(); return; }
       setMessage('Commande créée. En attente de la confirmation du prestataire.'); window.location.reload();
@@ -72,14 +75,15 @@ export function PaymentActions({ packs, payments, scheduleVersion }: { packs: Pa
     <div className="wallet-packs">{packs.map((pack) => <article className="wallet-pack" key={pack.id}>
       <span>{pack.name}</span><strong>{pack.credits.toLocaleString('fr-FR')} crédits</strong><b>{formatMoney(pack.priceMinor, pack.currency)}</b>
       <small>Tarif version {scheduleVersion}</small>
-      <button type="button" disabled={busy !== null} onClick={() => { setSelectedPack(pack); setMessage(''); }}>{busy === pack.id ? 'Préparation…' : 'Choisir ce pack'}</button>
+      <button type="button" disabled={busy !== null} onClick={() => { setSelectedPack(pack); setChannel('CARD_AND_MOBILE_MONEY'); setMessage(''); }}>{busy === pack.id ? 'Préparation…' : 'Choisir ce pack'}</button>
     </article>)}</div>
     {selectedPack && <div className="wallet-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && busy === null) setSelectedPack(null); }}>
       <section className="wallet-confirm" role="dialog" aria-modal="true" aria-labelledby="wallet-confirm-title">
         <span className="eyebrow">RÉCAPITULATIF</span><h2 id="wallet-confirm-title">Confirmer votre achat</h2>
         <dl><div><dt>Pack</dt><dd>{selectedPack.name}</dd></div><div><dt>Crédits ajoutés après confirmation</dt><dd>{selectedPack.credits.toLocaleString('fr-FR')} crédits</dd></div><div><dt>Montant à payer</dt><dd>{formatMoney(selectedPack.priceMinor, selectedPack.currency)}</dd></div></dl>
+        <fieldset className="wallet-payment-channels"><legend>Moyen de paiement</legend><label><input type="radio" name="payment-channel" checked={channel === 'CARD_AND_MOBILE_MONEY'} onChange={() => setChannel('CARD_AND_MOBILE_MONEY')} />Carte ou Mobile Money</label><label><input type="radio" name="payment-channel" checked={channel === 'CARD_ONLY'} onChange={() => setChannel('CARD_ONLY')} />Carte bancaire</label><label><input type="radio" name="payment-channel" checked={channel === 'MOBILE_MONEY_ONLY'} onChange={() => setChannel('MOBILE_MONEY_ONLY')} />Mobile Money</label></fieldset>
         <p>Les crédits seront ajoutés uniquement après confirmation du paiement par le serveur.</p>
-        <div className="wallet-confirm-actions"><button type="button" className="wallet-cancel" disabled={busy !== null} onClick={() => setSelectedPack(null)}>Retour</button><button type="button" disabled={busy !== null} onClick={() => void buy(selectedPack)}>{busy === selectedPack.id ? 'Création sécurisée…' : 'Continuer vers le paiement'}</button></div>
+        <div className="wallet-confirm-actions"><button type="button" className="wallet-cancel" disabled={busy !== null} onClick={() => setSelectedPack(null)}>Retour</button><button type="button" disabled={busy !== null} onClick={() => void buy(selectedPack, channel)}>{busy === selectedPack.id ? 'Création sécurisée…' : 'Continuer vers le paiement'}</button></div>
       </section>
     </div>}
     <section className="wallet-orders"><div className="wallet-section-title"><div><span className="eyebrow">COMMANDES</span><h2>Historique des paiements</h2></div><small>Le portefeuille est crédité après vérification côté serveur.</small></div>

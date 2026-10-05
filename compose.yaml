@@ -991,12 +991,18 @@ services:
       KEYCLOAK_AUDIENCE: payments-api
       BILLING_SERVICE_URL: http://billing:3010
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
       FLEXPAY_ENV: ${FLEXPAY_ENV:-sandbox}
       FLEXPAY_BASE_URL: ${FLEXPAY_BASE_URL:-CHANGE_ME}
       FLEXPAY_MERCHANT_CODE: ${FLEXPAY_MERCHANT_CODE:-CHANGE_ME}
       FLEXPAY_AUTH_TOKEN: ${FLEXPAY_AUTH_TOKEN:-CHANGE_ME}
       FLEXPAY_CALLBACK_URL: ${FLEXPAY_CALLBACK_URL:-https://your-domain.example/v1/payments/webhooks/flexpay}
       FLEXPAY_RETURN_URL: ${FLEXPAY_RETURN_URL:-https://your-domain.example/account/wallet}
+      EASYPAY_ENV: ${EASYPAY_ENV:-sandbox}
+      EASYPAY_BASE_URL: ${EASYPAY_BASE_URL:-https://www.e-com-easypay.com}
+      EASYPAY_CID: ${EASYPAY_CID:-}
+      EASYPAY_TOKEN: ${EASYPAY_TOKEN:-}
+      EASYPAY_IPN_URL: ${EASYPAY_IPN_URL:-}
       RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
       RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}

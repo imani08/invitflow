@@ -773,6 +773,7 @@ class PaymentsProxyController {
   ) {
     return this.proxy(request, reply);
   }
+  @All('/:paymentId/status') status(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/:paymentId') detail(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
@@ -814,6 +815,27 @@ class PaymentsProxyController {
     } catch {
       return reply.code(503).send({ error: 'payments_service_unavailable' });
     }
+  }
+}
+
+@Controller('/api/payments/providers')
+class EasyPayIpnProxyController {
+  @Post('/easypay/ipn')
+  async receive(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    const contentType = request.headers['content-type'];
+    const length = Number(request.headers['content-length'] ?? 0);
+    if (typeof contentType !== 'string' || !contentType.toLowerCase().startsWith('application/json')) return reply.code(415).send({ error: 'unsupported_media_type' });
+    if (Number.isFinite(length) && length > 64 * 1024) return reply.code(413).send({ error: 'payload_too_large' });
+    if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body)) return reply.code(400).send({ error: 'invalid_ipn' });
+    const body = JSON.stringify(request.body);
+    if (Buffer.byteLength(body) > 64 * 1024) return reply.code(413).send({ error: 'payload_too_large' });
+    try {
+      const upstream = await fetch(`${requiredEnv('PAYMENTS_SERVICE_URL').replace(/\/$/, '')}/v1/payments/providers/easypay/ipn`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body, cache: 'no-store', signal: AbortSignal.timeout(12_000),
+      });
+      const payload = await upstream.json().catch(() => ({ error: 'invalid_payments_response' }));
+      return reply.code(upstream.status).send(payload);
+    } catch { return reply.code(503).send({ error: 'payments_service_unavailable' }); }
   }
 }
 
@@ -1246,6 +1268,7 @@ class ModerationProxyController {
     WalletProxyController,
     BillingProxyController,
     PaymentsProxyController,
+    EasyPayIpnProxyController,
     PartnersProxyController,
     PartnerAdminProxyController,
     NotificationsProxyController,

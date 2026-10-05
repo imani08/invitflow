@@ -9,7 +9,7 @@
     "start": "pnpm prisma:migrate:deploy && node dist/src/main.js",
     "lint": "eslint --ignore-pattern generated/** --ignore-pattern dist/** --ext .ts .",
     "typecheck": "pnpm prisma:generate && tsc --noEmit -p tsconfig.json",
-    "test": "tsx --test src/payments-list.spec.ts src/payments-checkout.spec.ts src/partners-commission.spec.ts src/partners.service.spec.ts src/providers/flexpay/flexpay.provider.spec.ts",
+    "test": "tsx --test src/payments-list.spec.ts src/payments-checkout.spec.ts src/partners-commission.spec.ts src/partners.service.spec.ts src/providers/flexpay/flexpay.provider.spec.ts src/providers/easypay/easypay.provider.spec.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy"
   },

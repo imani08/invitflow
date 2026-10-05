@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import { validUuid } from './env.js';
 import { PrismaService } from './prisma.service.js';
-import { MockPaymentProvider, selectedProvider, type PaymentProvider, type PaymentSnapshot, type ProviderConfirmation } from './payment-provider.js';
+import { MockPaymentProvider, selectedProvider, type PaymentChannel, type PaymentLanguage, type PaymentProvider, type PaymentSnapshot, type ProviderConfirmation } from './payment-provider.js';
 
 const keyPattern = /^[A-Za-z0-9._:@/-]{1,200}$/;
 const POSTGRES_INT_MAX = 2_147_483_647;
@@ -23,6 +23,15 @@ function duplicate(error: unknown) { return !!error && typeof error === 'object'
 function key(value: unknown) {
   if (typeof value !== 'string' || !keyPattern.test(value)) throw new BadRequestException('La clé Idempotency-Key est obligatoire et invalide.');
   return value;
+}
+function requestedChannel(value: unknown): PaymentChannel {
+  if (value === undefined) return 'CARD_AND_MOBILE_MONEY';
+  if (value === 'CARD_ONLY' || value === 'MOBILE_MONEY_ONLY' || value === 'CARD_AND_MOBILE_MONEY') return value;
+  throw new BadRequestException('Le moyen de paiement sélectionné est invalide.');
+}
+function orderChannel(metadata: unknown): PaymentChannel {
+  const saved = metadata && typeof metadata === 'object' && 'paymentChannel' in metadata ? (metadata as Record<string, unknown>)['paymentChannel'] : undefined;
+  return saved === 'CARD_ONLY' || saved === 'MOBILE_MONEY_ONLY' ? saved : 'CARD_AND_MOBILE_MONEY';
 }
 
 @Injectable()
@@ -61,9 +70,10 @@ export class PaymentsService {
     return quote;
   }
 
-  async create(ownerSubject: string, authorization: string, rawKey: string, body: unknown) {
+  async create(ownerSubject: string, authorization: string, rawKey: string, body: unknown, customer: { name: string; email: string } = { name: '', email: '' }) {
     const idempotencyKey = key(rawKey); const input = object(body);
-    if (Object.keys(input).some((field) => !['packId', 'quantity', 'orderType', 'businessReference', 'expectedPriceScheduleId', 'expectedPriceScheduleVersion'].includes(field))) throw new BadRequestException('Champs de commande non autorisés.');
+    if (Object.keys(input).some((field) => !['packId', 'quantity', 'orderType', 'businessReference', 'expectedPriceScheduleId', 'expectedPriceScheduleVersion', 'channel'].includes(field))) throw new BadRequestException('Champs de commande non autorisés.');
+    const channel = requestedChannel(input['channel']);
     if (typeof input['packId'] !== 'string') throw new BadRequestException('Le pack demandé est invalide.');
     const orderType = input['orderType'] === undefined ? 'CREDIT_PURCHASE' : input['orderType'];
     if (orderType !== 'CREDIT_PURCHASE' && orderType !== 'AGENCY_SUBSCRIPTION') throw new BadRequestException('Le type de commande est invalide.');
@@ -77,7 +87,7 @@ export class PaymentsService {
     const quantity = input['quantity'] === undefined ? 1 : input['quantity'];
     if (!Number.isSafeInteger(quantity) || (quantity as number) < 1 || (quantity as number) > 100) throw new BadRequestException('La quantité doit être comprise entre 1 et 100.');
     let order = await this.prisma.paymentOrder.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject, idempotencyKey } }, include: { payment: true } });
-    if (order && (order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion)))) throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre commande.');
+    if (order && (order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || orderChannel(order.metadata) !== channel || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion)))) throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre commande.');
     if (!order) {
       const quote = await this.checkoutQuote(authorization, packId, quantity as number, orderType);
       if (orderType === 'AGENCY_SUBSCRIPTION' && (quote.priceScheduleId !== expectedScheduleId || quote.priceScheduleVersion !== expectedScheduleVersion)) throw new ConflictException('Agency plan pricing changed; reload the plan before checkout');
@@ -86,7 +96,7 @@ export class PaymentsService {
         order = await this.prisma.$transaction(async (tx) => {
           const createdOrder = await tx.paymentOrder.create({ data: {
             orderType, businessReference: businessReference ?? null, ownerSubject, packId, packKey: quote.packKey, packName: quote.packName, credits: quote.credits,
-              metadata: { packId: quote.packId, packKey: quote.packKey, orderType, periodDays: quote.periodDays, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion },
+            metadata: { packId: quote.packId, packKey: quote.packKey, orderType, periodDays: quote.periodDays, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion, paymentChannel: channel },
             unitCredits: quote.unitCredits, quantity: quote.quantity, unitPriceMinor: quote.unitPriceMinor,
             discountMinor: quote.discountMinor, discountRule: quote.discountRule,
             taxEnabled: quote.taxEnabled, taxRule: quote.taxRule, taxRateBps: quote.taxRateBps, taxMinor: quote.taxMinor,
@@ -101,26 +111,51 @@ export class PaymentsService {
       } catch (error) {
         if (!duplicate(error)) throw error;
         order = await this.prisma.paymentOrder.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject, idempotencyKey } }, include: { payment: true } });
-        if (!order || order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion))) throw new ConflictException('La clé de commande existe déjà.');
+        if (!order || order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || orderChannel(order.metadata) !== channel || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion))) throw new ConflictException('La clé de commande existe déjà.');
       }
     }
     if (!order?.payment) throw new ConflictException('La commande ne possède pas de paiement associé.');
     let payment = order.payment;
     const checkoutRecoveryBefore = new Date(Date.now() - 60_000);
-    const canStartCheckout = payment.status === 'CREATED' || (payment.status === 'PROCESSING' && payment.checkoutUrl === null && payment.updatedAt < checkoutRecoveryBefore);
+    const canStartCheckout = payment.status === 'CREATED' || (payment.status === 'PROCESSING' && payment.checkoutUrl === null && !payment.providerOrderRef && payment.updatedAt < checkoutRecoveryBefore);
     if (canStartCheckout) {
       if (payment.provider !== this.provider.name) throw new ConflictException('Le prestataire de cette commande a changé. Contactez le support pour la reprendre.');
-      const reservation = await this.prisma.payment.updateMany({ where: { id: payment.id, OR: [{ status: 'CREATED' }, { status: 'PROCESSING', checkoutUrl: null, updatedAt: { lt: checkoutRecoveryBefore } }] }, data: { status: 'PROCESSING' } });
+      let providerOrderRef = payment.providerOrderRef ?? null;
+      let reservation = { count: 0 };
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (this.provider.createOrderReference && !providerOrderRef) providerOrderRef = this.provider.createOrderReference();
+        try {
+          reservation = await this.prisma.payment.updateMany({ where: { id: payment.id, OR: [{ status: 'CREATED' }, { status: 'PROCESSING', checkoutUrl: null, providerOrderRef: null, updatedAt: { lt: checkoutRecoveryBefore } }] }, data: { status: 'PROCESSING', ...(providerOrderRef ? { providerOrderRef } : {}) } });
+          break;
+        } catch (error) {
+          if (!duplicate(error) || !this.provider.createOrderReference || attempt === 4) throw error;
+          providerOrderRef = null;
+        }
+      }
       if (!reservation.count) {
         payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
         return this.present(order, payment);
       }
-      const snapshot: PaymentSnapshot = { id: payment.id, amountMinor: order.amountMinor, currency: order.currency, packName: order.packName, ownerSubject };
+      const publicWebUrl = process.env['PUBLIC_WEB_URL'] ?? 'http://localhost:3000';
+      let returnBase: URL;
+      try { returnBase = new URL(publicWebUrl); } catch { throw new ServiceUnavailableException('Les URL de retour paiement ne sont pas configurées.'); }
+      if (!['https:', 'http:'].includes(returnBase.protocol) || returnBase.username || returnBase.password || (returnBase.protocol === 'http:' && !['localhost', '127.0.0.1'].includes(returnBase.hostname))) throw new ServiceUnavailableException('Les URL de retour paiement ne sont pas configurées de façon sûre.');
+      const returnUrl = (result: 'success' | 'cancel' | 'error') => { const url = new URL(`/payments/result/${result}`, returnBase.origin); url.searchParams.set('paymentId', payment.id); return url.toString(); };
+      const snapshot: PaymentSnapshot = {
+        id: payment.id, amountMinor: order.amountMinor, currency: order.currency, packName: order.packName, ownerSubject,
+        ...(providerOrderRef ? { providerOrderRef } : {}),
+        ...(this.provider.name === 'easypay' ? {
+          customerName: customer.name || customer.email.split('@')[0] || 'Client InvitaFlow', customerEmail: customer.email,
+          channel, language: 'FR' as PaymentLanguage,
+          successUrl: returnUrl('success'), cancelUrl: returnUrl('cancel'), errorUrl: returnUrl('error'),
+        } : {}),
+      };
       try {
         const checkout = await this.provider.createPayment(snapshot);
-        await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PROCESSING', checkoutUrl: null }, data: { status: 'PENDING', checkoutUrl: checkout.checkoutUrl, providerReference: checkout.providerReference } });
+        await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PROCESSING', checkoutUrl: null }, data: { status: 'PENDING', checkoutUrl: checkout.checkoutUrl, providerReference: checkout.providerReference, failureCode: null } });
       } catch (error) {
-        await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PROCESSING', checkoutUrl: null }, data: { status: 'CREATED' } });
+        if (this.provider.name === 'easypay') await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PROCESSING', checkoutUrl: null }, data: { failureCode: 'provider_initialization_uncertain' } });
+        else await this.prisma.payment.updateMany({ where: { id: payment.id, status: 'PROCESSING', checkoutUrl: null }, data: { status: 'CREATED' } });
         throw error;
       }
       payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
@@ -144,6 +179,50 @@ export class PaymentsService {
     const order = await this.prisma.paymentOrder.findFirst({ where: { ownerSubject, payment: { id } }, include: { payment: true } });
     if (!order?.payment) throw new NotFoundException('Paiement introuvable.');
     return this.present(order, order.payment);
+  }
+
+  async reconcilePayment(ownerSubject: string, paymentId: string) {
+    const id = validUuid(paymentId, 'Le paiement');
+    const order = await this.prisma.paymentOrder.findFirst({ where: { ownerSubject, payment: { id } }, include: { payment: true } });
+    if (!order?.payment) throw new NotFoundException('Paiement introuvable.');
+    const payment = order.payment;
+    if (payment.provider !== this.provider.name || !payment.providerReference || ['SUCCEEDED', 'REFUNDED'].includes(payment.status)) return this.present(order, payment);
+    const confirmation = await this.provider.getStatus(payment.providerReference);
+    if (!confirmation) return this.present(order, payment);
+    if (!this.confirmationMatches(payment, order, confirmation)) {
+      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_MISMATCH:${confirmation.providerStatus}`);
+      return this.present(order, payment);
+    }
+    const eventHash = createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.transactionId}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex');
+    await this.applyConfirmation(this.provider.name, eventHash, { ...confirmation, reference: payment.id });
+    return this.get(ownerSubject, payment.id);
+  }
+
+  async easyPayIpn(body: unknown) {
+    if (this.provider.name !== 'easypay' || !this.provider.extractNotificationReference) throw new NotFoundException('Prestataire de paiement inconnu.');
+    const suppliedReference = this.provider.extractNotificationReference(body);
+    const payment = await this.prisma.payment.findFirst({
+      where: { provider: 'easypay', OR: [{ providerReference: suppliedReference }, { providerOrderRef: suppliedReference }] },
+      include: { order: true },
+    });
+    if (!payment) throw new NotFoundException('Référence de notification inconnue.');
+    if (!payment.providerReference) return { received: true, verified: false };
+    const confirmation = await this.provider.getStatus(payment.providerReference);
+    if (!confirmation) return { received: true, verified: false };
+    if (!this.confirmationMatches(payment, payment.order, confirmation)) {
+      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_IPN_MISMATCH:${confirmation.providerStatus}`);
+      return { received: true, verified: false };
+    }
+    const eventHash = createHash('sha256').update(`ipn:${payment.id}:${confirmation.providerReference ?? confirmation.transactionId}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex');
+    await this.applyConfirmation('easypay', eventHash, { ...confirmation, reference: payment.id });
+    return { received: true, verified: true };
+  }
+
+  private confirmationMatches(payment: { providerReference: string | null; providerOrderRef: string | null }, order: { amountMinor: number; currency: string }, confirmation: ProviderConfirmation) {
+    const providerReference = confirmation.providerReference ?? confirmation.reference;
+    return order.amountMinor === confirmation.amountMinor && order.currency === confirmation.currency &&
+      (!payment.providerReference || providerReference === payment.providerReference) &&
+      (!payment.providerOrderRef || !confirmation.providerOrderRef || confirmation.providerOrderRef === payment.providerOrderRef);
   }
 
   private present(order: { id: string; orderType: string; packId: string; packKey: string; packName: string; credits: number; unitCredits: number; quantity: number; unitPriceMinor: number; discountMinor: number; discountRule: string | null; taxEnabled: boolean; taxRule: string | null; taxRateBps: number; taxMinor: number; subtotalMinor: number; totalMinor: number; amountMinor: number; currency: string; priceScheduleId: string; priceScheduleVersion: number; status: string; createdAt: Date }, payment: { id: string; provider: string; status: string; checkoutUrl: string | null; providerTransactionId: string | null; providerRefundId: string | null; failureCode: string | null; paidAt: Date | null; createdAt: Date }) {
@@ -199,7 +278,7 @@ export class PaymentsService {
 
   async adminPayments(input: { provider?: string; limit?: string; cursor?: string }) {
     const provider = input.provider?.toLowerCase();
-    if (provider && !['mock', 'flexpay', 'cinetpay'].includes(provider)) throw new BadRequestException('Le fournisseur de paiement est invalide.');
+    if (provider && !['mock', 'flexpay', 'easypay', 'cinetpay'].includes(provider)) throw new BadRequestException('Le fournisseur de paiement est invalide.');
     const limit = input.limit === undefined ? 50 : Number(input.limit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new BadRequestException('La limite doit être comprise entre 1 et 100.');
     if (input.cursor && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.cursor)) throw new BadRequestException('Le curseur est invalide.');
@@ -220,6 +299,7 @@ export class PaymentsService {
   }
 
   async providerWebhook(providerName: string, headers: Record<string, string | string[] | undefined>, body: unknown) {
+    if (providerName === 'easypay') return this.easyPayIpn(body);
     if (providerName !== this.provider.name || providerName === 'mock') throw new NotFoundException('Prestataire de paiement inconnu.');
     const confirmation = await this.provider.verifyPayment({ headers, body });
     const serialized = typeof body === 'string' ? body : JSON.stringify(body);
@@ -245,9 +325,12 @@ export class PaymentsService {
         if (payment.status === 'SUCCEEDED' || payment.status === 'REFUNDED') return;
         if (payment.order.amountMinor !== confirmation.amountMinor || payment.order.currency !== confirmation.currency) throw new BadRequestException('Le montant ou la devise confirmés ne correspondent pas à la commande.');
         if (payment.providerTransactionId && payment.providerTransactionId !== confirmation.transactionId) throw new ConflictException('La transaction fournisseur ne correspond pas à la tentative de paiement.');
-        if (payment.status === newStatus) return;
+        if (payment.status === newStatus) {
+          if (payment.providerStatus !== confirmation.providerStatus) await tx.payment.update({ where: { id: paymentId }, data: { providerStatus: confirmation.providerStatus } });
+          return;
+        }
         const now = new Date();
-        await tx.payment.update({ where: { id: paymentId }, data: { status: newStatus, providerTransactionId: newStatus === 'SUCCEEDED' ? confirmation.transactionId : payment.providerTransactionId, paidAt: newStatus === 'SUCCEEDED' ? (payment.paidAt ?? now) : null, failureCode: newStatus === 'FAILED' ? 'provider_declined' : null } });
+        await tx.payment.update({ where: { id: paymentId }, data: { status: newStatus, providerStatus: confirmation.providerStatus, providerReference: confirmation.providerReference ?? payment.providerReference, providerTransactionId: newStatus === 'SUCCEEDED' ? confirmation.transactionId : payment.providerTransactionId, paidAt: newStatus === 'SUCCEEDED' ? (payment.paidAt ?? now) : null, failureCode: newStatus === 'FAILED' ? 'provider_declined' : newStatus === 'CANCELLED' ? 'provider_cancelled' : null } });
         if (newStatus === 'SUCCEEDED') {
           await tx.paymentOrder.update({ where: { id: payment.orderId }, data: { status: 'PAID' } });
           const attribution = await tx.referralAttribution.findUnique({ where: { customerSubject: payment.order.ownerSubject }, include: { partner: true } });
@@ -297,11 +380,15 @@ export class PaymentsService {
       const leasedAt = new Date();
       const lease = await this.prisma.payment.updateMany({ where: { id: payment.id, OR: [{ reconciliationAttemptAt: null }, { reconciliationAttemptAt: { lt: cutoff } }] }, data: { reconciliationAttemptAt: leasedAt } });
       if (!lease.count) continue;
+      if (this.provider.name === 'easypay' && !payment.providerReference) continue;
+      const providerLookup = this.provider.name === 'easypay' ? payment.providerReference! : payment.id;
       let confirmation: ProviderConfirmation | null;
-      try { confirmation = await this.provider.getStatus(payment.id); }
+      try { confirmation = await this.provider.getStatus(providerLookup); }
       catch { continue; }
       if (!confirmation) continue;
-      if (confirmation.reference !== payment.id) {
+      const isEasyPay = this.provider.name === 'easypay';
+      const referenceMatches = isEasyPay ? (confirmation.providerReference ?? confirmation.reference) === payment.providerReference : confirmation.reference === payment.id;
+      if (!referenceMatches || isEasyPay && payment.providerOrderRef && confirmation.providerOrderRef && confirmation.providerOrderRef !== payment.providerOrderRef) {
         await this.recordAnomaly(payment.id, payment.status, `REFERENCE_MISMATCH:${confirmation.providerStatus}`);
         continue;
       }
@@ -312,14 +399,18 @@ export class PaymentsService {
       const internalPaid = payment.status === 'SUCCEEDED';
       const internalFailed = ['FAILED', 'CANCELLED', 'EXPIRED'].includes(payment.status);
       const internalOpen = ['CREATED', 'PENDING', 'PROCESSING'].includes(payment.status);
-      const isAligned = (internalPaid && confirmation.status === 'SUCCEEDED') || (internalFailed && confirmation.status === 'FAILED') || (internalOpen && confirmation.status === 'PROCESSING');
+      const isAligned = (internalPaid && confirmation.status === 'SUCCEEDED') ||
+        (payment.status === 'FAILED' && confirmation.status === 'FAILED') ||
+        (payment.status === 'CANCELLED' && confirmation.status === 'CANCELLED') ||
+        (payment.status === 'EXPIRED' && confirmation.status === 'EXPIRED') ||
+        (internalOpen && confirmation.status === 'PROCESSING');
       if (isAligned) {
         await this.resolveAnomalies(payment.id);
       } else if ((internalOpen || internalFailed) && confirmation.status === 'SUCCEEDED') {
-        await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerStatus}`).digest('hex'), confirmation);
+        await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.providerStatus}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex'), { ...confirmation, reference: payment.id });
         await this.resolveAnomalies(payment.id);
       } else if (internalOpen && confirmation.status === 'FAILED') {
-        await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerStatus}`).digest('hex'), confirmation);
+        await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.providerStatus}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex'), { ...confirmation, reference: payment.id });
         await this.resolveAnomalies(payment.id);
       } else {
         await this.recordAnomaly(payment.id, payment.status, confirmation.providerStatus);

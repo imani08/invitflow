@@ -9,8 +9,9 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
   const isList = request.method === 'GET' && path.length === 1 && path[0] === 'me';
   const isCreate = request.method === 'POST' && path.length === 0;
   const isStatus = request.method === 'GET' && path.length === 1 && /^[0-9a-f-]{36}$/i.test(path[0] ?? '');
+  const isReconcile = request.method === 'GET' && path.length === 2 && /^[0-9a-f-]{36}$/i.test(path[0] ?? '') && path[1] === 'status';
   const isMockConfirm = request.method === 'POST' && path.length === 2 && /^[0-9a-f-]{36}$/i.test(path[0] ?? '') && path[1] === 'mock-confirm';
-  if (!isList && !isCreate && !isStatus && !isMockConfirm) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  if (!isList && !isCreate && !isStatus && !isReconcile && !isMockConfirm) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   if (request.method !== 'GET' && request.headers.get('origin') !== (process.env['WEB_ORIGIN'] ?? 'http://localhost:3000')) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   const cookieStore = await cookies();
   const session = await getSession(cookieStore.get(sessionCookieName())?.value);
@@ -25,7 +26,7 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
     body = raw;
   }
   const suffix = path.map((part) => encodeURIComponent(part)).join('/');
-  const target = isCreate ? '/v1/payments' : `/v1/payments/${suffix}`;
+  const target = isCreate ? '/v1/payments' : isReconcile ? `/v1/payments/${encodeURIComponent(path[0]!)}/status` : `/v1/payments/${suffix}`;
   try {
     const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}${target}`, {
       method: request.method,

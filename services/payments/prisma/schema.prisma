@@ -99,6 +99,8 @@ model Payment {
   provider              String        @db.VarChar(40)
   status                PaymentStatus @default(CREATED)
   checkoutUrl           String?       @map("checkout_url") @db.VarChar(2048)
+  providerOrderRef      String?       @map("provider_order_ref") @db.VarChar(16)
+  providerStatus        String?       @map("provider_status") @db.VarChar(80)
   providerTransactionId String?       @unique @map("provider_transaction_id") @db.VarChar(255)
   providerReference     String?       @map("provider_reference") @db.VarChar(255)
   providerRefundId      String?       @map("provider_refund_id") @db.VarChar(255)
@@ -112,6 +114,7 @@ model Payment {
   commissionLedgerEntries CommissionLedgerEntry[]
 
   @@index([status, reconciliationAttemptAt], map: "payments_status_reconciled_idx")
+  @@unique([provider, providerOrderRef], map: "payments_provider_order_ref_key")
   @@map("payments")
 }
 
