@@ -46,10 +46,10 @@ export function validateInvitationLayout({ document, values = {}, safeMargin = 6
       boxes.push({ ...layer, qr: true });
     } else if (layer.type === 'IMAGE') boxes.push({ ...layer, image: true });
   }
-  for (const box of boxes.filter((entry) => entry.qr)) for (const other of boxes.filter((entry) => entry !== box && (entry.essential || entry.image))) {
+  for (const box of boxes.filter((entry) => entry.qr)) for (const other of boxes.filter((entry) => entry !== box && (entry.essential || entry.image && source.schemaVersion !== 2))) {
     if (overlaps(box, other, 12)) errors.push({ code: 'CRITICAL_COLLISION', layerId: other.id, otherLayerId: box.id, message: `${other.name ?? 'Un élément'} chevauche le QR.` });
   }
-  for (const box of boxes.filter((entry) => entry.essential)) for (const image of boxes.filter((entry) => entry.image)) {
+  for (const box of boxes.filter((entry) => entry.essential)) for (const image of boxes.filter((entry) => entry.image && source.schemaVersion !== 2)) {
     if (overlaps(box, image, 12)) errors.push({ code: 'CRITICAL_COLLISION', layerId: box.id, otherLayerId: image.id, message: `${box.name ?? 'Un champ essentiel'} chevauche la photo.` });
   }
   return { errors, warnings, resolvedLayout };

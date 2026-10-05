@@ -1,6 +1,18 @@
+import { createProfessionalTemplate, PROFESSIONAL_TEMPLATE_IDS, applyEditorialSelection } from '@invitaflow/design-document';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
+import { visualFixture } from '../../../packages/design-document/test/fixtures/visual-v2.mjs';
+
+test('v2 photo backgrounds behind text are valid, occluding photos and poor print definition are rejected', () => {
+  const document = visualFixture('D');
+  assert.deepEqual(validateInvitationLayout({ document, values: { guest_name: 'Invité de test' } }).errors, []);
+  const background = document.elements.find((layer) => layer.role === 'BACKGROUND');
+  background.zIndex = 100;
+  assert.ok(validateInvitationLayout({ document, values: { guest_name: 'Invité de test' } }).errors.some((issue) => issue.code === 'CRITICAL_COLLISION'));
+  background.zIndex = 10; background.sourceWidth = 80; background.sourceHeight = 120;
+  assert.ok(validateInvitationLayout({ document, values: { guest_name: 'Invité de test' } }).errors.some((issue) => issue.code === 'IMAGE_RESOLUTION_LOW'));
+});
 
 const names = ['Jean', 'Grâce Mukendi', 'Monsieur et Madame Jean-Baptiste Ilunga Kalumuna', 'Monsieur et Madame Jean-Baptiste Ilunga Kalumuna et famille'];
 
@@ -33,4 +45,25 @@ test('reports QR minimum size and text safe-area errors explicitly', () => {
   ] }, safeMargin: 40 });
   assert.ok(result.errors.some((error) => error.code === 'QR_TOO_SMALL'));
   assert.ok(result.errors.some((error) => error.code === 'OUTSIDE_SAFE_AREA'));
+});
+
+test('professional programmes reserve a real QR area for every ceremony count', () => {
+  for (const family of PROFESSIONAL_TEMPLATE_IDS) for (let count = 1; count <= 4; count++) {
+    const document = createProfessionalTemplate(family, { mainPhoto: { assetId: '550e8400-e29b-41d4-a716-446655440000', width: 3600, height: 4800 } });
+    const result = validateInvitationLayout({ document, values: { guest_name: 'Camille', table_name: 'Jardin', contact: 'Contact DEMO', event_name: 'DEMO', rsvp_link: 'https://example.test/rsvp/demo', ceremonies: Array.from({ length: count }, () => ({ name: 'Célébration', date: '12 septembre', time: '14:00', venue: 'Jardin', address: '12 avenue des Jardins', reference: 'Entrée', dressCode: 'Élégance' })) } });
+    assert.deepEqual(result.errors, [], `${family}/${count}`);
+  }
+});
+
+test('accepted common editorial text validates for every guest without any AI call', () => {
+  const source = createProfessionalTemplate('typographic-luxury');
+  const long = 'Une invitation longue à célébrer cette journée ensemble. '.repeat(30);
+  assert.ok(validateInvitationLayout({ document: source, values: { invitation_text: long } }).errors.some(issue => issue.code === 'TEXT_OVERFLOW_ASSISTANCE_AVAILABLE'));
+  const chosen = applyEditorialSelection(source, 'invitation', 'Bienvenue à notre célébration.', { sourceText: long, sourceVersion: 1, origin: 'AI_ASSISTED' });
+  const savedFetch = globalThis.fetch; let calls = 0;
+  globalThis.fetch = () => { calls++; throw new Error('AI must not be called during guest rendering'); };
+  try {
+    for (const guest_name of ['Camille', 'Alex', 'Famille de la Clairière']) assert.deepEqual(validateInvitationLayout({ document: chosen, values: { guest_name, invitation_text: long } }).errors, []);
+    assert.equal(calls, 0);
+  } finally { globalThis.fetch = savedFetch; }
 });

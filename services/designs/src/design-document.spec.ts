@@ -1,6 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeDesignDocument, validateDesignDocument } from './design-document.js';
+import { createProfessionalTemplate, PROFESSIONAL_RECIPES } from '@invitaflow/design-document';
+test('professional catalogue compositions survive the existing backend validator', () => {
+  for (const { id } of PROFESSIONAL_RECIPES) {
+    const document = createProfessionalTemplate(id);
+    assert.equal(validateDesignDocument(normalizeDesignDocument(document)).schemaVersion, 2);
+  }
+});
+
+test('v2 visual effects and private transparent assets survive validation and normalization', () => {
+  const doc = normalizeDesignDocument({});
+  doc.assets.push({ id: 'cutout', role: 'COUPLE_PHOTO', assetId: '550e8400-e29b-41d4-a716-446655440000', mimeType: 'image/png' });
+  doc.elements.push({ id: 'foreground', name: 'Photo de test', type: 'IMAGE', role: 'FOREGROUND', x: 100, y: 400, width: 500, height: 600, zIndex: 50, rotation: 12, locked: false, editable: true, assetId: '550e8400-e29b-41d4-a716-446655440000', sourceWidth: 2400, sourceHeight: 3200, fit: 'cover', cropX: 50, cropY: 50, cropScale: 1.2, opacity: 0.9, focalPoint: { x: 0.4, y: 0.3 }, maskId: 'watercolor-soft-01', blur: 2, overlay: { type: 'solid', color: '#32163A', opacity: 0.15 } });
+  const before = structuredClone(doc);
+  const result = normalizeDesignDocument(validateDesignDocument(doc));
+  assert.deepEqual(doc, before);
+  assert.deepEqual(result.elements.at(-1), before.elements.at(-1));
+  assert.equal((result.assets[0] as Record<string, unknown>)['mimeType'], 'image/png');
+  const bad = structuredClone(result); bad.elements.at(-1)!['maskId'] = '<svg onload="alert(1)">';
+  assert.throws(() => validateDesignDocument(bad), /registered/);
+});
 
 test('normalizes an incomplete legacy document into a valid editor and render document', () => {
   const normalized = normalizeDesignDocument({ canvas: { width: 1080, height: 1920 }, theme: {} });

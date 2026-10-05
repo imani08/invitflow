@@ -1,3 +1,10 @@
+export { EDITORIAL_BINDINGS, editorialField, editorialTarget, protectedEditorialTerms, redactEditorial, restoreEditorial, validateEditorialProposal, applyEditorialSelection } from './editorial-assist.mjs';
+import { assessImageResolution, renderOverlaySvg, renderVisualImageSvg, validateVisualProperties, visualOcclusionIssues } from './visual.mjs';
+export { MASK_REGISTRY, IMAGE_ROLES, assessImageResolution, imageRenderBounds, renderOverlaySvg, renderVisualImageSvg } from './visual.mjs';
+export { readPrivateImageDimensions } from './image-dimensions.mjs';
+export { PROFESSIONAL_TEMPLATE_IDS, PROFESSIONAL_RECIPES, PROFESSIONAL_GRAMMAR_FIELDS, validateProfessionalComposition, professionalCompositionFingerprint, professionalCompositionManifest, compatibleProfessionalRecipes, createProfessionalTemplate, fillProfessionalPhotoSlot, assertProfessionalPersonalization } from './professional-templates.mjs';
+export { AI_COMPOSER_VERSION, interpretComposerPreferences, composeDesignProposals } from './ai-composer.mjs';
+
 export const ALLOWED_BINDINGS = new Set([
   'guest.name', 'guest.email', 'guest.table', 'event.title', 'event.coupleNames', 'event.invitationText',
   'event.date', 'event.venue', 'ceremonies', 'ceremony.name', 'ceremony.date', 'ceremony.time',
@@ -141,10 +148,21 @@ export function validateDesignDocumentV2(input) {
   const canvas = input.canvas;
   if (!isObject(canvas) || canvas.unit !== 'px' || !Number.isFinite(canvas.width) || !Number.isFinite(canvas.height) || canvas.width < 320 || canvas.width > 4000 || canvas.height < 320 || canvas.height > 4000) fail('Logical canvas is invalid');
   if (!Array.isArray(input.elements) || input.elements.length < 1 || input.elements.length > 100) fail('Design elements are invalid');
+  if (input.metadata?.editorialFields !== undefined) {
+    const fields = input.metadata.editorialFields;
+    if (!Array.isArray(fields) || fields.length > 10 || new Set(fields.map(field => field?.elementId)).size !== fields.length) fail('Editorial declarations are invalid');
+    for (const field of fields) if (!isObject(field) || Object.keys(field).some(key => !['elementId', 'binding'].includes(key)) || field.binding !== 'event.invitationText' || !input.elements.some(element => element?.id === field.elementId && element.type === 'TEXT' && element.binding === field.binding)) fail('Editorial declaration targets a structured or missing field');
+  }
+  if (input.metadata?.editorialOverrides !== undefined) {
+    if (!isObject(input.metadata.editorialOverrides)) fail('Editorial selections are invalid');
+    for (const [elementId, selection] of Object.entries(input.metadata.editorialOverrides)) {
+      if (!input.metadata.editorialFields?.some(field => field.elementId === elementId) || !isObject(selection) || Object.keys(selection).some(key => !['selectedText', 'sourceText', 'sourceVersion', 'jobId', 'origin'].includes(key)) || typeof selection.selectedText !== 'string' || !selection.selectedText.trim() || selection.selectedText.length > 12000 || /[\u0000-\u0008\u000B\u000C\u000E-\u001f\u007f]/.test(selection.selectedText) || typeof selection.sourceText !== 'string' || selection.sourceText.length > 12000 || !Number.isInteger(selection.sourceVersion) || selection.sourceVersion < 1 || !['MANUAL', 'AI_ASSISTED'].includes(selection.origin)) fail('Editorial selection contains invalid provenance');
+    }
+  }
   const ids = new Set();
   for (const element of input.elements) {
     if (!isObject(element) || typeof element.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(element.id) || ids.has(element.id)) fail('Design element id is invalid or duplicated');
-    const elementKeys = ['id', 'type', 'name', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'editable', 'zIndex', 'fill', 'shape', 'stroke', 'strokeWidth', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'align', 'color', 'source', 'assetId', 'originalAssetId', 'derivedAssetId', 'sourceWidth', 'sourceHeight', 'fit', 'cropX', 'cropY', 'cropScale', 'opacity', 'role', 'minFontSize', 'maxFontSize', 'maxLines', 'lineHeight', 'overflowPolicy', 'hideWhenEmpty', 'collapseSpace', 'minSize', 'maxSize', 'quietZone', 'binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'paddingX'];
+    const elementKeys = ['id', 'type', 'name', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'editable', 'zIndex', 'fill', 'shape', 'stroke', 'strokeWidth', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'align', 'color', 'source', 'assetId', 'originalAssetId', 'derivedAssetId', 'sourceWidth', 'sourceHeight', 'fit', 'cropX', 'cropY', 'cropScale', 'opacity', 'role', 'minFontSize', 'maxFontSize', 'maxLines', 'lineHeight', 'overflowPolicy', 'hideWhenEmpty', 'collapseSpace', 'minSize', 'maxSize', 'quietZone', 'binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'paddingX', 'focalPoint', 'blur', 'overlay'];
     if (Object.keys(element).some((key) => !elementKeys.includes(key))) fail(`Design element ${element.id} contains an unsupported field`);
     ids.add(element.id);
     if (!['BACKGROUND', 'TEXT', 'SHAPE', 'IMAGE', 'QR'].includes(element.type)) fail('Design element type is not supported');
@@ -156,7 +174,7 @@ export function validateDesignDocumentV2(input) {
       if (typeof element.text !== 'string' || element.text.length > 500 || !own(FONT_REGISTRY, element.fontId) || !Number.isFinite(element.preferredFontSize) || !Number.isFinite(element.minFontSize) || element.minFontSize < 8 || element.preferredFontSize < element.minFontSize || element.preferredFontSize > 180 || !['ERROR', 'SHRINK_WITH_LIMIT', 'USE_VARIANT', 'AI_ASSIST_ALLOWED'].includes(element.overflowPolicy)) fail(`Text element ${element.id} typography is invalid`);
     }
     validateVisibility(element.visibility);
-    if (element.maskId !== undefined && !['watercolor-soft-01', 'brush-edge-01', 'organic-portrait-01'].includes(element.maskId)) fail('maskId must reference a registered mask identifier');
+    validateVisualProperties(element);
   }
   const elementById = new Map(input.elements.map((element) => [element.id, element]));
   if (!Array.isArray(input.groups) || input.groups.length > 10) fail('Repeat groups are invalid');
@@ -283,7 +301,6 @@ function layoutItems(group, variant, count) {
   const configured = variant.groupLayouts?.find((entry) => entry.groupId === group.id);
   const bounds = configured?.bounds ?? group.bounds;
   const columns = configured?.columns ?? group.columns ?? 1;
-  const direction = configured?.direction ?? group.direction ?? 'vertical';
   const gap = configured?.gap ?? group.gap ?? 0;
   const rows = Math.ceil(count / columns);
   const itemWidth = (bounds.width - gap * Math.max(0, columns - 1)) / columns;
@@ -291,7 +308,7 @@ function layoutItems(group, variant, count) {
   return Array.from({ length: count }, (_, index) => {
     const column = index % columns;
     const row = Math.floor(index / columns);
-    return { x: bounds.x + column * (itemWidth + (direction === 'horizontal' ? gap : 0)), y: bounds.y + row * (itemHeight + (direction === 'vertical' ? gap : 0)), width: itemWidth, height: itemHeight };
+    return { x: bounds.x + column * (itemWidth + gap), y: bounds.y + row * (itemHeight + gap), width: itemWidth, height: itemHeight };
   });
 }
 
@@ -344,7 +361,7 @@ export function fitInvitationText(layer, text) {
 function withinCanvas(element, canvas) { return element.x >= 0 && element.y >= 0 && element.x + element.width <= canvas.width && element.y + element.height <= canvas.height; }
 function withinSafeArea(element, safeArea) { return element.x >= safeArea.left && element.y >= safeArea.top && element.x + element.width <= element.canvasWidth - safeArea.right && element.y + element.height <= element.canvasHeight - safeArea.bottom; }
 
-export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, assets = {}) {
+export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, assets, target = { mode: 'print', widthMm: 148, heightMm: 210 }) {
   const sourceSchemaVersion = isObject(input) ? input.schemaVersion : undefined;
   const document = normalizeDesignDocumentV2(input);
   if (sourceSchemaVersion === 2) validateDesignDocumentV2(document);
@@ -354,6 +371,11 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, asset
   const safeArea = safeEdges(document.safeArea ?? document.constraints?.safeMargin, 64);
   const bleed = safeEdges(document.bleed, 0);
   const errors = [];
+  if (target.mode === 'print' && document.metadata?.personalization?.policy === 'professional-v1' && document.metadata.mediaStrategy !== 'NO_PHOTO' && document.metadata.photoRequired !== false) {
+    for (const slot of document.metadata.photoSlots ?? []) if (slot.required === true && !document.elements.some((element) => element.id === slot.elementId && element.type === 'IMAGE')) {
+      errors.push({ code: 'PHOTO_SLOT_REQUIRED', elementId: slot.elementId, message: 'Ajoutez la photo principale avant la génération finale.' });
+    }
+  }
   const warnings = [];
   const elements = [];
   const overrides = new Map((variant.overrides ?? []).map((entry) => [entry.elementId, entry]));
@@ -365,24 +387,31 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, asset
     if (override?.bounds) Object.assign(layer, override.bounds);
     const visible = override?.visible ?? conditionVisible(layer.visibility, snapshot);
     if (!visible) return;
-    if (layer.type === 'IMAGE' && typeof layer.maskId === 'string') errors.push({ code: 'MASK_RENDERER_NOT_IMPLEMENTED', elementId: layer.id, message: 'Ce modèle de masque est enregistré mais son rendu n’est pas encore activé.' });
     let resolvedText;
     if (layer.type === 'TEXT') {
       resolvedText = resolveText(layer, { ...snapshot, variables: { ...(Array.isArray(document.variables) ? Object.fromEntries(document.variables.filter((item) => typeof item?.key === 'string').map((item) => [item.key, stringOrEmpty(rawSnapshot.variables?.[item.key] ?? item.defaultValue)])) : {}), ...snapshot.variables } }, ceremony);
+      const editorial = document.metadata?.editorialOverrides?.[layer.id];
+      if (editorial && document.metadata?.editorialFields?.some(field => field.elementId === layer.id && field.binding === layer.binding && field.binding === 'event.invitationText') && typeof editorial.selectedText === 'string') resolvedText = editorial.selectedText;
       if (!resolvedText.trim() && (layer.hideWhenEmpty || layer.binding)) return;
     }
     const font = layer.type === 'TEXT' ? resolveFont(layer) : undefined;
     const requestedWeight = finite(layer.fontWeight, 400);
     const resolved = { ...layer, visible: true, ...(resolvedText !== undefined ? { resolvedText } : {}), ...(ceremony ? { repeatIndex: repetitionIndex } : {}), ...(font ? { resolvedFont: font, resolvedFontWeight: font.weights.reduce((best, weight) => Math.abs(weight - requestedWeight) < Math.abs(best - requestedWeight) ? weight : best, font.weights[0]), resolvedFontStyle: font.styles.includes(layer.fontStyle) ? layer.fontStyle : 'normal' } : {}), ...(layer.type === 'IMAGE' ? { resolvedAsset: { assetId: typeof layer.assetId === 'string' ? layer.assetId : null, href: typeof assets?.[layer.assetId] === 'string' ? assets[layer.assetId] : null } } : {}) };
     if (!withinCanvas(resolved, canvas)) errors.push({ code: 'OUTSIDE_CANVAS', elementId: resolved.id, message: 'Un élément dépasse le canevas logique.' });
-    if (resolved.type === 'TEXT' && ['GUEST_NAME', 'TABLE_INFO', 'EVENT_TITLE', 'COUPLE_NAMES'].includes(String(resolved.role)) && !withinSafeArea({ ...resolved, canvasWidth: canvas.width, canvasHeight: canvas.height }, safeArea)) errors.push({ code: 'OUTSIDE_SAFE_AREA', elementId: resolved.id, message: 'Un texte essentiel dépasse la zone de sécurité.' });
+    if ((resolved.type === 'TEXT' && (sourceSchemaVersion === 2 || ['GUEST_NAME', 'TABLE_INFO', 'EVENT_TITLE', 'COUPLE_NAMES'].includes(String(resolved.role))) || resolved.type === 'QR' && sourceSchemaVersion === 2) && !withinSafeArea({ ...resolved, canvasWidth: canvas.width, canvasHeight: canvas.height }, safeArea)) errors.push({ code: 'OUTSIDE_SAFE_AREA', elementId: resolved.id, message: 'Un contenu essentiel dépasse la zone de sécurité.' });
+    if (resolved.type === 'IMAGE') {
+      resolved.resolvedQuality = assessImageResolution(resolved, canvas, target);
+      if (sourceSchemaVersion === 2 && resolved.resolvedQuality.status !== 'OK') (resolved.resolvedQuality.status === 'ERROR' ? errors : warnings).push({ code: resolved.resolvedQuality.code, elementId: resolved.id, message: 'La définition de cette image est insuffisante ou inconnue pour le format impression.', effectiveDpi: resolved.resolvedQuality.effectiveDpi });
+      if (assets !== undefined && !assets[layer.assetId]) errors.push({ code: 'ASSET_UNAVAILABLE', elementId: resolved.id, message: 'Le média privé n’est pas disponible.' });
+    }
     if (resolved.type === 'TEXT') {
       const fit = fitInvitationText(resolved, resolvedText);
       resolved.resolvedFontSize = fit.fontSize;
       resolved.resolvedLineHeight = fit.lineHeight;
       resolved.resolvedLines = fit.lines;
       if (fit.reduced) warnings.push({ code: 'FONT_REDUCED', elementId: resolved.id, message: 'La taille a été réduite dans la limite configurée.' });
-      if (fit.overflow) errors.push({ code: resolved.overflowPolicy === 'AI_ASSIST_ALLOWED' ? 'TEXT_OVERFLOW_ASSISTANCE_AVAILABLE' : resolved.overflowPolicy === 'USE_VARIANT' ? 'TEXT_OVERFLOW_VARIANT_REQUIRED' : 'TEXT_OVERFLOW', elementId: resolved.id, message: 'Le texte ne tient pas dans la zone du modèle.', assistanceEligible: resolved.overflowPolicy === 'AI_ASSIST_ALLOWED' });
+      const assistanceEligible = resolved.overflowPolicy === 'AI_ASSIST_ALLOWED' && document.metadata?.editorialFields?.some(field => field.elementId === resolved.id && field.binding === resolved.binding && field.binding === 'event.invitationText') === true;
+      if (fit.overflow) errors.push({ code: assistanceEligible ? 'TEXT_OVERFLOW_ASSISTANCE_AVAILABLE' : resolved.overflowPolicy === 'USE_VARIANT' ? 'TEXT_OVERFLOW_VARIANT_REQUIRED' : 'TEXT_OVERFLOW', elementId: resolved.id, message: 'Le texte ne tient pas dans la zone du modèle.', assistanceEligible });
     }
     elements.push(resolved);
   };
@@ -408,6 +437,7 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, asset
   }
   for (const element of document.elements) if (!repeatedElementIds.has(element.id)) appendElement(element, null, null);
   elements.sort((a, b) => finite(a.zIndex) - finite(b.zIndex) || document.elements.findIndex((e) => e.id === (a.sourceElementId ?? a.id)) - document.elements.findIndex((e) => e.id === (b.sourceElementId ?? b.id)) || finite(a.repeatIndex, -1) - finite(b.repeatIndex, -1));
+  if (sourceSchemaVersion === 2) errors.push(...visualOcclusionIssues(elements));
   return { schemaVersion: document.schemaVersion, variantId: variant.id, canvas: { ...canvas }, safeArea, bleed, elements, groups, warnings, errors };
 }
 
@@ -421,19 +451,9 @@ export function logicalCanvasTransform(canvas, viewport) {
   return { scale, offsetX: (viewport.width - canvas.width * scale) / 2, offsetY: (viewport.height - canvas.height * scale) / 2 };
 }
 
-export function imageRenderBounds(layer) {
-  const x = finite(layer.x), y = finite(layer.y), width = Math.max(1, finite(layer.width, 1)), height = Math.max(1, finite(layer.height, 1));
-  const sourceWidth = Math.max(1, finite(layer.sourceWidth, 1)), sourceHeight = Math.max(1, finite(layer.sourceHeight, 1));
-  const ratio = sourceWidth / sourceHeight, boxRatio = width / height, cover = layer.fit !== 'contain';
-  const frameWidth = cover ? (ratio > boxRatio ? height * ratio : width) : (ratio > boxRatio ? width : height * ratio);
-  const frameHeight = frameWidth / ratio, cropScale = Math.max(1, Math.min(3, finite(layer.cropScale, 1)));
-  const renderedWidth = frameWidth * cropScale, renderedHeight = frameHeight * cropScale;
-  return { x: x + (width - renderedWidth) * Math.max(0, Math.min(100, finite(layer.cropX, 50))) / 100, y: y + (height - renderedHeight) * Math.max(0, Math.min(100, finite(layer.cropY, 50))) / 100, width: renderedWidth, height: renderedHeight };
-}
-
 const svgEscape = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 /** Serialize an already-resolved tree. Assets and QR hrefs are supplied by the caller; this function performs no I/O. */
-export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '' } = {}) {
+export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', fragment = false } = {}) {
   const { width, height } = layout.canvas;
   const parts = [];
   for (const layer of layout.elements) {
@@ -444,11 +464,11 @@ export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '' } = {
     } else if (layer.type === 'IMAGE') {
       const href = assets[layer.assetId] ?? layer.resolvedAsset?.href ?? '';
       if (href) {
-        const bounds = imageRenderBounds(layer), clipId = `clip-${String(layer.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-        parts.push(`<defs><clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs><image href="${svgEscape(href)}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="none" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}" clip-path="url(#${clipId})"${rotation ? ` transform="rotate(${rotation} ${x + w / 2} ${y + h / 2})"` : ''}/>`);
+        parts.push(renderVisualImageSvg(layer, href));
       }
     } else if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE') {
       parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${svgEscape(layer.fill === 'transparent' ? 'none' : layer.fill ?? 'none')}" stroke="${svgEscape(layer.stroke ?? 'none')}" stroke-width="${finite(layer.strokeWidth)}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}/>`);
+      if (layer.overlay) parts.push(`<g${transform} opacity="${finite(layer.opacity, 1)}">${renderOverlaySvg(layer.overlay, layer, `visual-${layer.id}`)}</g>`);
     } else if (layer.type === 'TEXT') {
       const font = layer.resolvedFont ?? resolveFont(layer), size = finite(layer.resolvedFontSize, finite(layer.fontSize, 16)), lines = Array.isArray(layer.resolvedLines) ? layer.resolvedLines : [stringOrEmpty(layer.resolvedText)];
       const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle', tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
@@ -456,5 +476,5 @@ export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '' } = {
       parts.push(`<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${svgEscape(line)}</tspan>`).join('')}</text>`);
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${parts.join('')}</svg>`;
+  return fragment ? parts.join('') : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${parts.join('')}</svg>`;
 }

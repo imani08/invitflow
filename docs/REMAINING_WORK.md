@@ -527,3 +527,87 @@ Ne pas exécuter `down -v` ni `prisma migrate reset`. Après migrations, faire l
 - ESLint ciblé Web: OK sans sortie/diagnostic.
 - `git diff --check`: OK (seuls avertissements Git de conversion LF/CRLF sur fichiers concernés).
 - ESLint Invitations ciblé: OK. ESLint Designs ciblé: deux erreurs `no-explicit-any` préexistantes dans `src/design-document.ts` (lignes 241 et 244), fichier non modifié dans cette phase. Build/runtime Chromium non validés dans cette passe.
+
+## Phase 3 — moteur visuel artistique v2 — 5 octobre 2026
+
+- **DONE** : rôles IMAGE BACKGROUND/FOREGROUND/PHOTO/TEXTURE/DECORATION; catalogue fermé/versionné none, rounded-soft, organic-portrait-01, watercolor-soft-01, brush-edge-01; focal point borné et crop commun; overlays unis/dégradés RGB/RGBA; blur borné; opacité/rotation/zIndex; PNG/WebP transparents. Web utilise maintenant exactement le sérialiseur SVG du PDF, avec annotations d'éditeur séparées. Contrôles fonctionnels ajoutés dans l'inspecteur image, qualité A5 et diagnostics visibles.
+- **DONE** : validation DPI après crop/zoom avec target impression/Web; lecture des dimensions réelles des PNG/WebP Media avant réservation, refus des métadonnées v2 incohérentes; images derrière les textes/QR autorisées, images au-dessus susceptibles de masquer le contenu signalées. Safe area critique conservée; décorations/photos de fond autorisées dans les marges. V1 reste sur son renderer historique. Aucune migration, modification Wallet/Billing/Payments, suppression ni réécriture rembg.
+- **DONE — runtime local** : Chrome 154.0.8037.93 a rendu les dix fixtures A–J et les cinq masks en captures Web et PDF A5 de 1 page. PNG alpha et WebP lossless alpha testés réellement. Comparaison Poppler 96 DPI, inspection de la planche et assertions de silhouette/z-order : erreur moyenne maximale 0,818/255, proportion maximale de pixels avec différence de canal >24 de 0,574 %. La comparaison porte sur le sérialiseur partagé avec des rasters synthétiques, pas sur un événement réel ou les photos du client.
+- **PARTIAL** : catalogue de masques initial, rendu aquarelle procédural contrôlé plutôt qu'assets artistiques de production; appréciation esthétique/contraste photographique manuelle. Pas de bibliothèque décorative ni de familles finales publiées. Les checks de collision sont conservateurs (cadres, sans analyse des pixels alpha). Le contrat Media et ses références existantes sont réutilisés; leur runtime de conservation n'a pas été réexécuté.
+- **NOT TESTED** : Chromium Linux du worker Docker, parcours authentifié Web/Media/MinIO/batch, contrôle utilisateur responsive des nouveaux réglages, paiement/crédits en runtime et références en PostgreSQL. La comparaison locale ne remplace pas ces validations.
+- **BLOCKED** : Docker refuse l'accès au named pipe dockerDesktopLinuxEngine (permission denied). Les erreurs spawn EPERM de Chrome/tsx ont été dépassées par lancement autorisé hors sandbox; elles ne bloquent plus la QA locale. Aucun package ni lockfile modifié.
+- **Validation** : shared 31/31, Designs 5/5, Invitations 9/9, Web ciblé 6/6; typechecks package déclarations/Web/Designs/Invitations et ESLint ciblé réussis. git diff --check réussi, avertissements LF/CRLF uniquement. Scripts reproductibles `scripts/validate-design-visual.mjs` et `scripts/compare-design-visual.py`; détails et commandes dans `docs/DESIGN_VISUAL_V2.md`. Artefacts QA dans `%TEMP%\invitaflow-visual-phase3`, hors production.
+
+## Phase 4 — premiers templates professionnels — 5 octobre 2026
+
+- **DONE** : Botanical Elegance, Photo Editorial Luxury et African Contemporary v2, 5 variants par famille (0/1/2/3/4+ cérémonies), canvas A5 logique 1480 × 2100, safe area 80, bleed 0, palettes, Georgia/Arial, bindings réels, zones explicites, slots photos et masks contrôlés. Table et libellé conditionnels; QR uniquement lorsque disponible, zone dédiée hors programme. Photo principale obligatoire avant impression pour les recettes photographiques uniquement; aucune donnée métier fictive, aucune tarification.
+- **DONE** : personnalisation guidée Web (photo, réutilisation BG/secondaire, zoom/focal, couleurs contrastées, fonts autorisées), catalogue avec document réel, locks serveur comparés au document persisté et résistants au réordonnancement JSONB. Upload Media existant réutilisé. Correction démontrée GET → POST puis blob privé pour les previews; correction des gutters des grilles répétées et de la projection metadata v2 vers validation v1.
+- **DONE** : branche botanique originale générée, PNG RGBA/alpha vérifiés, photo DEMO fictive isolée des templates publiés; sources dans docs/template-assets, provenance/prompts documentés. Lecture authentifiée des seuls décors explicitement publiés via autorité Designs; refus fermé en cas de panne, suppression et mutation toujours owner-scoped. Script de publication DB Designs uniquement, version immuable, verrou par slug et outbox; assets Media READY vérifiés, aucune migration ou modification Docker/Prisma/Keycloak/Gateway/Billing/Wallet/Payments.
+- **DONE — validation locale** : design-document 38/38 (960 combinaisons + tests de protections/overflow/identités), Designs 6/6, Invitations 10/10 avec 12 cas QR, Web 8/8, Media 8/8 avec read-only/refus/panne. Typechecks Web/Designs/Media/Invitations et déclarations partagées OK; ESLint ciblé OK. Script de publication exécuté uniquement en validation-only, sans écriture DB.
+- **DONE — artefacts de contrôle** : 12 previews/SVG/PDF A5 d'une page produits avec Chrome Windows 154.0.8037.93, puis rasterisés avec Poppler et examinés. Exemples, planche et mesures dans docs/template-previews. Report détaillé, comparaisons de principes avec les références et commandes dans docs/PROFESSIONAL_TEMPLATES.md.
+- **PARTIAL** : la comparaison pixel stricte échoue pour les 12 rendus photographiques (MAE maximale 4,0751/255; pixels avec écart de canal >24 : maximum 5,361 %). Les seuils restent inchangés; --report-only conserve les flags d'échec. Contours texte/photo différents et trait fin sur certains PDFs masqués observés; cause précise et correction encore à qualifier. Ne pas déclarer une parité pixel parfaite ou la Phase 4 terminée en production. Cadrage des photos réelles et qualité graphique finale à revoir; textes/adresses excessifs conservent leurs diagnostics.
+- **NOT TESTED** : upload/publication/republication dans PostgreSQL et MinIO, accès intercompte réel aux décors, parcours Next/OIDC authentifié, responsive 375/768/desktop, fonts et Chromium Linux worker, exports runtime des invitations réelles. Aucun template déclaré effectivement publié.
+- **BLOCKED** : Docker répond toujours permission denied sur dockerDesktopLinuxEngine. Publication locale prévue par scripts et commandes documentées; aucun secret réel dans les documents. Phase IA non démarrée.
+
+## Phase 4 — reprise du 5 octobre : recettes sans photo
+
+- DONE : six recettes extensibles / trois familles; trois SINGLE_PHOTO explicitement obligatoires et trois NO_PHOTO recomposées. Cinq variantes cérémonie par recette; bindings table/QR conditionnels; zone QR hors programme.
+- DONE : catalogue filtré depuis l’inventaire réel privé PHOTO/READY; pagination, orientation et états indisponibles; contrôles photo absents sur NO_PHOTO; contrat metadata prêt pour un futur composer, sans IA nouvelle.
+- DONE : publication validation-only des six documents sans écriture; protections de structure et anciennes versions conservées. Détails, palettes/fonts/masks et règles facultatives : PROFESSIONAL_TEMPLATES.md.
+- DONE : tests partagés 40/40, Designs 6/6, Web ciblé 5/5, Invitations layout 5/5; typechecks et lint ciblés; diff-check.
+- PARTIAL : photographic pixel parity conservée (MAE max 4,0751/255; pixels divergents max 5,361 %), structure cohérente sur les 12 PDF photographiques déjà examinés. Aucune nouvelle recherche de pixel-perfect.
+- NOT TESTED : nouveaux layouts sans photo en navigateur/PDF, parcours authentifié, publication PostgreSQL/Media, fonts Linux, E2E complet différé par demande explicite.
+- BLOCKED : Docker Desktop permission denied lors de la session précédente; publication runtime à faire localement avec les commandes de PROFESSIONAL_TEMPLATES.md.
+
+PHASE 4 COMPLETE: YES — implémentation et validations minimales de reprise; limites runtime ci-dessus conservées, aucune déclaration de validation production.
+
+## Grammaire de composition — extension des fondations Phase 4
+
+- DONE : registre multi-recettes par famille sans limite de catalogue; dimensions contrôlées et backgroundTreatment explicite.
+- DONE : validateProfessionalComposition refuse les choix incompatibles et coordonnées inconnues; empreinte canonique pour comparaisons de diversité; manifeste reproductible sérialisable avec seed/release/version, validé v2 sans mutation.
+- DONE : tests partagés 42/42; typecheck déclarations partagées, Web et Designs; tests Designs 6/6; publication validation-only; git diff --check.
+- PARTIAL / limites conservées : parité pixel photographique; aucune nouvelle campagne visuelle.
+- NOT TESTED : publication réelle et E2E runtime, comme indiqué dans la reprise précédente. BLOCKED : accès Docker précédemment refusé.
+- Phase 6 réalisée depuis cette reprise : grammaire extensible, filtrage, scoring, seed reproductible, diversité et manifeste documentés dans AI_DESIGN_COMPOSER.md; aucune recomposition par invité.
+
+## Phase 5 — assistance éditoriale (5 octobre 2026)
+
+- DONE : workflow EDITORIAL_COMPRESSION séparé dans AI Design, JSON/jobs/outbox/worker existants, quotas et trois propositions par Design/version; aucun microservice ni migration.
+- DONE : éligibilité explicite pour event.invitationText, fitting/variante déterministes avant proposition, cible LIGHT/BALANCED/CONCISE; aucun champ structuré envoyé.
+- DONE : masquage en une passe et vérification des fragments; provider self-hosted abstrait, timeout, erreurs/langue contrôlées, aucun résultat simulé ni appel par invité.
+- DONE : vérification finale exige aussi chaque placeholder protégé exactement une fois le nombre attendu et dans l’ordre source; le contrat provider n’inclut ni version source ni identifiant interne.
+- DONE : original/proposition dans le modal de l’éditeur, correction manuelle, acceptation explicite, stale/expiration/refus, nouveau Design/version et restauration de l’historique; AI_ASSISTED uniquement en metadata/audit.
+- DONE : tests ciblés DesignDocument 48/48, AI Design 11/11, Designs 9/9, Web 7/7, Invitations layout 6/6; typechecks et ESLint ciblés; git diff --check.
+- NOT TESTED : provider réel/qualité linguistique et fidélité du modèle déployé; PostgreSQL/RabbitMQ, modal authentifié/mobile et E2E global. Aucun gros runtime lancé conformément au périmètre demandé.
+- PARTIAL : détection automatique des noms/faits non exhaustive et filtre linguistique conservateur; relecture humaine et fragments explicitement marqués requis. Les documents historiques sans déclaration éditoriale ne sont pas modifiés. Les limitations visuelles Phase 4 restent inchangées.
+- BLOCKED : aucun blocage pour l’implémentation/test ciblé; runtime différé, sans nouvelle tentative Docker.
+
+Données provider, endpoints existants étendus, fichiers et commandes de validation : AI_EDITORIAL_ASSIST.md. Lien workspace interne ajouté à AI Design avec importer pnpm cohérent; aucun paquet externe installé. Aucun changement Gateway/Keycloak/Docker/Prisma/Billing/Wallet, ni composer Phase 6.
+
+PHASE 5 COMPLETE: YES — périmètre implémentation et validations ciblées.
+
+## Phase 6 — AI Design Composer (5 octobre 2026)
+
+- DONE : Composer déterministe sans appel provider obligatoire; filtres événement/cérémonie/densité/média avant scoring; profils extensibles, six recettes initiales et aucune limite globale de catalogue.
+- DONE : stratégies NO_PHOTO, SINGLE_PHOTO, BACKGROUND_PHOTO, FOREGROUND_PHOTO et MULTI_PHOTO; photos Media READY authentifiées, sélection orientée sur dimensions/crop, palettes et tokens enregistrés; aucun contenu Guest chargé.
+- DONE : scoring inspectable, sélection seedée, minimum de diversité familiale, exclusion des propositions montrées en session et empreintes des Designs choisis dans le même événement/propriétaire.
+- DONE : parcours Web événement réel, préférences guidées, 3–6 cartes/préviews v2, liste mobile, régénération et choix explicite; backend reproduit la proposition, refuse les documents modifiés et crée uniquement au choix une version immuable 1 avec seed/recette/média/empreinte.
+- DONE : tests ciblés DesignDocument et Designs; typechecks, Web tests/lint, ESLint ciblé et `git diff --check` exécutés pendant la reprise.
+- NOT TESTED : navigateur authentifié, PostgreSQL/RabbitMQ, Docker/E2E global et runtime Media réel. Aucun provider n’est appelé par cette version; aucune génération d’image, migration Prisma, Wallet ou Billing.
+- PARTIAL : six recettes initiales et spécialisations mariage/dot photo; les recettes NO_PHOTO restent génériques pour les autres types. QA éditoriale/graphique par type et inventaires au-delà de 2 000 photos nécessitent du travail ultérieur.
+- BLOCKED : aucun blocage de code ciblé.
+
+Détails d’architecture et limites : AI_DESIGN_COMPOSER.md.
+
+PHASE 6 COMPLETE: YES — implémentation et validations ciblées; QA runtime différée.
+
+## Phase 7 — parcours client AI Design (5 octobre 2026)
+
+- DONE : étapes progressives événement/photos/style/propositions dans le workspace Design existant; registre partagé utilisé pour filtrer les types d’événement.
+- DONE : avec/sans photo ou choix laissé au Composer; miniatures et orientation des médias privés READY, sélection transmise comme identifiants owner-scoped, pas comme fichiers.
+- DONE : préférences client, génération à quatre propositions par défaut, lots conservés pendant régénération, empty state sans candidat, previews v2 et retour au workspace existant après sélection.
+- DONE : garde de Design existant avec action Continuer et confirmation avant création d’un nouveau Design; aucun remplacement implicite. Préférences temporaires, Design/version 1 persistés au choix selon la Phase 6.
+- PARTIAL : Analytics produit dédiés absents. Texte libre reste le parser déterministe local. L’accessibilité modale/clavier et la navigation mobile nécessitent vérification navigateur manuelle.
+- NOT TESTED : Docker, runtime authentifié, E2E global.
+
+Détails : `docs/AI_CUSTOMER_JOURNEY.md`. Phase 8 EasyPay non commencée.

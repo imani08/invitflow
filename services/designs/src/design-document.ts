@@ -229,7 +229,7 @@ function validateLegacyDesignDocument(input: unknown): DesignDocument {
       color(element['color'], 'text.color');
     } else fail('Type de calque non pris en charge.');
   }
-  entries(input['assets'], 'assets', 0, 50).forEach((asset) => { onlyKeys(asset, ['id', 'role', 'assetId', 'zone', 'width', 'height', 'mimeType'], 'Un asset'); if (asset['assetId'] !== undefined) scalar(asset['assetId'], 'asset.assetId', 36); for (const field of ['width', 'height']) if (asset[field] !== undefined) number(asset[field], `asset.${field}`, 1, 8192); if (asset['mimeType'] !== undefined && asset['mimeType'] !== 'image/webp') fail('Le type de média stocké doit être image/webp.'); });
+  entries(input['assets'], 'assets', 0, 50).forEach((asset) => { onlyKeys(asset, ['id', 'role', 'assetId', 'zone', 'width', 'height', 'mimeType'], 'Un asset'); if (asset['assetId'] !== undefined) scalar(asset['assetId'], 'asset.assetId', 36); for (const field of ['width', 'height']) if (asset[field] !== undefined) number(asset[field], `asset.${field}`, 1, 8192); if (asset['mimeType'] !== undefined && !['image/webp', 'image/png'].includes(String(asset['mimeType']))) fail('Le média stocké doit être un PNG ou WebP validé.'); });
   entries(input['layouts'], 'layouts', 1, 12).forEach((layout) => { onlyKeys(layout, ['id', 'name', 'width', 'height'], 'Un layout'); scalar(layout['id'], 'layout.id', 60); scalar(layout['name'], 'layout.name', 100); number(layout['width'], 'layout.width', 320, 4000); number(layout['height'], 'layout.height', 320, 4000); });
   entries(input['ceremonyRules'], 'ceremonyRules', 0, 20).forEach((rule) => onlyKeys(rule, ['ceremonyType', 'elementId', 'required'], 'Une règle de cérémonie'));
   entries(input['exportProfiles'], 'exportProfiles', 1, 12).forEach((profile) => { onlyKeys(profile, ['id', 'width', 'height', 'unit'], 'Un profil de format'); scalar(profile['id'], 'exportProfile.id', 60); number(profile['width'], 'exportProfile.width', 320, 4000); number(profile['height'], 'exportProfile.height', 320, 4000); if (profile['unit'] !== 'px') fail('Un profil de format doit utiliser les pixels.'); });
@@ -238,14 +238,16 @@ function validateLegacyDesignDocument(input: unknown): DesignDocument {
 }
 
 function legacyProjection(input: DesignDocument): Record<string, unknown> {
-  const projected = structuredClone(input) as Record<string, any>;
+  const projected = structuredClone(input) as Record<string, unknown>;
   projected['schemaVersion'] = 1;
+  // v2 metadata is preserved in the real document; the legacy adapter only validates v1 fields.
+  projected['metadata'] = Object.fromEntries(Object.entries(input['metadata'] ?? {}).filter(([key]) => ['templateSlug', 'templateVersion', 'category', 'style'].includes(key)));
   for (const key of ['safeArea', 'bleed', 'groups', 'layoutVariants']) delete projected[key];
-  projected['elements'] = projected['elements'].map((element: Record<string, any>) => {
+  projected['elements'] = input.elements.map((element: Record<string, unknown>) => {
     const next = { ...element };
     const semanticBinding = next['binding'];
     const preferredFontSize = next['preferredFontSize'];
-    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId']) delete next[key];
+    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'focalPoint', 'blur', 'overlay']) delete next[key];
     if (next['type'] === 'TEXT') {
       if (semanticBinding) next['text'] = '';
       next['maxFontSize'] = preferredFontSize ?? next['maxFontSize'] ?? next['fontSize'];

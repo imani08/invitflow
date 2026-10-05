@@ -26,7 +26,7 @@ import { requiredEnv } from './env.js';
 import { invitationIdFromToken, invitationToken } from './invitation-token.mjs';
 import { renderInvitationImage } from './invitation-image-render.mjs';
 import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
-import { renderResolvedLayoutSvg } from '@invitaflow/design-document';
+import { readPrivateImageDimensions, renderResolvedLayoutSvg } from '@invitaflow/design-document';
 
 type Obj = Record<string, unknown>;
 const object = (v: unknown): Obj =>
@@ -237,6 +237,9 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       if (mimeType !== 'image/webp' && mimeType !== 'image/png') throw new BadRequestException('Le média de la photo n’est pas un WebP ou PNG validé.');
       const bytes = Buffer.from(await response.arrayBuffer());
       if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new BadRequestException('Le média de la photo dépasse la taille de rendu autorisée.');
+      let dimensions: { width: number; height: number };
+      try { dimensions = readPrivateImageDimensions(bytes, mimeType); } catch { throw new BadRequestException('Les dimensions du média PNG/WebP ne peuvent pas être vérifiées.'); }
+      if (doc.schemaVersion === 2 && (Array.isArray(doc.elements) ? doc.elements : []).some((value: unknown) => { const layer = object(value); return layer.type === 'IMAGE' && layer.assetId === assetId && (layer.sourceWidth !== dimensions.width || layer.sourceHeight !== dimensions.height); })) throw new BadRequestException({ code: 'IMAGE_DIMENSIONS_MISMATCH', message: 'Les dimensions de la photo diffèrent du média stocké. Sélectionnez à nouveau le média avant la génération.' });
       return { assetId, storedFromAssetId, bytes, mimeType };
     }));
     const version = Number.isInteger(design?.version) ? design.version : 1;
@@ -1353,7 +1356,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       if (typeof key !== 'string' || !['image/webp', 'image/png'].includes(String(mimeType))) throw new Error('Invitation image snapshot is missing');
       imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType)));
     }
-    const legacyLayers = renderElements
+    const legacyLayers = doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? '' : renderElements
       .map((value: unknown) => {
         const layer = object(value);
         const x = Number(layer.x) || 0;

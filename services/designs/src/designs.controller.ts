@@ -31,6 +31,22 @@ export class DesignsController {
     return this.designs.listTemplates(eventId, authorization(request), category);
   }
 
+  @Post('/composer/proposals') composerProposals(
+    @Req() request: AuthenticatedRequest,
+    @Param('eventId') eventId: string,
+    @Body() body: unknown,
+  ) {
+    return this.designs.composerProposals(eventId, request.identity!.subject, authorization(request), body);
+  }
+
+  @Post('/composer/select') selectComposition(
+    @Req() request: AuthenticatedRequest,
+    @Param('eventId') eventId: string,
+    @Body() body: unknown,
+  ) {
+    return this.designs.selectComposed(eventId, request.identity!.subject, authorization(request), body);
+  }
+
   @Get('/templates/:templateId') template(
     @Req() request: AuthenticatedRequest,
     @Param('eventId') eventId: string,
@@ -101,7 +117,7 @@ export class DesignsController {
       authorization(request),
       designId,
     );
-    return this.designs.inspectDocument(design.document);
+    return { ...this.designs.inspectDocument(design.document), editorial: await this.designs.editorialContext(eventId, request.identity!.subject, authorization(request), designId) };
   }
 
   @Get('/:designId') get(

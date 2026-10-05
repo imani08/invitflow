@@ -7,6 +7,13 @@ export type DesignSnapshot = { id: string; eventId: string; name: string; versio
 export class DesignsClient {
   private readonly baseUrl = requiredEnv('DESIGNS_SERVICE_URL').replace(/\/$/, '');
 
+  async editorial(eventId: string, designId: string, authorization: string) {
+    const response = await fetch(this.baseUrl + '/v1/events/' + encodeURIComponent(eventId) + '/designs/' + encodeURIComponent(designId) + '/validate', { method: 'POST', headers: { authorization }, signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new ServiceUnavailableException('Editorial context unavailable');
+    const value = await response.json() as { editorial: { sourceVersion: number; fields: { elementId: string; sourceText: string; protectedTerms: string[]; target: { overflow: boolean; maxCharacters: number; maxEstimatedLines: number; targetReductionRatio: number }; layer: Record<string, unknown> }[] } };
+    return value.editorial;
+  }
+
   async get(eventId: string, designId: string, authorization: string): Promise<DesignSnapshot> {
     let response: Response;
     try {

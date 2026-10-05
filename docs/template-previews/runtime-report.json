@@ -1,0 +1,107 @@
+{
+  "measuredAt": "2026-10-05T12:29:03.885Z",
+  "browser": "154.0.8037.93",
+  "demoOnly": true,
+  "cases": [
+    {
+      "id": "botanical-elegance-1",
+      "variant": "singleCeremony",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "botanical-elegance-2",
+      "variant": "twoCeremonies",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "botanical-elegance-3",
+      "variant": "threeCeremonies",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "botanical-elegance-4",
+      "variant": "multiCeremony",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "photo-editorial-luxury-1",
+      "variant": "singleCeremony",
+      "errors": [],
+      "warnings": [
+        {
+          "code": "IMAGE_RESOLUTION_LOW",
+          "elementId": "background-photo",
+          "message": "La définition de cette image est insuffisante ou inconnue pour le format impression.",
+          "effectiveDpi": 124
+        }
+      ]
+    },
+    {
+      "id": "photo-editorial-luxury-2",
+      "variant": "twoCeremonies",
+      "errors": [],
+      "warnings": [
+        {
+          "code": "IMAGE_RESOLUTION_LOW",
+          "elementId": "background-photo",
+          "message": "La définition de cette image est insuffisante ou inconnue pour le format impression.",
+          "effectiveDpi": 124
+        }
+      ]
+    },
+    {
+      "id": "photo-editorial-luxury-3",
+      "variant": "threeCeremonies",
+      "errors": [],
+      "warnings": [
+        {
+          "code": "IMAGE_RESOLUTION_LOW",
+          "elementId": "background-photo",
+          "message": "La définition de cette image est insuffisante ou inconnue pour le format impression.",
+          "effectiveDpi": 124
+        }
+      ]
+    },
+    {
+      "id": "photo-editorial-luxury-4",
+      "variant": "multiCeremony",
+      "errors": [],
+      "warnings": [
+        {
+          "code": "IMAGE_RESOLUTION_LOW",
+          "elementId": "background-photo",
+          "message": "La définition de cette image est insuffisante ou inconnue pour le format impression.",
+          "effectiveDpi": 124
+        }
+      ]
+    },
+    {
+      "id": "african-contemporary-1",
+      "variant": "singleCeremony",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "african-contemporary-2",
+      "variant": "twoCeremonies",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "african-contemporary-3",
+      "variant": "threeCeremonies",
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "id": "african-contemporary-4",
+      "variant": "multiCeremony",
+      "errors": [],
+      "warnings": []
+    }
+  ]
+}

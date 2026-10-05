@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { requiredEnv } from './env.js';
 
-type EventReference = { id: string; ceremonies?: { ceremonyType?: unknown }[] };
+type EventReference = { id: string; name?: string; eventType?: string; invitationText?: string | null; coupleNames?: string | null; startAt?: string | null; venue?: string | null; ceremonies?: ({ ceremonyType?: unknown } & Record<string, unknown>)[] };
 
 @Injectable()
 export class EventsClient {

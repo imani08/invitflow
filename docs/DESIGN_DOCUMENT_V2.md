@@ -14,7 +14,7 @@ Une conversion v1 → v2 est calculée en mémoire et n’écrit aucune version 
 - Les règles de visibilité acceptent seulement `binding-exists` et `ceremony-count`.
 - Les éléments texte ont une police du registre, une taille préférée/minimale et une politique explicite (`ERROR`, `SHRINK_WITH_LIMIT`, `USE_VARIANT`, `AI_ASSIST_ALLOWED`). Le résolveur mesure de façon déterministe, réduit jusqu’au minimum, puis signale un débordement; il ne réécrit pas le contenu.
 - Les éléments essentiels hors de la zone sûre et tout élément hors canevas génèrent des erreurs; l’ordre est stable par z-index et ordre source.
-- Les masques enregistrés mais sans moteur de rendu restent signalés comme non pris en charge.
+- Les masques contrôlés sont désormais rendus par le moteur Phase 3; voir `DESIGN_VISUAL_V2.md` pour le contrat et la validation Chromium.
 
 ## Intégrations
 

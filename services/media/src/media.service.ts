@@ -292,7 +292,7 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async createDownloadUrl(ownerSubject: string, id: string, variant = 'original') {
-    const asset = await this.ownedAsset(ownerSubject, id);
+    const asset = await this.readableAsset(ownerSubject, id);
     if (asset.status !== MediaAssetStatus.READY || !asset.objectKey || !asset.detectedMimeType)
       throw new ConflictException('Le média n’est pas encore prêt à être utilisé.');
     const keys: Record<string, string> = {
@@ -558,11 +558,11 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getAsset(ownerSubject: string, id: string) {
-    return this.publicAsset(await this.ownedAsset(ownerSubject, id));
+    return this.publicAsset(await this.readableAsset(ownerSubject, id));
   }
 
   async getAssetContent(ownerSubject: string, id: string) {
-    const asset = await this.ownedAsset(ownerSubject, id);
+    const asset = await this.readableAsset(ownerSubject, id);
     if (asset.status !== MediaAssetStatus.READY || !asset.objectKey || !['image/webp', 'image/png'].includes(asset.detectedMimeType ?? ''))
       throw new ConflictException('Le média n’est pas prêt à être utilisé.');
     const bytes = await this.storage.readReady(asset.objectKey, 8 * 1024 * 1024);
@@ -623,6 +623,21 @@ export class MediaService implements OnModuleInit, OnModuleDestroy {
     const hasMore = rows.length > limit;
     const items = rows.slice(0, limit).map((asset) => this.publicAsset(asset));
     return { items, nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null };
+  }
+
+  private async readableAsset(ownerSubject: string, id: string) {
+    try { return await this.ownedAsset(ownerSubject, id); }
+    catch (error) { if (!(error instanceof NotFoundException)) throw error; }
+    const asset = await this.prisma.mediaAsset.findFirst({ where: { id, status: MediaAssetStatus.READY } });
+    if (!asset) throw new NotFoundException('Média introuvable.');
+    if (asset.ownerSubject === ownerSubject) return asset;
+    const token = process.env['STORAGE_MONITOR_TOKEN'];
+    if (!token || token.length < 32) throw new NotFoundException('Média introuvable.');
+    try {
+      const response = await fetch(`${requiredEnv('DESIGNS_SERVICE_URL', 'http://designs:3007').replace(/\/$/, '')}/v1/internal/storage/template-asset-check`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-storage-monitor-token': token }, body: JSON.stringify({ assetId: id }), signal: AbortSignal.timeout(5000), cache: 'no-store' });
+      if (response.ok && (await response.json() as { allowed?: boolean }).allowed === true) return asset;
+    } catch { /* An unavailable authority never grants cross-account access. */ }
+    throw new NotFoundException('Média introuvable.');
   }
 
   private async ownedAsset(ownerSubject: string, id: string) {

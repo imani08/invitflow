@@ -8,7 +8,7 @@ import './designs-step1.css';
 import '../../journey.css';
 import './designs-journey.css';
 
-type Event = { id: string; name: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
+type Event = { id: string; name: string; eventType?: string; status: string; timezone: string; ceremonies: { id: string; name: string; ceremonyType: string }[] };
 
 export const dynamic = 'force-dynamic';
 

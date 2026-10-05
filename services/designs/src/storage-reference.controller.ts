@@ -20,6 +20,14 @@ export class StorageMonitorGuard implements CanActivate {
 export class StorageReferenceController {
   constructor(private readonly designs: DesignsService) {}
 
+  @Post('/template-asset-check')
+  templateAssetCheck(@Body() body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Invalid asset query.');
+    const input = body as Record<string, unknown>;
+    if (Object.keys(input).length !== 1 || typeof input['assetId'] !== 'string' || !/^[0-9a-f-]{36}$/i.test(input['assetId'])) throw new BadRequestException('Invalid asset query.');
+    return this.designs.checkPublishedTemplateAsset(input['assetId']);
+  }
+
   @Post('/reference-check')
   referenceCheck(@Body() body: unknown) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Invalid reference query.');

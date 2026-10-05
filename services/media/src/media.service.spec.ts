@@ -38,9 +38,9 @@ function makeService() {
   } as { id: string; ownerSubject: string; purpose: MediaAssetPurpose; category: MediaAssetCategory; status: MediaAssetStatus; originalName: string; declaredMimeType: string; detectedMimeType: string; sizeBytes: number; width: number; height: number; sha256: string; objectKey: string | null; createdAt: Date; intentExpiresAt: Date; uploadExpiresAt: Date; quarantineExpiresAt: Date | null; uploadKey?: string | null; quarantineKey?: string; updatedAt?: Date; previewSizeBytes?: number | null; thumbnailSizeBytes?: number | null; deletedAt?: Date | null; derivedJob?: { id: string } | null };
   const prisma = {
     mediaAsset: {
-      findFirst: async ({ where }: { where: { ownerSubject: string; id: string } }) => {
-        assert.equal(where.ownerSubject, 'owner-1');
+      findFirst: async ({ where }: { where: { ownerSubject?: string; id: string } }) => {
         assert.equal(where.id, assetId);
+        if (where.ownerSubject !== undefined && where.ownerSubject !== asset.ownerSubject) return null;
         return asset;
       },
       updateMany: async ({ data }: { data: Record<string, unknown> }) => { Object.assign(asset, data); return { count: 1 }; },
@@ -84,6 +84,31 @@ test('creates owner-scoped download URLs only for the original and fixed variant
     assert.equal(result.variant, variant);
     assert.equal(result.download.url, 'https://storage.example.test/signed');
     assert.equal(requestedKeys.at(-1), expectedKey);
+  }
+});
+
+test('published template decoration grants read only, fails closed and never grants deletion', async () => {
+  const { service, requestedKeys } = makeService();
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
+  process.env['STORAGE_MONITOR_TOKEN'] = 'a'.repeat(32);
+  try {
+    globalThis.fetch = async (url, init) => {
+      assert.ok(String(url).endsWith('/v1/internal/storage/template-asset-check'));
+      assert.equal(JSON.parse(String(init?.body)).assetId, assetId);
+      return new Response(JSON.stringify({ allowed: true }), { status: 200 });
+    };
+    await service.createDownloadUrl('another-client', assetId);
+    assert.equal(requestedKeys.length, 1);
+    await assert.rejects(() => service.deleteAsset('another-client', assetId), /introuvable/);
+    for (const denied of [async () => new Response(JSON.stringify({ allowed: false })), async () => new Response('{}', { status: 503 }), async () => { throw new Error('timeout'); }]) {
+      globalThis.fetch = denied;
+      await assert.rejects(() => service.getAssetContent('another-client', assetId), /introuvable/);
+    }
+    assert.equal(requestedKeys.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env['STORAGE_MONITOR_TOKEN']; else process.env['STORAGE_MONITOR_TOKEN'] = originalToken;
   }
 });
 

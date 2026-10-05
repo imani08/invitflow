@@ -1,0 +1,98 @@
+[
+  {
+    "id": "botanical-elegance-1",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.0498,
+    "fractionPixelsOver24": 0.04261874775098957,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "botanical-elegance-2",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.5119,
+    "fractionPixelsOver24": 0.04954345088161209,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "botanical-elegance-3",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.2436,
+    "fractionPixelsOver24": 0.047694764303706366,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "botanical-elegance-4",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.5855,
+    "fractionPixelsOver24": 0.0536051637279597,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "photo-editorial-luxury-1",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.6246,
+    "fractionPixelsOver24": 0.03822643037063692,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "photo-editorial-luxury-2",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 4.0751,
+    "fractionPixelsOver24": 0.04514213745951781,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "photo-editorial-luxury-3",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.8215,
+    "fractionPixelsOver24": 0.04446518531845988,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "photo-editorial-luxury-4",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 4.0714,
+    "fractionPixelsOver24": 0.0491453760345448,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "african-contemporary-1",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 2.6231,
+    "fractionPixelsOver24": 0.03738530046779417,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "african-contemporary-2",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.0805,
+    "fractionPixelsOver24": 0.044370726880172726,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "african-contemporary-3",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 2.8624,
+    "fractionPixelsOver24": 0.04247256207268802,
+    "strictPixelThresholdPassed": false
+  },
+  {
+    "id": "african-contemporary-4",
+    "width": 560,
+    "height": 794,
+    "meanAbsoluteError": 3.2234,
+    "fractionPixelsOver24": 0.04840770061173084,
+    "strictPixelThresholdPassed": false
+  }
+]

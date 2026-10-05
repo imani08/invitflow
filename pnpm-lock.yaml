@@ -367,6 +367,9 @@ importers:
 
   services/ai-design:
     dependencies:
+      '@invitaflow/design-document':
+        specifier: workspace:*
+        version: link:../../packages/design-document
       '@nestjs/common':
         specifier: 11.2.4
         version: 11.2.4(reflect-metadata@0.2.2)(rxjs@7.8.2)
