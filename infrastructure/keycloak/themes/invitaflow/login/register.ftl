@@ -1,4 +1,4 @@
-<#import "template.ftl" as layout>
+﻿<#import "template.ftl" as layout>
 <#import "field.ftl" as field>
 <#import "user-profile-commons.ftl" as userProfileCommons>
 <#import "register-commons.ftl" as registerCommons>
@@ -19,7 +19,7 @@
             <@registerCommons.termsAcceptance/>
 
             <div class="if-legal-acceptance<#if messagesPerField.existsError('invitaflow_legal_acceptance')> if-legal-acceptance-error</#if>">
-                <input id="invitaflow_legal_acceptance" name="invitaflow_legal_acceptance" type="checkbox" value="accepted" aria-describedby="invitaflow-legal-error" <#if messagesPerField.existsError('invitaflow_legal_acceptance')>aria-invalid="true"</#if>>
+                <input id="invitaflow_legal_acceptance" name="invitaflow_legal_acceptance" type="checkbox" value="accepted" required aria-required="true" aria-describedby="invitaflow-legal-error" <#if messagesPerField.existsError('invitaflow_legal_acceptance')>aria-invalid="true"</#if>>
                 <label for="invitaflow_legal_acceptance">${msg("invitaflowLegalPrefix")} <a href="${invitaflowPublicWebUrl}/legal/cgu" target="_blank" rel="noopener noreferrer">${msg("invitaflowLegalTerms")}</a> ${msg("invitaflowLegalAnd")} <a href="${invitaflowPublicWebUrl}/legal/confidentialite" target="_blank" rel="noopener noreferrer">${msg("invitaflowLegalPrivacy")}</a>.</label>
                 <#if messagesPerField.existsError('invitaflow_legal_acceptance')>
                     <span class="if-legal-error" id="invitaflow-legal-error" role="alert">${kcSanitize(messagesPerField.get('invitaflow_legal_acceptance'))?no_esc}</span>
@@ -43,3 +43,4 @@
         <@validator.script field="password"/>
     </#if>
 </@layout.registrationLayout>
+
