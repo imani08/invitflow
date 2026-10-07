@@ -13,8 +13,32 @@ const footerLinks = [
 ];
 
 export function LegalFooter() {
-  return <footer className="legal-global-footer">
-    <div><strong>{legalCompany.name}</strong><span><a href={`mailto:${legalCompany.email}`}>{legalCompany.email}</a><a href={`tel:${legalCompany.phone}`}>{legalCompany.phone}</a></span></div>
-    <nav aria-label="Liens juridiques">{footerLinks.map((link) => <Link href={link.href} key={link.href}>{link.label}</Link>)}</nav>
-  </footer>;
+  return (
+    <footer className="legal-global-footer">
+      <div className="legal-global-footer__company">
+        <strong>{legalCompany.name}</strong>
+
+        <div className="legal-global-footer__contact">
+          <a href={`mailto:${legalCompany.email}`}>
+            {legalCompany.email}
+          </a>
+
+          <a href={`tel:${legalCompany.phone}`}>
+            {legalCompany.phone}
+          </a>
+        </div>
+      </div>
+
+      <nav
+        className="legal-global-footer__links"
+        aria-label="Liens juridiques"
+      >
+        {footerLinks.map((link) => (
+          <Link href={link.href} key={link.href}>
+            {link.label}
+          </Link>
+        ))}
+      </nav>
+    </footer>
+  );
 }

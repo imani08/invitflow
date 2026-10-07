@@ -24,3 +24,4 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+verifyDepsBeforeRun: warn
