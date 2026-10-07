@@ -46,8 +46,21 @@ test('server validates the checkbox and persists acceptance after user creation'
   assert.match(action, /Clock\.systemUTC\(\)/);
   assert.match(action, /user::setAttribute/);
   assert.match(bootstrap, /providerId === 'registration-user-creation'/);
-  assert.match(bootstrap, /provider: 'invitaflow-legal-acceptance', priority: registrationForm\.userCreation\.priority \+ 1/);
+});
+
+test('legal FormAction is discovered and provisioned idempotently in the registration form-flow child', () => {
+  assert.match(bootstrap, /authenticationFlow === true/);
+  assert.match(bootstrap, /child\?\.providerId === 'form-flow'/);
+  assert.match(bootstrap, /const userCreation = childExecutions\.find\(\(item\) => item\.providerId === 'registration-user-creation'\)/);
+
+  const postMatch = /admin\(`\/authentication\/flows\/\$\{encodeURIComponent\(registrationForm\.alias\)\}\/executions\/execution`,\s*\{\s*method: 'POST',\s*body: JSON\.stringify\(\{ provider: 'invitaflow-legal-acceptance', priority: registrationForm\.userCreation\.priority \+ 1 \}\)/.exec(bootstrap);
+  assert.ok(postMatch, 'FormAction POST must target the dynamically discovered child form flow alias');
+  assert.doesNotMatch(bootstrap, /admin\(`\/authentication\/flows\/\$\{encodeURIComponent\(customAlias\)\}\/executions\/execution`/);
+
+  assert.match(bootstrap, /execution\.providerId === 'invitaflow-legal-acceptance' \|\| execution\.authenticator === 'invitaflow-legal-acceptance'/);
+  assert.match(bootstrap, /requirement: 'REQUIRED', priority: requiredPriority/);
   assert.match(bootstrap, /registrationFlow = customAlias/);
+  assert.match(bootstrap, /Registration flow binding: \$\{realm\.registrationFlow\}/);
 });
 
 test('realm requires verification and rejects duplicate accounts while SMTP remains out of static realm config', () => {
