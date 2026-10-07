@@ -337,8 +337,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -353,8 +353,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -398,8 +398,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -414,8 +414,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -459,8 +459,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -475,8 +475,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -517,8 +517,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -533,8 +533,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -575,8 +575,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -591,8 +591,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -636,8 +636,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -652,8 +652,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -694,8 +694,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -710,8 +710,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -761,8 +761,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -777,8 +777,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -822,8 +822,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -838,8 +838,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -880,8 +880,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -899,8 +899,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -941,8 +941,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -957,8 +957,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1002,8 +1002,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -1018,8 +1018,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1060,8 +1060,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -1076,8 +1076,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       eslint:
         specifier: 8.57.1
         version: 8.57.1(supports-color@7.2.0)
@@ -1124,8 +1124,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -1140,8 +1140,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -1182,8 +1182,8 @@ importers:
         specifier: 6.2.12
         version: 6.2.12
       pg:
-        specifier: 8.16.3
-        version: 8.16.3
+        specifier: 8.23.1
+        version: 8.23.1
       prisma:
         specifier: 7.10.0
         version: 7.10.0(@types/node@24.5.2)(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.9(react@19.1.9))(react@19.1.9)(typescript@5.9.2)
@@ -1198,8 +1198,8 @@ importers:
         specifier: 24.5.2
         version: 24.5.2
       '@types/pg':
-        specifier: 8.15.5
-        version: 8.15.5
+        specifier: 8.23.1
+        version: 8.23.1
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -2012,9 +2012,6 @@ packages:
 
   '@types/node@24.5.2':
     resolution: {integrity: sha512-FYxk1I7wPv3K2XBaoyH2cTnocQEu8AOZ60hPbsyukMPLv5/5qr7V1i8PLHdl6Zf87I+xZXFvPCXYjiTFq+YSDQ==}
-
-  '@types/pg@8.15.5':
-    resolution: {integrity: sha512-LF7lF6zWEKxuT3/OR8wAZGzkg4ENGXFNyiV/JeOt9z5B+0ZVwbql9McqX5c/WStFq1GaGso7H1AzP/qSzmlCKQ==}
 
   '@types/pg@8.23.1':
     resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
@@ -3530,11 +3527,11 @@ packages:
   perfect-debounce@2.1.0:
     resolution: {integrity: sha512-LjgdTytVFXeUgtHZr9WYViYSM/g8MkcTPYDlPa3cDqMirHjKiSZPYd6DoL7pK8AJQr+uWkQvCjHNdiMqsrJs+g==}
 
-  pg-cloudflare@1.4.0:
-    resolution: {integrity: sha512-Vo7z/6rrQYxpNRylp4Tlob2elzbh+N/MOQbxFVWCxS7oEx6jF53GTJFxK2WWpKuBRkmiin4Mt+xofFDjx09R0A==}
+  pg-cloudflare@1.4.1:
+    resolution: {integrity: sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==}
 
-  pg-connection-string@2.14.0:
-    resolution: {integrity: sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==}
+  pg-connection-string@2.14.1:
+    resolution: {integrity: sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==}
 
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
@@ -3548,12 +3545,15 @@ packages:
   pg-protocol@1.16.0:
     resolution: {integrity: sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg==}
 
+  pg-protocol@1.16.1:
+    resolution: {integrity: sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==}
+
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
     engines: {node: '>=4'}
 
-  pg@8.16.3:
-    resolution: {integrity: sha512-enxc1h0jA/aq5oSDMvqyW3q89ra6XIIDZgCX9vkMrnz5DFTw/Ny3Li2lFQ+pt3L6MCgm/5o2o8HW9hiJji+xvw==}
+  pg@8.23.1:
+    resolution: {integrity: sha512-aL96AHANtWjPLDOLqnhx+ngp9+UK7ETEU8VJrDCGvsSSi/mGLcWYsS6Herg7lmaBJe4uwrfqsa7gTEFaSizDoQ==}
     engines: {node: '>= 16.0.0'}
     peerDependencies:
       pg-native: '>=3.0.1'
@@ -4592,7 +4592,7 @@ snapshots:
     dependencies:
       '@prisma/driver-adapter-utils': 7.10.0
       '@types/pg': 8.23.1
-      pg: 8.16.3
+      pg: 8.23.1
       postgres-array: 3.0.4
     transitivePeerDependencies:
       - pg-native
@@ -4835,12 +4835,6 @@ snapshots:
   '@types/node@24.5.2':
     dependencies:
       undici-types: 7.12.0
-
-  '@types/pg@8.15.5':
-    dependencies:
-      '@types/node': 24.5.2
-      pg-protocol: 1.16.0
-      pg-types: 2.2.0
 
   '@types/pg@8.23.1':
     dependencies:
@@ -6620,18 +6614,20 @@ snapshots:
 
   perfect-debounce@2.1.0: {}
 
-  pg-cloudflare@1.4.0:
+  pg-cloudflare@1.4.1:
     optional: true
 
-  pg-connection-string@2.14.0: {}
+  pg-connection-string@2.14.1: {}
 
   pg-int8@1.0.1: {}
 
-  pg-pool@3.14.0(pg@8.16.3):
+  pg-pool@3.14.0(pg@8.23.1):
     dependencies:
-      pg: 8.16.3
+      pg: 8.23.1
 
   pg-protocol@1.16.0: {}
+
+  pg-protocol@1.16.1: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -6641,15 +6637,15 @@ snapshots:
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
 
-  pg@8.16.3:
+  pg@8.23.1:
     dependencies:
-      pg-connection-string: 2.14.0
-      pg-pool: 3.14.0(pg@8.16.3)
-      pg-protocol: 1.16.0
+      pg-connection-string: 2.14.1
+      pg-pool: 3.14.0(pg@8.23.1)
+      pg-protocol: 1.16.1
       pg-types: 2.2.0
       pgpass: 1.0.5
     optionalDependencies:
-      pg-cloudflare: 1.4.0
+      pg-cloudflare: 1.4.1
 
   pgpass@1.0.5:
     dependencies:
