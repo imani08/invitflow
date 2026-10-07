@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Organizer
+    participant P2 as Web
+    participant P3 as Guests API
+    participant P4 as Import parser/job
+    participant P5 as PostgreSQL
+    participant P6 as Notifications
+    P1->>P2: Upload spreadsheet
+    P2->>P3: Parse rows / size
+    P3->>P4: Persist import job
+    P4->>P5: Deduplicate and upsert
+    P5->>P6: Report row errors
+    P6-->>P1: Résultat / statut vérifié

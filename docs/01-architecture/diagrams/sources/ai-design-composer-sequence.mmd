@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Organizer
+    participant P2 as Web
+    participant P3 as AI Design API
+    participant P4 as Quota/advisory lock
+    participant P5 as RabbitMQ worker
+    participant P6 as Model/preview storage
+    P1->>P2: Submit AI job
+    P2->>P3: Check owner / quota
+    P3->>P4: Persist and enqueue
+    P4->>P5: Generate proposal
+    P5->>P6: Store result / status
+    P6-->>P1: Résultat / statut vérifié

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="440" viewBox="0 0 1500 440">
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#b58924"/></marker></defs>
+<rect width="100%" height="100%" fill="#fbf7f0"/>
+<text x="40" y="45" font-size="28" font-family="Arial" font-weight="700" fill="#301338">Machine invitation batch</text>
+<line x1="360" y1="150" x2="430" y2="150" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="235" y1="156" x2="565" y2="291" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="235" y1="156" x2="895" y2="291" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="690" y1="150" x2="760" y2="150" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="565" y1="156" x2="895" y2="291" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="1020" y1="150" x2="1090" y2="150" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="895" y1="156" x2="235" y2="291" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="895" y1="156" x2="565" y2="291" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="895" y1="205" x2="895" y2="237" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="235" y1="291" x2="565" y2="156" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="110" y="110" width="250" height="92" rx="15" fill="#ead9a9" stroke="#59305d" stroke-width="3"/>
+<text x="235" y="146" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">RESERVING</text>
+<rect x="440" y="110" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="565" y="146" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">QUEUED</text>
+<rect x="770" y="110" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="895" y="146" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">GENERATING</text>
+<rect x="1100" y="110" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="1225" y="146" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">COMPLETED</text>
+<rect x="110" y="245" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="235" y="281" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">PARTIAL</text>
+<rect x="440" y="245" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="565" y="281" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">FAILED</text>
+<rect x="770" y="245" width="250" height="92" rx="15" fill="#ead9a9" stroke="#59305d" stroke-width="3"/>
+<text x="895" y="281" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">CANCELLED</text>
+</svg>

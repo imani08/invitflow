@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Web client
+    participant P2 as Invitations API
+    participant P3 as RabbitMQ
+    participant P4 as Worker
+    participant P5 as MinIO
+    participant P6 as Download endpoint
+    P1->>P2: Request owned export
+    P2->>P3: Check status / expiry
+    P3->>P4: Fetch private objects
+    P4->>P5: Stream download
+    P5->>P6: Record access result
+    P6-->>P1: Résultat / statut vérifié

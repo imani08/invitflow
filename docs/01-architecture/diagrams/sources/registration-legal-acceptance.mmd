@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Visitor
+    participant P2 as Keycloak form
+    participant P3 as Legal package
+    participant P4 as Email action
+    participant P5 as Mailbox
+    participant P6 as Web callback
+    P1->>P2: Open registration
+    P2->>P3: Submit legal versions
+    P3->>P4: Persist consent timestamp
+    P4->>P5: Create unverified user
+    P5->>P6: Send verify-email link
+    P6-->>P1: Résultat / statut vérifié

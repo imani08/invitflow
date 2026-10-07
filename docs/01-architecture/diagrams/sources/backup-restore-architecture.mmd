@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Databases"]
+    N1["Consistent backup job"]
+    N2["Encrypted offsite storage"]
+    N3["Restore isolation"]
+    N4["Migration/validation"]
+    N5["Service cutover"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

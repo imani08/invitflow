@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Client browser"]
+    N1["Traefik edge"]
+    N2["Web + Gateway"]
+    N3["Services API/workers"]
+    N4["Data plane"]
+    N5["External IdP/mail/provider"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

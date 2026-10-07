@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="605" viewBox="0 0 1400 605">
+<defs><marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#b58924"/></marker></defs>
+<rect width="100%" height="100%" fill="#fbf7f0"/>
+<text x="40" y="45" font-size="28" font-family="Arial" font-weight="700" fill="#301338">ERD haut niveau</text>
+<line x1="350" y1="145" x2="430" y2="145" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="690" y1="145" x2="770" y2="145" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="905" y1="151" x2="225" y2="296" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="350" y1="290" x2="430" y2="290" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="690" y1="290" x2="770" y2="290" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="905" y1="296" x2="225" y2="441" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<line x1="350" y1="435" x2="430" y2="435" stroke="#b58924" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="100" y="105" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="225" y="141" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Profile</text>
+<rect x="440" y="105" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="565" y="141" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Event/Ceremony</text>
+<rect x="780" y="105" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="905" y="141" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Guest/Group</text>
+<rect x="100" y="250" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="225" y="286" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Design/Version</text>
+<rect x="440" y="250" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="565" y="286" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Invitation/Batch/RSVP</text>
+<rect x="780" y="250" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="905" y="286" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Payment/Wallet/Ledger</text>
+<rect x="100" y="395" width="250" height="92" rx="15" fill="#f1e8d8" stroke="#59305d" stroke-width="3"/>
+<text x="225" y="431" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Media/Asset</text>
+<rect x="440" y="395" width="250" height="92" rx="15" fill="#fff" stroke="#59305d" stroke-width="3"/>
+<text x="565" y="431" text-anchor="middle" font-size="16" font-family="Arial" fill="#29152f">Audit/Notification</text>
+</svg>

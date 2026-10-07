@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Guest
+    participant P2 as Public link
+    participant P3 as Invitations API
+    participant P4 as RSVP DB
+    participant P5 as Notification outbox
+    P1->>P2: Open signed link
+    P2->>P3: Validate signature
+    P3->>P4: Submit ceremony RSVP
+    P4->>P5: Persist response once
+    P5-->>P1: Résultat / statut vérifié

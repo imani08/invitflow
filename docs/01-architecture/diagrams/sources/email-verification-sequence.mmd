@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as New user
+    participant P2 as Keycloak
+    participant P3 as Mail provider
+    participant P4 as Verification URL
+    participant P5 as Web callback
+    P1->>P2: Require verification
+    P2->>P3: Send one-time link
+    P3->>P4: Validate action link
+    P4->>P5: Set email verified
+    P5-->>P1: Résultat / statut vérifié

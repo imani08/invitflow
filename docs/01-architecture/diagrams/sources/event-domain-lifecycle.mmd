@@ -1,0 +1,10 @@
+stateDiagram-v2
+    title: Cycle événement
+    [*] --> DRAFT
+    DRAFT --> PUBLISHED
+    DRAFT --> CANCELLED
+    DRAFT --> COMPLETED
+    PUBLISHED --> CANCELLED
+    PUBLISHED --> COMPLETED
+    CANCELLED --> [*]
+    COMPLETED --> [*]

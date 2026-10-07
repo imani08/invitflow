@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Browser
+    participant P2 as Presigned upload
+    participant P3 as Quarantine bucket
+    participant P4 as Media API/ClamAV
+    participant P5 as Decode/transcode
+    participant P6 as Private ready bucket
+    P1->>P2: Request scoped upload
+    P2->>P3: Upload to quarantine
+    P3->>P4: Verify bytes / size
+    P4->>P5: Scan and transcode
+    P5->>P6: Promote private object
+    P6-->>P1: Résultat / statut vérifié

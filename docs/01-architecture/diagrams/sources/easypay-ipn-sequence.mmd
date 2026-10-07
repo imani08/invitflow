@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Provider IPN
+    participant P2 as Payments callback
+    participant P3 as Signature/reference check
+    participant P4 as Payment transaction
+    participant P5 as Outbox
+    participant P6 as Wallet consumer
+    P1->>P2: Receive provider IPN
+    P2->>P3: Resolve provider ref
+    P3->>P4: Verify sig / amount
+    P4->>P5: Commit state + outbox
+    P5->>P6: Credit wallet once
+    P6-->>P1: Résultat / statut vérifié

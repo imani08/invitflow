@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Web routes"]
+    N1["BFF auth/session"]
+    N2["Gateway proxy"]
+    N3["Domain API"]
+    N4["Outbox & workers"]
+    N5["Infrastructure"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

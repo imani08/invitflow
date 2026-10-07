@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as User
+    participant P2 as Web/Gateway
+    participant P3 as Payments API
+    participant P4 as Provider adapter
+    participant P5 as Provider hosted checkout
+    participant P6 as Database/outbox
+    P1->>P2: Request checkout
+    P2->>P3: Validate order state
+    P3->>P4: Create provider session
+    P4->>P5: Persist provider refs
+    P5->>P6: Return checkout URL
+    P6-->>P1: Résultat / statut vérifié

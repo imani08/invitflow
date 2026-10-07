@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Payment verified
+    participant P2 as payment.succeeded event
+    participant P3 as Wallet consumer
+    participant P4 as Unique event ledger
+    participant P5 as Balance projection
+    P1->>P2: Verify success event
+    P2->>P3: Publish versioned event
+    P3->>P4: Deduplicate event ID
+    P4->>P5: Append credit ledger
+    P5-->>P1: Résultat / statut vérifié

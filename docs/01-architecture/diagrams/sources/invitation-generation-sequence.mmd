@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Organizer
+    participant P2 as Invitations API
+    participant P3 as Wallet
+    participant P4 as Outbox/RabbitMQ
+    participant P5 as Rendering worker
+    participant P6 as MinIO
+    P1->>P2: Create batch
+    P2->>P3: Reserve credits once
+    P3->>P4: Commit batch / outbox
+    P4->>P5: Render PDF items
+    P5->>P6: Store private outputs
+    P6-->>P1: Résultat / statut vérifié

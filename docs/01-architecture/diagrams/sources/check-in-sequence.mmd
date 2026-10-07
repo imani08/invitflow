@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Organizer device
+    participant P2 as Web scanner
+    participant P3 as Events/Invitation API
+    participant P4 as Signature validator
+    participant P5 as Unique check-in DB
+    P1->>P2: Scan QR
+    P2->>P3: Resolve event / ceremony
+    P3->>P4: Verify signature / owner
+    P4->>P5: Insert unique attendance
+    P5-->>P1: Résultat / statut vérifié

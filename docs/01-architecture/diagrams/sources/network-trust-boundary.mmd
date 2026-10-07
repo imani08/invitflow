@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Internet untrusted"]
+    N1["Reverse proxy TLS"]
+    N2["Authenticated web/API"]
+    N3["Private services"]
+    N4["DB/broker/object store"]
+    N5["External providers"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

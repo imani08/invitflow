@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Web/Gateway/services"]
+    N1["Structured logs"]
+    N2["Metrics/health"]
+    N3["Correlation IDs"]
+    N4["Dashboards/alerts"]
+    N5["Operator runbook"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

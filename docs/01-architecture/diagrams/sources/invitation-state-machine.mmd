@@ -1,0 +1,17 @@
+stateDiagram-v2
+    title: Machine invitation batch
+    [*] --> RESERVING
+    RESERVING --> QUEUED
+    RESERVING --> FAILED
+    RESERVING --> CANCELLED
+    QUEUED --> GENERATING
+    QUEUED --> CANCELLED
+    GENERATING --> COMPLETED
+    GENERATING --> PARTIAL
+    GENERATING --> FAILED
+    GENERATING --> CANCELLED
+    PARTIAL --> QUEUED
+    PARTIAL --> [*]
+    COMPLETED --> [*]
+    FAILED --> [*]
+    CANCELLED --> [*]

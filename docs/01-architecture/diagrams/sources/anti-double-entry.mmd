@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Scan arrives"]
+    N1["Verify event/ceremony"]
+    N2["Atomic unique insert"]
+    N3["Already checked?"]
+    N4["Record one attendance"]
+    N5["Return conflict/duplicate"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5

@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Browser
+    participant P2 as Next.js BFF
+    participant P3 as Keycloak
+    participant P4 as Session Redis
+    participant P5 as Gateway
+    P1->>P2: GET /login
+    P2->>P3: Create PKCE state
+    P3->>P4: Authenticate at Keycloak
+    P4->>P5: Exchange code + verifier
+    P5-->>P1: Résultat / statut vérifié

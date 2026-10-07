@@ -1,0 +1,12 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Provider retries
+    participant P2 as Callback handler
+    participant P3 as Unique receipt/ref
+    participant P4 as Compare-and-set status
+    participant P5 as Anomaly/replay result
+    P1->>P2: Receive callback
+    P2->>P3: Validate provider payload
+    P3->>P4: Insert unique receipt
+    P4->>P5: Compare-and-set status
+    P5-->>P1: Résultat / statut vérifié

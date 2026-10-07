@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P1 as Organizer
+    participant P2 as Web BFF
+    participant P3 as Gateway
+    participant P4 as Events API
+    participant P5 as Events DB
+    participant P6 as Outbox/Broker
+    P1->>P2: Submit event
+    P2->>P3: Forward bearer request
+    P3->>P4: Validate owner / fields
+    P4->>P5: Commit event
+    P5->>P6: Publish outbox event
+    P6-->>P1: Résultat / statut vérifié

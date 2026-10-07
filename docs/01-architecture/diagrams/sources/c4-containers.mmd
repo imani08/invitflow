@@ -1,0 +1,12 @@
+flowchart LR
+    N0["Browser"]
+    N1["Next.js Web BFF"]
+    N2["Gateway"]
+    N3["Domain services"]
+    N4["PostgreSQL par domaine"]
+    N5["RabbitMQ / Redis / MinIO"]
+    N0 --> N1
+    N1 --> N2
+    N2 --> N3
+    N3 --> N4
+    N4 --> N5
