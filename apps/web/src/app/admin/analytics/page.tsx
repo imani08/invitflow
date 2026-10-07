@@ -2,8 +2,6 @@ import { decodeJwt } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
-import { BrandLogo } from '@/components/brand-logo';
-import '../admin.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,14 +79,6 @@ export default async function AnalyticsAdminPage({
 
   return (
     <main className="admin-shell">
-      <nav>
-        <BrandLogo variant="compact" href="/dashboard" />
-        <a href="/admin">← Administration</a>
-        <div>
-          <a href="/admin/finance">Paiements ↗</a>
-          <a href="/admin/pricing">Tarifs ↗</a>
-        </div>
-      </nav>
       <header>
         <span>INVITAFLOW · ANALYTICS</span>
         <h1>Indicateurs produit</h1>

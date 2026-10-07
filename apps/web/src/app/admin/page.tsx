@@ -2,10 +2,7 @@ import { decodeJwt } from 'jose';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
-import { BrandLogo } from '@/components/brand-logo';
 import { ModerationQueue, type ModerationReport } from './moderation-queue';
-import './admin.css';
-import './moderation.css';
 
 export const dynamic = 'force-dynamic';
 type AuditEvent = {
@@ -43,14 +40,8 @@ export default async function AdminPage({
   if (!canSupport && canFinance)
     return (
       <main className="admin-shell">
-        <nav>
-          <BrandLogo variant="compact" href="/dashboard" />
-          <a href="/account">← Mon compte</a>
-        </nav>
+        <header><span>INVITAFLOW · FINANCE</span><h1>Console finance</h1><p>Consultez les paiements, références fournisseurs et indicateurs agrégés.</p></header>
         <section className="admin-panel">
-          <small>INVITAFLOW · FINANCE</small>
-          <h1>Console finance</h1>
-          <p>Consultez les paiements, références fournisseurs et indicateurs agrégés.</p>
           <a className="admin-next" href="/admin/finance">
             Ouvrir les paiements →
           </a>
@@ -63,7 +54,6 @@ export default async function AdminPage({
   if (!canSupport)
     return (
       <main className="admin-shell">
-        <a href="/account">← Mon compte</a>
         <section className="admin-denied">
           <span>ACCÈS RESTREINT</span>
           <h1>Permission d’administration requise</h1>
@@ -99,18 +89,6 @@ export default async function AdminPage({
   }
   return (
     <main className="admin-shell">
-      <nav>
-        <BrandLogo variant="compact" href="/dashboard" />
-        <a href="/account">← Mon compte</a>
-        <div>
-          {canFinance && <a href="/admin/analytics">Indicateurs ↗</a>}
-          <a href="/admin/finance">Paiements ↗</a>
-          <a href="/admin/pricing">Gestion des tarifs ↗</a>
-          <a href="/admin/storage">Stockage ↗</a>
-          <a href="/account/report">Créer un signalement</a>
-          <a href="/account/notifications">Notifications</a>
-        </div>
-      </nav>
       <header>
         <span>INVITAFLOW · BACK-OFFICE</span>
         <h1>Administration &amp; modération</h1>
@@ -118,7 +96,7 @@ export default async function AdminPage({
           Examinez les signalements et consultez le journal append-only des événements applicatifs.
         </p>
       </header>
-      <section className="admin-panel">
+      <section className="admin-panel" id="moderation">
         <div className="admin-panel-head">
           <div>
             <small>MODÉRATION</small>
@@ -134,7 +112,7 @@ export default async function AdminPage({
           <p className="admin-empty">Le service de modération n’a pas pu répondre.</p>
         )}
       </section>
-      <section className="admin-panel">
+      <section className="admin-panel" id="audit">
         <div className="admin-panel-head">
           <div>
             <small>SÉCURITÉ &amp; TRAÇABILITÉ</small>

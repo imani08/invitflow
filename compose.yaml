@@ -246,6 +246,20 @@ services:
       keycloak:
         condition: service_healthy
     restart: 'no'
+  keycloak-role-scope-init:
+    image: node:24.21.0-slim
+    command: ['node', '/provision-role-scopes.mjs']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+    volumes:
+      [./infrastructure/keycloak/provision-role-scopes.mjs:/provision-role-scopes.mjs:ro]
+    networks: [identity]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
   keycloak-legal-flow-init:
     image: node:24.21.0-slim
     command: ['node', '/provision-legal-registration.mjs']
@@ -439,6 +453,8 @@ services:
       keycloak-legal-flow-init:
         condition: service_completed_successfully
       keycloak-email-init:
+        condition: service_completed_successfully
+      keycloak-role-scope-init:
         condition: service_completed_successfully
       gateway:
         condition: service_healthy
