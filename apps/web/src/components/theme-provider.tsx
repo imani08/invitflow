@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { resolveInitialTheme } from './resolve-theme.mjs';
 
 type Theme = 'light' | 'dark';
 type ThemeContextValue = { theme: Theme; toggleTheme: () => void };
@@ -13,9 +14,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let stored: string | null = null;
     try { stored = window.localStorage.getItem('invitaflow-theme'); } catch { /* Storage may be disabled by the browser. */ }
-    const initial: Theme = stored === 'light' || stored === 'dark'
-      ? stored
-      : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const initial: Theme = resolveInitialTheme(stored);
     setTheme(initial);
     document.documentElement.dataset['theme'] = initial;
     document.documentElement.classList.toggle('dark', initial === 'dark');

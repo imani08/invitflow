@@ -121,7 +121,6 @@ body:has(.app-sidebar) .events-shell {
   }
   .app-mobile-topbar .brand-logo-compact { width: 32px; height: 32px; }
   .app-mobile-topbar .brand-logo-wordmark { font-size: 17px; }
-  .app-mobile-topbar form { margin: 0; }
   .app-mobile-topbar .theme-toggle { min-height: 38px; padding: 7px 9px; }
   .app-mobile-topbar .theme-toggle span { display: none; }
   .event-subnav {
@@ -153,15 +152,15 @@ body:has(.app-sidebar) .events-shell {
     z-index: 60;
     inset: auto 0 0;
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
     min-height: var(--if-mobile-nav-height);
-    padding: 6px 6px max(8px, env(safe-area-inset-bottom));
+    padding: 6px max(10px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
     border-top: 1px solid var(--line, #e5e0d7);
     background: color-mix(in srgb, var(--paper, #faf8f4) 96%, transparent);
     backdrop-filter: blur(18px);
   }
   .app-mobile-nav a {
     display: flex;
+    width: 100%;
     min-width: 0;
     flex-direction: column;
     align-items: center;
@@ -174,9 +173,40 @@ body:has(.app-sidebar) .events-shell {
   }
   .app-mobile-nav a svg { width: 20px; height: 20px; }
   .app-mobile-nav a.is-active { color: var(--brand-purple, #32163a); font-weight: 700; }
-  .app-mobile-nav a.app-mobile-create { color: var(--brand-purple, #32163a); }
+.app-mobile-nav a.app-mobile-create { color: var(--brand-purple, #32163a); }
   .app-mobile-nav a.app-mobile-create svg { width: 25px; height: 25px; padding: 3px; border-radius: 50%; background: var(--brand-purple, #32163a); color: white; }
 }
+
+html[data-theme='dark'] .app-sidebar,
+html[data-theme='dark'] .app-mobile-topbar,
+html[data-theme='dark'] .app-mobile-nav,
+html[data-theme='dark'] .event-subnav,
+.dark .app-sidebar,
+.dark .app-mobile-topbar,
+.dark .app-mobile-nav,
+.dark .event-subnav { color: var(--text-primary); }
+html[data-theme='dark'] .app-sidebar-brand .brand-logo-wordmark,
+html[data-theme='dark'] .app-sidebar-links > a:hover,
+html[data-theme='dark'] .app-sidebar-links > a.is-active,
+html[data-theme='dark'] .app-mobile-nav a.is-active,
+html[data-theme='dark'] .event-subnav a[aria-current='page'],
+.dark .app-sidebar-brand .brand-logo-wordmark,
+.dark .app-sidebar-links > a:hover,
+.dark .app-sidebar-links > a.is-active,
+.dark .app-mobile-nav a.is-active,
+.dark .event-subnav a[aria-current='page'] { color: var(--brand-gold); }
+html[data-theme='dark'] .app-sidebar-links > a:hover,
+html[data-theme='dark'] .app-sidebar-links > a.is-active,
+html[data-theme='dark'] .event-subnav a[aria-current='page'],
+.dark .app-sidebar-links > a:hover,
+.dark .app-sidebar-links > a.is-active,
+.dark .event-subnav a[aria-current='page'] { background: color-mix(in srgb, var(--brand-gold) 14%, transparent); }
+html[data-theme='dark'] .app-mobile-topbar button:hover,
+.dark .app-mobile-topbar button:hover { color: var(--brand-gold); }
+html[data-theme='dark'] .app-create-link,
+html[data-theme='dark'] .app-mobile-nav a.app-mobile-create svg,
+.dark .app-create-link,
+.dark .app-mobile-nav a.app-mobile-create svg { background: var(--button-primary-bg); color: var(--button-primary-text); }
 
 @media (prefers-reduced-motion: reduce) {
   .app-create-link, .app-sidebar-links > a { transition: none; }

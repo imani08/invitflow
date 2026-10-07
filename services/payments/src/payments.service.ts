@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import { validUuid } from './env.js';
 import { PrismaService } from './prisma.service.js';
+import { PAYMENT_LEGAL_VERSIONS, paymentLegalAccepted } from './legal-acceptance.js';
 import { MockPaymentProvider, selectedProvider, type PaymentChannel, type PaymentLanguage, type PaymentProvider, type PaymentSnapshot, type ProviderConfirmation } from './payment-provider.js';
 
 const keyPattern = /^[A-Za-z0-9._:@/-]{1,200}$/;
@@ -72,7 +73,8 @@ export class PaymentsService {
 
   async create(ownerSubject: string, authorization: string, rawKey: string, body: unknown, customer: { name: string; email: string } = { name: '', email: '' }) {
     const idempotencyKey = key(rawKey); const input = object(body);
-    if (Object.keys(input).some((field) => !['packId', 'quantity', 'orderType', 'businessReference', 'expectedPriceScheduleId', 'expectedPriceScheduleVersion', 'channel'].includes(field))) throw new BadRequestException('Champs de commande non autorisés.');
+    if (!paymentLegalAccepted(input)) throw new BadRequestException({ error: 'LEGAL_TERMS_NOT_ACCEPTED' });
+    if (Object.keys(input).some((field) => !['packId', 'quantity', 'orderType', 'businessReference', 'expectedPriceScheduleId', 'expectedPriceScheduleVersion', 'channel', 'salesTermsAccepted', 'refundPolicyAccepted'].includes(field))) throw new BadRequestException('Champs de commande non autorisés.');
     const channel = requestedChannel(input['channel']);
     if (typeof input['packId'] !== 'string') throw new BadRequestException('Le pack demandé est invalide.');
     const orderType = input['orderType'] === undefined ? 'CREDIT_PURCHASE' : input['orderType'];
@@ -87,6 +89,7 @@ export class PaymentsService {
     const quantity = input['quantity'] === undefined ? 1 : input['quantity'];
     if (!Number.isSafeInteger(quantity) || (quantity as number) < 1 || (quantity as number) > 100) throw new BadRequestException('La quantité doit être comprise entre 1 et 100.');
     let order = await this.prisma.paymentOrder.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject, idempotencyKey } }, include: { payment: true } });
+    if (order && (!order.salesTermsAcceptedAt || !order.refundPolicyAcceptedAt || order.salesTermsVersion !== PAYMENT_LEGAL_VERSIONS.salesTerms || order.refundPolicyVersion !== PAYMENT_LEGAL_VERSIONS.refundPolicy)) throw new BadRequestException({ error: 'LEGAL_TERMS_NOT_ACCEPTED' });
     if (order && (order.packId !== packId || order.quantity !== quantity || order.orderType !== orderType || order.businessReference !== businessReference || orderChannel(order.metadata) !== channel || (orderType === 'AGENCY_SUBSCRIPTION' && (order.priceScheduleId !== expectedScheduleId || order.priceScheduleVersion !== expectedScheduleVersion)))) throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre commande.');
     if (!order) {
       const quote = await this.checkoutQuote(authorization, packId, quantity as number, orderType);
@@ -103,6 +106,10 @@ export class PaymentsService {
             subtotalMinor: quote.subtotalMinor, totalMinor: quote.totalMinor, amountMinor: quote.totalMinor,
             currency: quote.currency, priceScheduleId: validUuid(quote.priceScheduleId, 'La grille tarifaire'),
             priceScheduleVersion: quote.priceScheduleVersion, idempotencyKey,
+            salesTermsVersion: PAYMENT_LEGAL_VERSIONS.salesTerms,
+            refundPolicyVersion: PAYMENT_LEGAL_VERSIONS.refundPolicy,
+            salesTermsAcceptedAt: new Date(),
+            refundPolicyAcceptedAt: new Date(),
           } });
           const payment = await tx.payment.create({ data: { orderId: createdOrder.id, provider: this.provider.name, status: 'CREATED' } });
           await tx.outboxMessage.create({ data: { eventType: 'payment.created.v1', aggregateId: createdOrder.id, payload: { orderId: createdOrder.id, paymentId: payment.id, ownerSubject, ...quote } } });

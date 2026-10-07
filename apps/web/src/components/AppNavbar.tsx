@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { notificationMobileItem, uniqueNavigationItems } from './app-navbar-items.mjs';
+import type { MobileNavigationItem } from './app-navbar-items.mjs';
 
 type AppNavbarProps = { eventId?: string; showPricingAdmin?: boolean; area?: 'agency' | 'partner' };
 
 const iconPaths: Record<string, string> = {
+  home: 'M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6',
   events: 'M8 2v4m8-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
   guests: 'M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m16 0v-2a4 4 0 0 0-3-3.87M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm6-7.87a4 4 0 0 1 0 7.75',
   create: 'M12 5v14m-7-7h14',
@@ -60,30 +63,30 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
   const active = (href: string) => pathname === href || (href !== '/events' && href !== eventBase && pathname.startsWith(`${href}/`));
   const eventItems = eventLinks.length ? eventLinks : [
     { href: '/account/wallet', label: 'Crédits', icon: 'wallet' as const },
-    { href: '/account/notifications', label: 'Alertes', icon: 'bell' as const },
+    notificationMobileItem,
   ];
-  const mobileItems = [
-    { href: '/events', label: 'Événements', icon: 'events' as const },
+  const mobileItems = uniqueNavigationItems([
+    { href: '/', label: 'Accueil', icon: 'home' as const },
     eventItems[1]!,
     { href: '/events#create-event', label: 'Créer', icon: 'create' as const, primary: true },
-    eventItems.length > 2 ? eventItems[4]! : { href: '/account/notifications', label: 'Alertes', icon: 'bell' as const },
+    eventItems.length > 2 ? eventItems[4]! : notificationMobileItem,
     { href: '/account', label: 'Compte', icon: 'account' as const },
-  ];
-  const agencyMobileItems = [
+  ]);
+  const agencyMobileItems: MobileNavigationItem[] = [
     { href: '/agencies', label: 'Accueil', icon: 'agency' as const },
     { href: '/agencies#clients', label: 'Clients', icon: 'guests' as const },
     { href: '/agencies#events', label: 'Événements', icon: 'events' as const },
     { href: '/agencies#create-event', label: 'Créer', icon: 'create' as const, primary: true },
     { href: '/account', label: 'Compte', icon: 'account' as const },
   ];
-  const partnerMobileItems = [
+  const partnerMobileItems: MobileNavigationItem[] = [
     { href: '/partners', label: 'Accueil', icon: 'partner' as const },
     { href: '/partners#attributions', label: 'Code', icon: 'partner' as const },
     { href: '/partners#commissions', label: 'Commissions', icon: 'wallet' as const },
     { href: '/partners#payouts', label: 'Règlements', icon: 'wallet' as const },
     { href: '/account', label: 'Compte', icon: 'account' as const },
   ];
-  const visibleMobileItems = area === 'agency' ? agencyMobileItems : area === 'partner' ? partnerMobileItems : mobileItems;
+  const visibleMobileItems = uniqueNavigationItems(area === 'agency' ? agencyMobileItems : area === 'partner' ? partnerMobileItems : mobileItems);
   const mobileActive = (href: string) => area === 'agency' ? href === '/agencies' && pathname === '/agencies' : area === 'partner' ? href === '/partners' && pathname === '/partners' : active(href);
 
   return <>
@@ -102,8 +105,8 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
       </nav>
       <div className="app-sidebar-bottom"><ThemeToggle/><form className="app-sidebar-logout" action="/api/auth/logout" method="post"><button type="submit">Déconnexion</button></form></div>
     </aside>
-    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/events" /><ThemeToggle/><form action="/api/auth/logout" method="post"><button type="submit">Quitter</button></form></div>
+    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/events" /><ThemeToggle/></div>
     {eventId && <nav className="event-subnav" aria-label="Sections de l’événement">{eventLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined}>{item.label}</Link>)}</nav>}
-    <nav className="app-mobile-nav" aria-label="Navigation mobile principale">{visibleMobileItems.map((item) => <Link key={`${item.href}:${item.label}`} href={item.href} aria-current={mobileActive(item.href) ? 'page' : undefined} className={`${mobileActive(item.href) ? 'is-active' : ''}${'primary' in item && item.primary ? ' app-mobile-create' : ''}`}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</nav>
+    <nav className="app-mobile-nav" aria-label="Navigation mobile principale" style={{ gridTemplateColumns: `repeat(${visibleMobileItems.length}, minmax(0, 1fr))` }}>{visibleMobileItems.map((item) => <Link key={`${item.href}:${item.label}`} href={item.href} aria-current={mobileActive(item.href) ? 'page' : undefined} className={`${mobileActive(item.href) ? 'is-active' : ''}${'primary' in item && item.primary ? ' app-mobile-create' : ''}`}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</nav>
   </>;
 }

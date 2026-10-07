@@ -82,6 +82,10 @@ model PaymentOrder {
   priceScheduleId   String        @map("price_schedule_id") @db.Uuid
   priceScheduleVersion Int        @map("price_schedule_version")
   idempotencyKey    String        @map("idempotency_key") @db.VarChar(255)
+  salesTermsVersion String?       @map("sales_terms_version") @db.VarChar(20)
+  refundPolicyVersion String?     @map("refund_policy_version") @db.VarChar(20)
+  salesTermsAcceptedAt DateTime?  @map("sales_terms_accepted_at") @db.Timestamptz(3)
+  refundPolicyAcceptedAt DateTime? @map("refund_policy_accepted_at") @db.Timestamptz(3)
   status            OrderStatus  @default(CREATED)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)

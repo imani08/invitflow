@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap');
 :root{color-scheme:light;--brand-purple:#32163a;--brand-plum:#4a2451;--brand-gold:#bd8742;--brand-ivory:#faf8f4;--brand-neutral:#77766f;--ink:#22221f;--muted:var(--brand-neutral);--accent:var(--brand-purple);--paper:var(--brand-ivory);--line:#e5e0d7;--brand-focus:#725080}
+:root{--surface:var(--brand-ivory);--surface-elevated:#fffdfa;--surface-raised:var(--surface-elevated);--text-primary:var(--ink);--text-secondary:#625d56;--text-muted:#625d56;--text-disabled:#77766f;--border:#e5e0d7;--border-subtle:var(--border);--input-bg:#fffdfa;--input-text:var(--text-primary);--input-placeholder:var(--text-muted);--button-primary-bg:var(--brand-purple);--button-primary-hover:var(--brand-plum);--button-primary-text:#fff;--text-accent:var(--brand-purple);--text-success:#365c3d;--text-warning:#725523;--text-danger:#943444;--surface-success:#edf5e9;--surface-warning:#fff5da;--surface-danger:#fff2ef}
 .auth-error{padding:12px 14px;border-left:2px solid var(--accent);background:#fffdf8;color:#743e31;font-size:13px;line-height:1.6}
 .legal-footer-link{float:right;color:inherit}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif}.brand-logo{display:inline-flex;align-items:center;flex:0 1 auto;min-width:0;line-height:0;text-decoration:none}.brand-logo img{display:block;height:auto;max-width:100%}.brand-logo-horizontal{width:min(235px,30vw)}.brand-logo-mobile-icon{display:none;width:42px}.brand-logo--icon .brand-logo-icon{width:42px}.brand-logo--compact{gap:9px}.brand-logo-compact{width:40px}.brand-logo-wordmark{font-weight:650;font-size:17px;letter-spacing:-.6px;color:var(--brand-purple);line-height:1}.brand-logo:focus-visible{outline:3px solid var(--brand-focus);outline-offset:4px;border-radius:4px}.page-shell{min-height:100vh;padding:0 8vw;display:flex;flex-direction:column;background:radial-gradient(ellipse at 76% 45%,#eee5d6 0%,transparent 43%),var(--paper)}.topbar{height:92px;display:flex;align-items:center;border-bottom:1px solid var(--line);gap:38px}.nav-link{font-size:13px;color:var(--muted);text-decoration:none}.hero{flex:1;max-width:760px;display:flex;flex-direction:column;justify-content:center;padding:95px 0 110px}.hero h1{font-family:'Playfair Display',serif;font-weight:500;letter-spacing:-2.4px;font-size:clamp(52px,7vw,88px);line-height:1.08;margin:22px 0}.hero h1 em{color:var(--brand-plum);font-weight:500}.intro{font-size:17px;line-height:1.8;color:var(--muted);max-width:490px;margin:10px 0 30px}.hero-actions{display:flex;align-items:center;gap:24px;flex-wrap:wrap}.primary-action,.secondary-action{font-size:13px;text-decoration:none}.primary-action{padding:15px 22px;background:var(--brand-purple);color:#fff;border-radius:3px}.secondary-action{color:var(--ink);border-bottom:1px solid var(--brand-gold);padding:8px 0}footer{border-top:1px solid var(--line);padding:24px 0;color:var(--muted);font-size:12px}footer span{padding:0 8px;color:var(--brand-gold)}.brand-footer{display:flex;align-items:center;justify-content:space-between;gap:14px}@media(max-width:760px){.brand-logo-horizontal{width:min(210px,34vw)}}@media(max-width:600px){.page-shell{padding:0 6vw}.topbar{height:72px}.brand-logo-horizontal{display:none}.brand-logo-mobile-icon{display:block}.hero{padding:70px 0 84px}.hero h1{letter-spacing:-1.5px}.hero-actions{align-items:flex-start;flex-direction:column;gap:13px}.brand-footer{align-items:flex-start;flex-direction:column}}
@@ -9,6 +10,7 @@
 
 /* Global appearance tokens: shared by the public and authenticated front-office. */
 html[data-theme='dark'],html.dark{color-scheme:dark;--brand-purple:#4a2451;--brand-plum:#704e78;--brand-gold:#dfbd7d;--brand-ivory:#1d1820;--brand-neutral:#c1b6c7;--ink:#f4edf5;--muted:#c1b6c7;--accent:#704e78;--paper:#1d1820;--line:#45394a;--brand-focus:#dfbd7d;background:#1d1820;color:#f4edf5}
+html[data-theme='dark'],html.dark{--surface:#1d1820;--surface-elevated:#29222d;--surface-raised:var(--surface-elevated);--text-primary:#f7f4f0;--text-secondary:#d8d1ca;--text-muted:#aaa29b;--text-disabled:#aaa29b;--border:#52465a;--border-subtle:var(--border);--input-bg:#211b25;--input-text:#f7f4f0;--input-placeholder:#aaa29b;--button-primary-bg:#704e78;--button-primary-hover:#806087;--button-primary-text:#fff;--text-accent:#dfbd7d;--text-success:#a8d5a1;--text-warning:#f1d598;--text-danger:#ffaaa9;--surface-success:#26352b;--surface-warning:#3c3326;--surface-danger:#3b2028}
 html[data-theme='dark'] body,html.dark body{background:var(--paper);color:var(--ink)}
 html[data-theme='dark'] body:has(.app-sidebar),html.dark body:has(.app-sidebar){background:#1d1820}
 html[data-theme='dark'] .page-shell,html.dark .page-shell{background:radial-gradient(ellipse at 76% 45%,#352b38 0%,transparent 43%),var(--paper);color:var(--ink)}
@@ -44,3 +46,45 @@ html[data-theme='dark'] .notification-controls button,html[data-theme='dark'] .n
 html[data-theme='dark'] :is(.notification-status,.form-status){background:#26352b;color:#cfe3c8}
 html[data-theme='dark'] .brand-logo-wordmark{color:#f4edf5}
 html[data-theme='dark'] :is(.legal-status,.legal-brand span,.legal-list a>span:last-child,.legal-list a:hover strong,.legal-list a:focus-visible strong){color:#dfbd7d}
+
+/* Authenticated workspaces share contrast-safe text and surfaces in dark mode.
+   Invitation/design artwork and user-authored canvas colors are intentionally untouched. */
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) {
+  color: var(--text-primary);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(.event-card,.empty-events,.events-notice,.create-event,.program-item,.program-form,.guest-panel,.guest-row,.import-panel,.event-overview-steps li,.dashboard-next,.wallet-pack,.wallet-empty,.wallet-confirm,.report-shell section,.notification-controls,.notification-preference,.notification-item,.notification-empty,.notifications-unavailable,.template-card,.editor-shell,.editor-toolbar,.editor-left,.editor-right,.editor-mobile-tabs,.editor-mobile-actions,.design-state,.ai-composer,.ai-composer-card,.journey-existing-design,.template-preview-card,.invitation-panel,.invitation-summary,.invitation-guest-list,.seating-mode-card,.seating-panel,.seating-empty,.seating-map-panel,.check-card) {
+  border-color: var(--border-subtle);
+  background-color: var(--surface-elevated);
+  color: var(--text-primary);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(h1,h2,h3,h4,h5,h6,strong,th) {
+  color: var(--text-primary);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(p,small,label,legend,li,td,dt,dd,time,figcaption,span):not(.eyebrow):not(.status-pill):not(.guest-record-status):not(.invitation-status):not(.design-kicker):not(.program-position):not(.ledger-positive):not(.ledger-negative):not(.invitation-progress):not(.check-result):not(.check-message):not(.workspace-status):not(.program-error):not(.design-error):not(.ai-composer-error):not(.wallet-payment-message):not(.invitation-primary):not(.invitation-download):not(.invitation-status):not(.event-date):not(.design-canvas *):not(.template-poster *):not(.poster-frame *):not(.ai-composer-preview *):not(.ai-composer-large-preview *):not(.invitation-preview *) {
+  color: var(--text-secondary);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(input,select,textarea) {
+  border-color: var(--border-subtle);
+  background-color: var(--input-bg);
+  color: var(--input-text);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(input,textarea)::placeholder {
+  color: var(--input-placeholder);
+  opacity: 1;
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(a,button):not(.small-action):not(.publish-action):not(.create-button):not(.template-choose):not(.invitation-primary):not(.invitation-download):not(.ai-request-action):not(.ai-apply-action):not(.validate-action):not(.check-submit) {
+  color: var(--text-accent);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(.eyebrow,.event-date,.subtle-link,.wallet-checkout,.notification-category,.design-kicker,.invitation-heading>a,.seating-guest-link) {
+  color: var(--text-accent);
+}
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(.status-pill.published,.guest-record-status.active,.ledger-positive,.check-result,.check-message.success) { color: var(--text-success); }
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(.status-pill.cancelled,.wallet-payment-warning,.program-error,.design-error,.ai-composer-error,.check-message:not(.success)) { color: var(--text-danger); }
+html.dark body:has(.app-sidebar) :is(.check-result,.check-message.success,.wallet-payment-message:not(.wallet-payment-warning),.workspace-status) { border-color: var(--border-subtle); background-color: var(--surface-success); color: var(--text-success); }
+html.dark body:has(.app-sidebar) :is(.check-result.duplicate,.wallet-payment-warning) { border-color: var(--border-subtle); background-color: var(--surface-warning); color: var(--text-warning); }
+html.dark body:has(.app-sidebar) :is(.program-error,.design-error,.ai-composer-error,.check-message:not(.success)) { border-color: var(--border-subtle); background-color: var(--surface-danger); color: var(--text-danger); }
+html.dark body:has(.app-sidebar) :is(.status-pill.published,.guest-record-status.active) { background-color: var(--surface-success); color: var(--text-success); }
+html.dark body:has(.app-sidebar) :is(.status-pill.cancelled) { background-color: var(--surface-danger); color: var(--text-danger); }
+html.dark body:has(.app-sidebar) :is(.events-shell,.wallet-page,.report-shell,.notifications-page,.design-page,.seating-page,.invitation-workspace,.check-shell) :is(.wallet-payment-warning,.status-pill,.guest-record-status,.program-position,.invitation-status,.invitation-progress) {
+  border-color: var(--border-subtle);
+}

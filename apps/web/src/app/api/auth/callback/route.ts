@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookieOptions, finishLogin, sessionCookieName } from '@/lib/auth-session';
+import { cookieOptions, EmailVerificationRequiredError, finishLogin, sessionCookieName } from '@/lib/auth-session';
+import { getDefaultPostLoginDestination } from '@/components/app-navbar-items.mjs';
 
 export const runtime = 'nodejs';
 
@@ -24,12 +25,17 @@ export async function GET(request: Request) {
   cookieName: sessionCookieName(),
   returnTo,
 });
-    const response = NextResponse.redirect(publicUrl(returnTo));
+    const response = NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo)));
     response.cookies.set(sessionCookieName(), sessionId, cookieOptions());
     response.headers.set('Cache-Control', 'no-store');
     return response;
   } catch (error) {
-    console.error('[AUTH CALLBACK ERROR]', error);
+    if (error instanceof EmailVerificationRequiredError) {
+      const response = NextResponse.redirect(publicUrl('/?auth=verification-required'));
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
+    }
+    console.error('[AUTH CALLBACK ERROR]', error instanceof Error ? error.name : 'unknown');
 
     const response = NextResponse.redirect(publicUrl('/?auth=failed'));
     response.headers.set('Cache-Control', 'no-store');

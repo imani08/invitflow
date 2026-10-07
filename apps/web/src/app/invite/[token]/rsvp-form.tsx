@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 
 type Ceremony = {
   id: string;
@@ -122,6 +123,7 @@ export function RsvpForm({ token }: { token: string }) {
       </div>
       <button disabled={busy || submitting.current} onClick={() => void save()}>{busy ? 'Enregistrement…' : saved ? 'Mettre à jour mes réponses' : 'Confirmer mes réponses'}</button>
       {message && <p className={error ? 'rsvp-message is-error' : 'rsvp-message'} role={error ? 'alert' : 'status'}>{message}</p>}
+      <p className="rsvp-privacy-link"><Link href="/legal/invites">Confidentialité des invités</Link></p>
     </section>
   );
 }

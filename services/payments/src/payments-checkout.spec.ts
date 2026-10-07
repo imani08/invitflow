@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { BadRequestException } from '@nestjs/common';
 import { PaymentsService } from './payments.service.js';
 
 const packId = '8e7fa4c2-bd22-4c5a-9847-920cd0ea9101';
 const scheduleId = '5e7fa4c2-bd22-4c5a-9847-920cd0ea9101';
+const acceptedSalesTerms = { salesTermsAccepted: true, refundPolicyAccepted: true };
 
 function quote(overrides: Record<string, unknown> = {}) {
   return {
@@ -14,6 +16,24 @@ function quote(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+test('direct checkout calls without both legal acceptances fail before reaching Billing', async () => {
+  const originalNodeEnv = process.env['NODE_ENV'];
+  const originalProvider = process.env['PAYMENT_PROVIDER'];
+  const originalFetch = globalThis.fetch;
+  process.env['NODE_ENV'] = 'test'; process.env['PAYMENT_PROVIDER'] = 'mock';
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; throw new Error('Billing must not be called'); };
+  try {
+    const service = new PaymentsService({} as never);
+    await assert.rejects(service.create('owner', 'Bearer token', 'without-consent', { packId }), (error: unknown) => error instanceof BadRequestException && JSON.stringify(error.getResponse()).includes('LEGAL_TERMS_NOT_ACCEPTED'));
+    assert.equal(requests, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalNodeEnv === undefined) delete process.env['NODE_ENV']; else process.env['NODE_ENV'] = originalNodeEnv;
+    if (originalProvider === undefined) delete process.env['PAYMENT_PROVIDER']; else process.env['PAYMENT_PROVIDER'] = originalProvider;
+  }
+});
 
 test('payment order persists the complete Billing quote snapshot and provider receives its total', async () => {
   const originalFetch = globalThis.fetch;
@@ -56,7 +76,7 @@ test('payment order persists the complete Billing quote snapshot and provider re
   };
   try {
     const service = new PaymentsService(db as never);
-    const result = await service.create('owner', 'Bearer token', 'checkout-key', { packId, quantity: 2 });
+    const result = await service.create('owner', 'Bearer token', 'checkout-key', { packId, quantity: 2, ...acceptedSalesTerms });
     assert.equal(saved.length, 1);
     assert.equal(saved[0]?.['unitPriceMinor'], 1500);
     assert.equal(saved[0]?.['orderType'], 'CREDIT_PURCHASE');
@@ -67,6 +87,10 @@ test('payment order persists the complete Billing quote snapshot and provider re
     assert.equal(saved[0]?.['subtotalMinor'], 3000);
     assert.equal(saved[0]?.['totalMinor'], 3000);
     assert.equal(saved[0]?.['amountMinor'], 3000);
+    assert.equal(saved[0]?.['salesTermsVersion'], '1.0');
+    assert.equal(saved[0]?.['refundPolicyVersion'], '1.0');
+    assert.ok(saved[0]?.['salesTermsAcceptedAt'] instanceof Date);
+    assert.ok(saved[0]?.['refundPolicyAcceptedAt'] instanceof Date);
     assert.equal(result.order.totalMinor, 3000);
     assert.equal(result.order.priceScheduleVersion, 2);
     assert.equal(result.order.priceScheduleId, scheduleId);
@@ -91,7 +115,7 @@ test('Billing quote arithmetic is validated before an order is persisted', async
   globalThis.fetch = async () => Response.json(quote({ totalMinor: 1 }));
   try {
     const service = new PaymentsService(db as never);
-    await assert.rejects(service.create('owner', 'Bearer token', 'bad-quote-key', { packId, quantity: 2 }), /invariants de calcul/);
+    await assert.rejects(service.create('owner', 'Bearer token', 'bad-quote-key', { packId, quantity: 2, ...acceptedSalesTerms }), /invariants de calcul/);
     assert.equal(writes, 0);
   } finally {
     globalThis.fetch = originalFetch;
@@ -110,7 +134,7 @@ test('agency checkout rejects any Billing period other than the fixed 30 days', 
   globalThis.fetch = async () => Response.json(quote({ orderType: 'AGENCY_SUBSCRIPTION', periodDays: 31, quantity: 1, unitCredits: 50, credits: 50, subtotalMinor: 1500, totalMinor: 1500 }));
   try {
     const service = new PaymentsService(db as never);
-    await assert.rejects(service.create('owner', 'Bearer token', 'agency-bad-period', { packId, quantity: 1, orderType: 'AGENCY_SUBSCRIPTION', businessReference: 'b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2', expectedPriceScheduleId: scheduleId, expectedPriceScheduleVersion: 2 }), /invariants de calcul/);
+    await assert.rejects(service.create('owner', 'Bearer token', 'agency-bad-period', { packId, quantity: 1, orderType: 'AGENCY_SUBSCRIPTION', businessReference: 'b2b2b2b2-b2b2-42b2-82b2-b2b2b2b2b2b2', expectedPriceScheduleId: scheduleId, expectedPriceScheduleVersion: 2, ...acceptedSalesTerms }), /invariants de calcul/);
     assert.equal(writes, 0);
   } finally {
     globalThis.fetch = originalFetch;

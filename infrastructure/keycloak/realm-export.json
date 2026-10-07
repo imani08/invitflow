@@ -3,6 +3,7 @@
   "enabled": true,
   "displayName": "InvitaFlow Development",
   "loginTheme": "invitaflow",
+  "emailTheme": "invitaflow",
   "sslRequired": "external",
   "registrationAllowed": true,
   "verifyEmail": true,
@@ -35,7 +36,6 @@
   "otpPolicyDigits": 6,
   "otpPolicyPeriod": 30,
   "otpPolicyLookAheadWindow": 1,
-  "smtpServer": {"host":"mailpit","port":"1025","from":"no-reply@invitaflow.local","fromDisplayName":"InvitaFlow","auth":"false","ssl":"false","starttls":"false"},
   "loginWithEmailAllowed": true,
   "clients": [
     {"clientId": "invitaflow-web", "enabled": true, "publicClient": true, "standardFlowEnabled": true, "directAccessGrantsEnabled": false, "redirectUris": ["http://localhost:3000/api/auth/callback"], "webOrigins": ["http://localhost:3000"], "attributes": {"pkce.code.challenge.method":"S256"}, "defaultClientScopes": ["profile", "email", "roles", "web-origins", "profile-api", "events-api", "guests-api", "seating-api", "designs-api", "ai-design-api", "media-api", "wallet-api", "billing-api", "payments-api", "notifications-api", "invitations-api", "admin-api"]},
@@ -70,6 +70,9 @@
     {"name":"access-api","description":"Audience for the InvitaFlow Access Service","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"access-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"access-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
     {"name":"admin-api","description":"Audience for InvitaFlow support and administration APIs","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"false"},"protocolMappers":[{"name":"admin-api-audience","protocol":"openid-connect","protocolMapper":"oidc-audience-mapper","consentRequired":false,"config":{"included.client.audience":"admin-api","id.token.claim":"false","access.token.claim":"true","introspection.token.claim":"true"}}]},
     {"name":"profile","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"true"},"protocolMappers":[]},
-    {"name":"email","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"true"},"protocolMappers":[]}
+    {"name":"email","protocol":"openid-connect","attributes":{"include.in.token.scope":"true","display.on.consent.screen":"true"},"protocolMappers":[
+      {"name":"email verified","protocol":"openid-connect","protocolMapper":"oidc-usermodel-property-mapper","consentRequired":false,"config":{"userinfo.token.claim":"true","user.attribute":"emailVerified","id.token.claim":"true","access.token.claim":"true","claim.name":"email_verified","jsonType.label":"boolean"}},
+      {"name":"email","protocol":"openid-connect","protocolMapper":"oidc-usermodel-property-mapper","consentRequired":false,"config":{"userinfo.token.claim":"true","user.attribute":"email","id.token.claim":"true","access.token.claim":"true","claim.name":"email","jsonType.label":"String"}}
+    ]}
   ]
 }

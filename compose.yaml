@@ -200,12 +200,16 @@ services:
         condition: service_healthy
     restart: 'no'
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.4
+    image: invitaflow-keycloak:26.7.4
+    build:
+      context: .
+      dockerfile: infrastructure/keycloak/Dockerfile
     command: ['start-dev', '--import-realm', '--db=postgres']
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
       KC_DB_USERNAME: keycloak_service
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
@@ -233,6 +237,43 @@ services:
     volumes:
       [./infrastructure/keycloak/provision-media-audience.mjs:/provision-api-audiences.mjs:ro]
     networks: [identity]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
+  keycloak-legal-flow-init:
+    image: node:24.21.0-slim
+    command: ['node', '/provision-legal-registration.mjs']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+    volumes:
+      [./infrastructure/keycloak/provision-legal-registration.mjs:/provision-legal-registration.mjs:ro]
+    networks: [identity]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
+  keycloak-email-init:
+    image: node:24.21.0-slim
+    command: ['node', '/provision-email.mjs']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-mailpit}
+      KEYCLOAK_SMTP_HOST: ${KEYCLOAK_SMTP_HOST:-smtp.gmail.com}
+      KEYCLOAK_SMTP_PORT: ${KEYCLOAK_SMTP_PORT:-587}
+      KEYCLOAK_SMTP_FROM: ${KEYCLOAK_SMTP_FROM:-fucushd098@gmail.com}
+      KEYCLOAK_SMTP_FROM_DISPLAY_NAME: ${KEYCLOAK_SMTP_FROM_DISPLAY_NAME:-InvitaFlow — FOCUS HD ENTREPRISES}
+      KEYCLOAK_SMTP_USER: ${KEYCLOAK_SMTP_USER:-}
+      KEYCLOAK_SMTP_PASSWORD: ${KEYCLOAK_SMTP_PASSWORD:-}
+      KEYCLOAK_SMTP_STARTTLS: ${KEYCLOAK_SMTP_STARTTLS:-true}
+      KEYCLOAK_SMTP_SSL: ${KEYCLOAK_SMTP_SSL:-false}
+    volumes:
+      [./infrastructure/keycloak/provision-email.mjs:/provision-email.mjs:ro]
+    networks: [identity, messaging]
     depends_on:
       keycloak:
         condition: service_healthy
@@ -383,6 +424,10 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      keycloak-legal-flow-init:
+        condition: service_completed_successfully
+      keycloak-email-init:
+        condition: service_completed_successfully
       gateway:
         condition: service_healthy
       profile:
@@ -802,13 +847,15 @@ services:
       context: .
       dockerfile: services/background-removal/Dockerfile
     environment:
+      NUMBA_CACHE_DIR: /tmp/numba-cache
       BACKGROUND_REMOVAL_CONCURRENCY: ${BACKGROUND_REMOVAL_CONCURRENCY:-1}
       BACKGROUND_REMOVAL_TIMEOUT_SECONDS: ${BACKGROUND_REMOVAL_TIMEOUT_SECONDS:-120}
       BACKGROUND_REMOVAL_MAX_IMAGE_MB: ${BACKGROUND_REMOVAL_MAX_IMAGE_MB:-10}
       BACKGROUND_REMOVAL_MAX_PIXELS: ${BACKGROUND_REMOVAL_MAX_PIXELS:-20000000}
     networks: [application]
     read_only: true
-    tmpfs: [/tmp:size=256m,noexec,nosuid]
+    tmpfs:
+      - "/tmp:size=256m,noexec,nosuid"
     volumes: [background_models:/opt/rembg-models]
     cpus: ${BACKGROUND_REMOVAL_CPU_LIMIT:-4}
     pids_limit: 128

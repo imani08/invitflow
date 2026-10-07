@@ -3,6 +3,7 @@ import 'server-only';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createClient } from 'redis';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { getDefaultPostLoginDestination } from '@/components/app-navbar-items.mjs';
 import { deleteSessionIfUnchanged, REFRESH_LOCK_TTL_SECONDS, releaseRefreshLock, replaceSessionIfUnchanged, waitForSessionChange } from './session-refresh.mjs';
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
@@ -102,6 +103,19 @@ export type AuthSession = {
 type LoginAttempt = { verifier: string; nonce: string; returnTo: string };
 type TokenSet = { access_token: string; refresh_token: string; expires_in: number; id_token?: string };
 
+export class EmailVerificationRequiredError extends Error {
+  constructor() {
+    super('Verified email is required to create an InvitaFlow session');
+    this.name = 'EmailVerificationRequiredError';
+  }
+}
+
+export function isVerifiedEmailClaim(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as Record<string, unknown>;
+  return typeof payload['email'] === 'string' && payload['email'].trim().length > 0 && payload['email_verified'] === true;
+}
+
 function parseTokenSet(value: unknown): TokenSet {
   if (!value || typeof value !== 'object') throw new Error('Invalid token response');
   const token = value as Record<string, unknown>;
@@ -144,7 +158,7 @@ export async function createLoginRedirect(returnTo: string): Promise<string> {
   const state = randomOpaqueValue();
   const nonce = randomOpaqueValue();
   const verifier = randomOpaqueValue(48);
-  const safeReturnTo = returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\') ? returnTo : '/account';
+  const safeReturnTo = getDefaultPostLoginDestination(returnTo);
   const attempt: LoginAttempt = { verifier, nonce, returnTo: safeReturnTo };
   await (await redis()).set(opaqueKey('oidc:state', state), encrypt(attempt), { EX: LOGIN_TTL_SECONDS });
 
@@ -199,6 +213,7 @@ export async function finishLogin(code: string, state: string): Promise<{ sessio
   if (payload['nonce'] !== attempt.nonce || payload['azp'] !== clientId || typeof payload['sub'] !== 'string') {
     throw new Error('ID token nonce, authorized party or subject is invalid');
   }
+  if (!isVerifiedEmailClaim(payload)) throw new EmailVerificationRequiredError();
 
   const user: OidcUser = {
     sub: payload['sub'],

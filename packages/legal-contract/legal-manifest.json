@@ -1,0 +1,77 @@
+{
+  "operator": "FOCUS HD ENTREPRISES",
+  "product": "InvitaFlow",
+  "contact": {
+    "email": "fucushd098@gmail.com",
+    "phone": "+243973431495"
+  },
+  "version": "1.0",
+  "lastUpdated": "2026-10-06",
+  "documents": [
+    {
+      "slug": "/legal/mentions-legales",
+      "file": "mentions-legales.md",
+      "title": "Mentions légales"
+    },
+    {
+      "slug": "/legal/cgu",
+      "file": "cgu.md",
+      "title": "CGU"
+    },
+    {
+      "slug": "/legal/cgv",
+      "file": "cgv.md",
+      "title": "CGV"
+    },
+    {
+      "slug": "/legal/confidentialite",
+      "file": "politique-confidentialite.md",
+      "title": "Confidentialité"
+    },
+    {
+      "slug": "/legal/remboursements",
+      "file": "politique-remboursement-annulation.md",
+      "title": "Remboursements"
+    },
+    {
+      "slug": "/legal/invites",
+      "file": "notice-confidentialite-invites.md",
+      "title": "Confidentialité des invités"
+    },
+    {
+      "slug": "/legal/cookies",
+      "file": "cookies-stockage-local.md",
+      "title": "Cookies"
+    },
+    {
+      "slug": "/legal/utilisation-acceptable",
+      "file": "utilisation-acceptable.md",
+      "title": "Utilisation acceptable"
+    },
+    {
+      "slug": "/legal/conservation",
+      "file": "conservation-suppression-donnees.md",
+      "title": "Conservation et suppression"
+    },
+    {
+      "slug": "/legal/ia",
+      "file": "politique-ia-contenus.md",
+      "title": "IA et contenus"
+    },
+    {
+      "slug": "/legal/agences",
+      "file": "conditions-agences.md",
+      "title": "Conditions Agences"
+    },
+    {
+      "slug": "/legal/partenaires",
+      "file": "conditions-partenaires-marketplace.md",
+      "title": "Partenaires & Marketplace"
+    },
+    {
+      "slug": "/contact",
+      "file": "contact.md",
+      "title": "Contact"
+    }
+  ]
+}

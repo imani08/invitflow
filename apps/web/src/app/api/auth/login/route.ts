@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createLoginRedirect } from '@/lib/auth-session';
+import { getDefaultPostLoginDestination } from '@/components/app-navbar-items.mjs';
 
 export const runtime = 'nodejs';
 
@@ -9,7 +10,7 @@ function publicUrl(path: string) {
 
 export async function GET(request: Request) {
   const requestedReturnTo = new URL(request.url).searchParams.get('returnTo');
-  const returnTo = requestedReturnTo && requestedReturnTo.length <= 2048 ? requestedReturnTo : '/account';
+  const returnTo = getDefaultPostLoginDestination(requestedReturnTo);
   try {
     const response = NextResponse.redirect(await createLoginRedirect(returnTo));
     response.headers.set('Cache-Control', 'no-store');

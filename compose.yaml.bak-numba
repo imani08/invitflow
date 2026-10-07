@@ -1,0 +1,1299 @@
+name: ${COMPOSE_PROJECT_NAME:-invitaflow}
+x-node-runtime-hardening: &node-runtime-hardening
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      PROFILE_DB_PASSWORD: ${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in .env}
+      EVENT_DB_PASSWORD: ${EVENT_DB_PASSWORD:?Set EVENT_DB_PASSWORD in .env}
+      GUEST_DB_PASSWORD: ${GUEST_DB_PASSWORD:?Set GUEST_DB_PASSWORD in .env}
+      SEATING_DB_PASSWORD: ${SEATING_DB_PASSWORD:?Set SEATING_DB_PASSWORD in .env}
+      DESIGNS_DB_PASSWORD: ${DESIGNS_DB_PASSWORD:?Set DESIGNS_DB_PASSWORD in .env}
+      AI_DESIGN_DB_PASSWORD: ${AI_DESIGN_DB_PASSWORD:?Set AI_DESIGN_DB_PASSWORD in .env}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?Set MEDIA_DB_PASSWORD in .env}
+      WALLET_DB_PASSWORD: ${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD in .env}
+      BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD:?Set BILLING_DB_PASSWORD in .env}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?Set PAYMENT_DB_PASSWORD in .env}
+      NOTIFICATIONS_DB_PASSWORD: ${NOTIFICATIONS_DB_PASSWORD:?Set NOTIFICATIONS_DB_PASSWORD in .env}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?Set ANALYTICS_DB_PASSWORD in .env}
+      INVITATIONS_DB_PASSWORD: ${INVITATIONS_DB_PASSWORD:?Set INVITATIONS_DB_PASSWORD in .env}
+      AUDIT_DB_PASSWORD: ${AUDIT_DB_PASSWORD:?Set AUDIT_DB_PASSWORD in .env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-databases.sh:/docker-entrypoint-initdb.d/01-databases.sh:ro
+    networks: [data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:8.2.1-alpine
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--requirepass',
+        '${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}',
+        '--user',
+        'exporter',
+        'on',
+        '>${REDIS_EXPORTER_PASSWORD:?Set REDIS_EXPORTER_PASSWORD in .env}',
+        '-@all',
+        '+@connection',
+        '+memory',
+        '-readonly',
+        '+strlen',
+        '+config|get',
+        '+xinfo',
+        '+pfcount',
+        '-quit',
+        '+zcard',
+        '+type',
+        '+xlen',
+        '-readwrite',
+        '-command',
+        '+client',
+        '-wait',
+        '+scard',
+        '+llen',
+        '+hlen',
+        '+get',
+        '+eval',
+        '+slowlog',
+        '+cluster|info',
+        '+cluster|slots',
+        '+cluster|nodes',
+        '-hello',
+        '-echo',
+        '+info',
+        '+latency',
+        '+scan',
+        '-reset',
+        '-auth',
+        '-asking',
+      ]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    volumes: [redis_data:/data]
+    networks: [data, application]
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  rabbitmq:
+    image: rabbitmq:4.1.3-management-alpine
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    # Definitions provide durable base exchanges and the sample development DLQ route.
+    configs:
+      - source: rabbitmq_definitions
+        target: /etc/rabbitmq/definitions.json
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [messaging, metrics]
+    ports: ['127.0.0.1:15672:15672']
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+  minio:
+    image: invitaflow-minio:2025-09-07
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-invitaflow_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    volumes: [minio_data:/data]
+    networks: [storage]
+    ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+  minio-bootstrap:
+    image: invitaflow-minio-mc:2025-08-13
+    entrypoint: ['/bin/sh', '/bootstrap.sh']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-invitaflow_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      MINIO_AI_ACCESS_KEY: ${MINIO_AI_ACCESS_KEY:?Set MINIO_AI_ACCESS_KEY in .env}
+      MINIO_AI_SECRET_KEY: ${MINIO_AI_SECRET_KEY:?Set MINIO_AI_SECRET_KEY in .env}
+      MINIO_INVITATION_ACCESS_KEY: ${MINIO_INVITATION_ACCESS_KEY:?Set MINIO_INVITATION_ACCESS_KEY in .env}
+      MINIO_INVITATION_SECRET_KEY: ${MINIO_INVITATION_SECRET_KEY:?Set MINIO_INVITATION_SECRET_KEY in .env}
+      MINIO_MEDIA_ACCESS_KEY: ${MINIO_MEDIA_ACCESS_KEY:?Set MINIO_MEDIA_ACCESS_KEY in .env}
+      MINIO_MEDIA_SECRET_KEY: ${MINIO_MEDIA_SECRET_KEY:?Set MINIO_MEDIA_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_ACCESS_KEY: ${MINIO_STORAGE_AUDIT_ACCESS_KEY:?Set MINIO_STORAGE_AUDIT_ACCESS_KEY in .env}
+      MINIO_STORAGE_AUDIT_SECRET_KEY: ${MINIO_STORAGE_AUDIT_SECRET_KEY:?Set MINIO_STORAGE_AUDIT_SECRET_KEY in .env}
+    volumes:
+      - ./infrastructure/minio/bootstrap.sh:/bootstrap.sh:ro
+      - ./infrastructure/minio/ai-design-policy.json:/ai-design-policy.json:ro
+      - ./infrastructure/minio/invitation-policy.json:/invitation-policy.json:ro
+      - ./infrastructure/minio/media-policy.json:/media-policy.json:ro
+      - ./infrastructure/minio/storage-audit-policy.json:/storage-audit-policy.json:ro
+      - ./infrastructure/minio/media-cors.xml:/media-cors.xml:ro
+    networks: [storage, application]
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+  keycloak-db-init:
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-keycloak.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+    volumes: [./infrastructure/postgres/provision-keycloak.sh:/provision-keycloak.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  media-db-init:
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-media.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?Set MEDIA_DB_PASSWORD in .env}
+    volumes: [./infrastructure/postgres/provision-media.sh:/provision-media.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  clamav:
+    image: clamav/clamav:1.5.4
+    networks: [media_scanner, clamav_egress]
+    restart: unless-stopped
+  access-db-init:
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-access.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      ACCESS_DB_PASSWORD: ${ACCESS_DB_PASSWORD:?Set ACCESS_DB_PASSWORD in .env}
+    volumes: [./infrastructure/postgres/provision-access.sh:/provision-access.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: ['start-dev', '--import-realm', '--db=postgres']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: keycloak_service
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./infrastructure/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./infrastructure/keycloak/themes:/opt/keycloak/themes:ro
+    networks: [identity, messaging, data]
+    ports: ['127.0.0.1:8080:8080']
+    healthcheck:
+      test: ['CMD-SHELL', "bash -c '</dev/tcp/localhost/8080'"]
+      interval: 20s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+  api-audience-init:
+    image: node:24.21.0-slim
+    command: ['node', '/provision-api-audiences.mjs']
+    environment:
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+    volumes:
+      [./infrastructure/keycloak/provision-media-audience.mjs:/provision-api-audiences.mjs:ro]
+    networks: [identity]
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: 'no'
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    networks: [messaging]
+    ports: ['127.0.0.1:8025:8025', '127.0.0.1:1025:1025']
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v3.6.0
+    depends_on:
+      postgres-exporter:
+        condition: service_started
+      redis-exporter:
+        condition: service_started
+    volumes:
+      - prometheus_data:/prometheus
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    networks: [observability, metrics]
+    ports: ['127.0.0.1:9090:9090']
+  postgres-exporter-db-init:
+    profiles: [observability]
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-postgres-exporter.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_EXPORTER_PASSWORD: ${POSTGRES_EXPORTER_PASSWORD:-}
+    volumes:
+      [./infrastructure/postgres/provision-postgres-exporter.sh:/provision-postgres-exporter.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  postgres-exporter:
+    profiles: [observability]
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_URI: postgres:5432/postgres?sslmode=disable
+      DATA_SOURCE_USER: postgres_exporter
+      DATA_SOURCE_PASS: ${POSTGRES_EXPORTER_PASSWORD:-}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 64
+    networks: [data, metrics]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-exporter-db-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+  redis-exporter:
+    profiles: [observability]
+    image: quay.io/oliver006/redis_exporter:v1.89.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_USER: exporter
+      REDIS_PASSWORD: ${REDIS_EXPORTER_PASSWORD:?Set REDIS_EXPORTER_PASSWORD in .env}
+      REDIS_EXPORTER_REDIS_ONLY_METRICS: 'true'
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 64
+    networks: [data, metrics]
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:12.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [observability]
+    ports: ['127.0.0.1:3005:3000']
+    depends_on: [prometheus]
+  loki:
+    profiles: [observability]
+    image: grafana/loki:3.5.5
+    command: ['-config.file=/etc/loki/local-config.yaml']
+    volumes: [loki_data:/loki]
+    networks: [observability]
+    ports: ['127.0.0.1:3100:3100']
+  tempo:
+    profiles: [observability]
+    image: grafana/tempo:2.8.2
+    command: ['-config.file=/etc/tempo.yaml']
+    volumes:
+      - tempo_data:/tmp/tempo
+      - ./infrastructure/monitoring/tempo.yaml:/etc/tempo.yaml:ro
+    networks: [observability]
+    ports: ['127.0.0.1:3200:3200']
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.137.0
+    command: ['--config=/etc/otelcol/config.yaml']
+    volumes: [./infrastructure/monitoring/otel-collector.yaml:/etc/otelcol/config.yaml:ro]
+    networks: [observability, messaging]
+    ports: ['127.0.0.1:4317:4317', '127.0.0.1:4318:4318']
+  web:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      OIDC_CLIENT_ID: invitaflow-web
+      OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:-http://localhost:3000/api/auth/callback}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?Set AUTH_SESSION_SECRET in .env}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      GATEWAY_INTERNAL_URL: http://gateway:3002
+    networks: [edge, application, identity]
+    ports: ['127.0.0.1:3000:3000']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      profile:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      guests:
+        condition: service_healthy
+      seating:
+        condition: service_healthy
+      designs:
+        condition: service_healthy
+      ai-design:
+        condition: service_healthy
+      wallet:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+      payments:
+        condition: service_healthy
+      notifications:
+        condition: service_healthy
+      invitations:
+        condition: service_healthy
+  admin:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: apps/admin/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+    networks: [edge, application]
+    ports: ['127.0.0.1:3001:3001']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+  gateway:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:-http://localhost:3001}
+      PROFILE_SERVICE_URL: http://profile:3003
+      EVENTS_SERVICE_URL: http://events:3004
+      GUESTS_SERVICE_URL: http://guests:3005
+      SEATING_SERVICE_URL: http://seating:3006
+      DESIGNS_SERVICE_URL: http://designs:3007
+      AI_DESIGN_SERVICE_URL: http://ai-design:3008
+      WALLET_SERVICE_URL: http://wallet:3009
+      BILLING_SERVICE_URL: http://billing:3010
+      PAYMENTS_SERVICE_URL: http://payments:3011
+      NOTIFICATIONS_SERVICE_URL: http://notifications:3012
+      ANALYTICS_SERVICE_URL: http://analytics:3016
+      INVITATIONS_SERVICE_URL: http://invitations:3013
+      ACCESS_SERVICE_URL: http://access:3017
+      MEDIA_SERVICE_URL: http://media:3014
+      AUDIT_SERVICE_URL: http://audit:3015
+      PORT: '3002'
+    networks: [edge, application, observability]
+    ports: ['127.0.0.1:3002:3002']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3002/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      notifications:
+        condition: service_healthy
+      analytics:
+        condition: service_healthy
+      invitations:
+        condition: service_healthy
+      access:
+        condition: service_healthy
+      media:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+  audit:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/audit/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3015'
+      DATABASE_URL: postgresql://audit_service:${AUDIT_DB_PASSWORD:?Set AUDIT_DB_PASSWORD in .env}@postgres:5432/audit_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: admin-api
+      RABBITMQ_AMQP_HOST: rabbitmq
+      RABBITMQ_AMQP_PORT: '5672'
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3015/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  profile:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/profile/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3003'
+      DATABASE_URL: postgresql://profile_service:${PROFILE_DB_PASSWORD:?Set PROFILE_DB_PASSWORD in .env}@postgres:5432/profile_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: profile-api
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3003/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  events:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/events/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3004'
+      DATABASE_URL: postgresql://events_service:${EVENT_DB_PASSWORD:?Set EVENT_DB_PASSWORD in .env}@postgres:5432/event_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: events-api
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3004/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  guests:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/guests/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3005'
+      DATABASE_URL: postgresql://guests_service:${GUEST_DB_PASSWORD:?Set GUEST_DB_PASSWORD in .env}@postgres:5432/guest_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: guests-api
+      EVENTS_SERVICE_URL: http://events:3004
+      MAX_GUEST_IMPORT_BYTES: '5242880'
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3005/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  seating:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/seating/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3006'
+      DATABASE_URL: postgresql://seating_service:${SEATING_DB_PASSWORD:?Set SEATING_DB_PASSWORD in .env}@postgres:5432/seating_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: seating-api
+      EVENTS_SERVICE_URL: http://events:3004
+      GUESTS_SERVICE_URL: http://guests:3005
+      MAX_SEATING_IMPORT_BYTES: '5242880'
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      guests:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3006/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  designs:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/designs/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3007'
+      DATABASE_URL: postgresql://designs_service:${DESIGNS_DB_PASSWORD:?Set DESIGNS_DB_PASSWORD in .env}@postgres:5432/design_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: designs-api
+      EVENTS_SERVICE_URL: http://events:3004
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3007/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  media:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/media/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3014'
+      DATABASE_URL: postgresql://media_service:${MEDIA_DB_PASSWORD:?Set MEDIA_DB_PASSWORD in .env}@postgres:5432/media_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: media-api
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-http://localhost:9000}
+      MINIO_REGION: us-east-1
+      MINIO_MEDIA_BUCKET: media
+      MINIO_MEDIA_QUARANTINE_BUCKET: media-quarantine
+      MINIO_MEDIA_ACCESS_KEY: ${MINIO_MEDIA_ACCESS_KEY:?Set MINIO_MEDIA_ACCESS_KEY in .env}
+      MINIO_MEDIA_SECRET_KEY: ${MINIO_MEDIA_SECRET_KEY:?Set MINIO_MEDIA_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_ACCESS_KEY: ${MINIO_STORAGE_AUDIT_ACCESS_KEY:?Set MINIO_STORAGE_AUDIT_ACCESS_KEY in .env}
+      MINIO_STORAGE_AUDIT_SECRET_KEY: ${MINIO_STORAGE_AUDIT_SECRET_KEY:?Set MINIO_STORAGE_AUDIT_SECRET_KEY in .env}
+      MINIO_STORAGE_AUDIT_BUCKETS: media,media-quarantine,previews,generated,temporary,invitations
+      DESIGNS_SERVICE_URL: http://designs:3007
+      INVITATIONS_SERVICE_URL: http://invitations:3013
+      MEDIA_ANTIVIRUS_HOST: clamav
+      MEDIA_ANTIVIRUS_PORT: '3310'
+      STORAGE_DISK_PATH: ${STORAGE_DISK_PATH:-/storage-volume}
+      STORAGE_CLEANUP_BATCH_SIZE: ${STORAGE_CLEANUP_BATCH_SIZE:-100}
+      STORAGE_INVENTORY_TTL_SECONDS: ${STORAGE_INVENTORY_TTL_SECONDS:-900}
+      STORAGE_PREVIEW_TTL_DAYS: ${STORAGE_PREVIEW_TTL_DAYS:-30}
+      STORAGE_WARNING_PERCENT: ${STORAGE_WARNING_PERCENT:-70}
+      STORAGE_SERIOUS_PERCENT: ${STORAGE_SERIOUS_PERCENT:-80}
+      STORAGE_CRITICAL_PERCENT: ${STORAGE_CRITICAL_PERCENT:-90}
+      STORAGE_EMERGENCY_PERCENT: ${STORAGE_EMERGENCY_PERCENT:-95}
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, storage, media_scanner, messaging]
+    volumes: [minio_data:/storage-volume:ro]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      media-db-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+      api-audience-init:
+        condition: service_completed_successfully
+      clamav:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3014/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  background-removal-provider:
+    build:
+      context: .
+      dockerfile: services/background-removal/Dockerfile
+    environment:
+      BACKGROUND_REMOVAL_CONCURRENCY: ${BACKGROUND_REMOVAL_CONCURRENCY:-1}
+      BACKGROUND_REMOVAL_TIMEOUT_SECONDS: ${BACKGROUND_REMOVAL_TIMEOUT_SECONDS:-120}
+      BACKGROUND_REMOVAL_MAX_IMAGE_MB: ${BACKGROUND_REMOVAL_MAX_IMAGE_MB:-10}
+      BACKGROUND_REMOVAL_MAX_PIXELS: ${BACKGROUND_REMOVAL_MAX_PIXELS:-20000000}
+    networks: [application]
+    read_only: true
+    tmpfs:
+      - "/tmp:size=256m,noexec,nosuid"
+    volumes: [background_models:/opt/rembg-models]
+    cpus: ${BACKGROUND_REMOVAL_CPU_LIMIT:-4}
+    pids_limit: 128
+    healthcheck:
+      test: ['CMD', 'python', '-c', "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=2)"]
+      interval: 20s
+      timeout: 5s
+      retries: 30
+      start_period: 3m
+    restart: unless-stopped
+  background-removal-worker:
+    extends:
+      service: media
+    command: ['node', 'dist/src/background-removal-worker.js']
+    environment:
+      BACKGROUND_REMOVAL_PROVIDER_URL: http://background-removal-provider:8080/v1/remove-background
+      BACKGROUND_REMOVAL_CONCURRENCY: ${BACKGROUND_REMOVAL_CONCURRENCY:-1}
+      BACKGROUND_REMOVAL_TIMEOUT_SECONDS: ${BACKGROUND_REMOVAL_TIMEOUT_SECONDS:-120}
+      BACKGROUND_REMOVAL_MAX_IMAGE_MB: ${BACKGROUND_REMOVAL_MAX_IMAGE_MB:-10}
+      BACKGROUND_REMOVAL_MAX_PIXELS: ${BACKGROUND_REMOVAL_MAX_PIXELS:-20000000}
+    healthcheck:
+      disable: true
+    depends_on:
+      media:
+        condition: service_healthy
+      background-removal-provider:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+  ai-design:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/ai-design/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3008'
+      DATABASE_URL: postgresql://ai_design_service:${AI_DESIGN_DB_PASSWORD:?Set AI_DESIGN_DB_PASSWORD in .env}@postgres:5432/ai_design_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: ai-design-api
+      DESIGNS_SERVICE_URL: http://designs:3007
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
+      AI_PROVIDER_MODEL: ${AI_PROVIDER_MODEL:-}
+      AI_PROVIDER_API_KEY: ${AI_PROVIDER_API_KEY:-}
+      AI_MAX_ACTIVE_PER_OWNER: ${AI_MAX_ACTIVE_PER_OWNER:-2}
+      AI_MAX_ACTIVE_GLOBAL: ${AI_MAX_ACTIVE_GLOBAL:-20}
+      AI_MAX_REQUESTS_PER_HOUR_PER_OWNER: ${AI_MAX_REQUESTS_PER_HOUR_PER_OWNER:-10}
+      COMFYUI_BASE_URL: ${COMFYUI_BASE_URL:-}
+      COMFYUI_CHECKPOINT: ${COMFYUI_CHECKPOINT:-}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_REGION: us-east-1
+      MINIO_PREVIEW_BUCKET: previews
+      MINIO_ACCESS_KEY: ${MINIO_AI_ACCESS_KEY:?Set MINIO_AI_ACCESS_KEY in .env}
+      MINIO_SECRET_KEY: ${MINIO_AI_SECRET_KEY:?Set MINIO_AI_SECRET_KEY in .env}
+    networks: [application, data, identity, messaging, storage]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      designs:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3008/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  wallet:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/wallet/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3009'
+      DATABASE_URL: postgresql://wallet_service:${WALLET_DB_PASSWORD:?Set WALLET_DB_PASSWORD in .env}@postgres:5432/wallet_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: wallet-api
+      WALLET_INTERNAL_TOKEN: ${WALLET_INTERNAL_TOKEN:?Set WALLET_INTERNAL_TOKEN in .env}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3009/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  billing:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/billing/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3010'
+      BILLING_TAX_POLICY_APPROVED: ${BILLING_TAX_POLICY_APPROVED:-false}
+      DATABASE_URL: postgresql://billing_service:${BILLING_DB_PASSWORD:?Set BILLING_DB_PASSWORD in .env}@postgres:5432/billing_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: billing-api
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3010/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  payments:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/payments/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3011'
+      DATABASE_URL: postgresql://payments_service:${PAYMENT_DB_PASSWORD:?Set PAYMENT_DB_PASSWORD in .env}@postgres:5432/payment_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: payments-api
+      BILLING_SERVICE_URL: http://billing:3010
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-mock}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+      FLEXPAY_ENV: ${FLEXPAY_ENV:-sandbox}
+      FLEXPAY_BASE_URL: ${FLEXPAY_BASE_URL:-CHANGE_ME}
+      FLEXPAY_MERCHANT_CODE: ${FLEXPAY_MERCHANT_CODE:-CHANGE_ME}
+      FLEXPAY_AUTH_TOKEN: ${FLEXPAY_AUTH_TOKEN:-CHANGE_ME}
+      FLEXPAY_CALLBACK_URL: ${FLEXPAY_CALLBACK_URL:-https://your-domain.example/v1/payments/webhooks/flexpay}
+      FLEXPAY_RETURN_URL: ${FLEXPAY_RETURN_URL:-https://your-domain.example/account/wallet}
+      EASYPAY_ENV: ${EASYPAY_ENV:-sandbox}
+      EASYPAY_BASE_URL: ${EASYPAY_BASE_URL:-https://www.e-com-easypay.com}
+      EASYPAY_CID: ${EASYPAY_CID:-}
+      EASYPAY_TOKEN: ${EASYPAY_TOKEN:-}
+      EASYPAY_IPN_URL: ${EASYPAY_IPN_URL:-}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3011/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  notifications:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/notifications/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3012'
+      DATABASE_URL: postgresql://notifications_service:${NOTIFICATIONS_DB_PASSWORD:?Set NOTIFICATIONS_DB_PASSWORD in .env}@postgres:5432/notification_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: notifications-api
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3012/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  analytics:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/analytics/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3016'
+      DATABASE_URL: postgresql://analytics_service:${ANALYTICS_DB_PASSWORD:?Set ANALYTICS_DB_PASSWORD in .env}@postgres:5432/analytics_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: admin-api
+      RABBITMQ_AMQP_HOST: rabbitmq
+      RABBITMQ_AMQP_PORT: '5672'
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      analytics-db-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3016/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  analytics-db-init:
+    image: postgres:17.6-alpine
+    entrypoint: ['/bin/sh', '/provision-analytics.sh']
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-invitaflow_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD:?Set ANALYTICS_DB_PASSWORD in .env}
+    volumes: [./infrastructure/postgres/provision-analytics.sh:/provision-analytics.sh:ro]
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+  invitations:
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/invitations/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3013'
+      DATABASE_URL: postgresql://invitations_service:${INVITATIONS_DB_PASSWORD:?Set INVITATIONS_DB_PASSWORD in .env}@postgres:5432/invitation_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: invitations-api
+      EVENTS_SERVICE_URL: http://events:3004
+      GUESTS_SERVICE_URL: http://guests:3005
+      SEATING_SERVICE_URL: http://seating:3006
+      DESIGNS_SERVICE_URL: http://designs:3007
+      MEDIA_SERVICE_URL: http://media:3014
+      WALLET_SERVICE_URL: http://wallet:3009
+      WALLET_INTERNAL_TOKEN: ${WALLET_INTERNAL_TOKEN:?Set WALLET_INTERNAL_TOKEN in .env}
+      INVITATION_LINK_SECRET: ${INVITATION_LINK_SECRET:?Set INVITATION_LINK_SECRET in .env}
+      INVITATIONS_INTERNAL_TOKEN: ${INVITATIONS_INTERNAL_TOKEN:?Set INVITATIONS_INTERNAL_TOKEN in .env}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_REGION: us-east-1
+      MINIO_INVITATION_BUCKET: invitations
+      MINIO_INVITATION_ACCESS_KEY: ${MINIO_INVITATION_ACCESS_KEY:?Set MINIO_INVITATION_ACCESS_KEY in .env}
+      MINIO_INVITATION_SECRET_KEY: ${MINIO_INVITATION_SECRET_KEY:?Set MINIO_INVITATION_SECRET_KEY in .env}
+      CHROMIUM_PATH: /usr/bin/chromium
+      QR_ENCODE_PATH: /usr/bin/qrencode
+      RENDER_WORKER_ENABLED: 'false'
+      INVITATION_OUTBOX_ENABLED: 'true'
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+      STORAGE_EMERGENCY_PERCENT: ${STORAGE_EMERGENCY_PERCENT:-95}
+      STORAGE_MONITOR_TOKEN: ${STORAGE_MONITOR_TOKEN:?Set STORAGE_MONITOR_TOKEN in .env}
+    networks: [application, data, identity, messaging, storage]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      guests:
+        condition: service_healthy
+      designs:
+        condition: service_healthy
+      media:
+        condition: service_healthy
+      wallet:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3013/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  access:
+    <<: *node-runtime-hardening
+    build:
+      context: .
+      args:
+        NODE_IMAGE: node:26.10.0-slim
+      dockerfile: services/access/Dockerfile
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: '3017'
+      DATABASE_URL: postgresql://access_service:${ACCESS_DB_PASSWORD:?Set ACCESS_DB_PASSWORD in .env}@postgres:5432/access_db?schema=public
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/invitaflow-dev}
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/invitaflow-dev/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: invitaflow-web
+      KEYCLOAK_AUDIENCE: access-api
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      EVENTS_SERVICE_URL: http://events:3004
+      INVITATIONS_SERVICE_URL: http://invitations:3013
+      INVITATIONS_INTERNAL_TOKEN: ${INVITATIONS_INTERNAL_TOKEN:?Set INVITATIONS_INTERNAL_TOKEN in .env}
+      RABBITMQ_MANAGEMENT_URL: http://rabbitmq:15672
+      RABBITMQ_USER: ${RABBITMQ_USER:-invitaflow}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in .env}
+    networks: [application, data, identity, messaging]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      access-db-init:
+        condition: service_completed_successfully
+      api-audience-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      events:
+        condition: service_healthy
+      invitations:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3017/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  rendering:
+    extends:
+      service: invitations
+    environment:
+      PORT: '3014'
+      RENDER_WORKER_ENABLED: 'true'
+      INVITATION_OUTBOX_ENABLED: 'false'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3014/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  traefik:
+    image: traefik:v3.5.2
+    command:
+      [
+        '--providers.docker=true',
+        '--providers.docker.exposedbydefault=false',
+        '--entrypoints.web.address=:80',
+      ]
+    volumes: ['/var/run/docker.sock:/var/run/docker.sock:ro']
+    networks: [edge]
+    ports: ['127.0.0.1:80:80']
+
+networks:
+  edge: {}
+  application: {}
+  data: { internal: true }
+  messaging: { internal: true }
+  identity: {}
+  storage: { internal: true }
+  media_scanner: { internal: true }
+  clamav_egress: {}
+  metrics: { internal: true }
+  observability: {}
+volumes:
+  postgres_data: {}
+  redis_data: {}
+  rabbitmq_data: {}
+  minio_data: {}
+  grafana_data: {}
+  loki_data: {}
+  tempo_data: {}
+  prometheus_data: {}
+  keycloak_data: {}
+  background_models: {}
+configs:
+  rabbitmq_definitions:
+    file: ./infrastructure/rabbitmq/definitions.json

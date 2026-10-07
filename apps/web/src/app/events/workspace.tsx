@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import type { Ceremony, CeremonyProgramItem, Event } from './types';
+import { formatDateTimeInTimeZone } from '@/lib/date-format.mjs';
 
 const typeLabels: Record<string, string> = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', GRADUATION: 'Graduation', BAPTISM: 'Baptême', BABY_SHOWER: 'Baby shower', CONFERENCE: 'Conférence', GALA: 'Gala', DINNER: 'Dîner', CORPORATE: 'Événement professionnel', CEREMONY: 'Cérémonie', RELIGIOUS: 'Cérémonie religieuse', ANNIVERSARY: 'Anniversaire de mariage', OTHER: 'Autre' };
 const statusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'Publié', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
@@ -15,7 +16,7 @@ async function api(path: string, method = 'GET', data?: Record<string, unknown>)
 }
 
 function localDate(value: string | null, timeZone = 'Africa/Kinshasa') {
-  return value ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(new Date(value)) : 'Date à préciser';
+  return value ? formatDateTimeInTimeZone(value, timeZone) : 'Date à préciser';
 }
 
 function localTimeInZone(value: string, timeZone: string) {

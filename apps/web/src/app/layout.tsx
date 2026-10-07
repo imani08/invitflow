@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import '@/components/AppNavbar.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { LegalFooter } from '@/components/legal-footer';
 
 const metadataBase = (() => {
   try {
@@ -22,5 +23,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="fr"><body><ThemeProvider>{children}</ThemeProvider></body></html>;
+  return <html lang="fr"><body><ThemeProvider>{children}<LegalFooter /></ThemeProvider></body></html>;
 }

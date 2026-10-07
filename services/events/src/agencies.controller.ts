@@ -79,8 +79,9 @@ export class AgenciesController {
   }
 
   @Post('/:workspaceId/subscriptions')
-  async subscribe(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Body() body: { planKey?: unknown }) {
+  async subscribe(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Body() body: { planKey?: unknown; salesTermsAccepted?: unknown; refundPolicyAccepted?: unknown }) {
     if (typeof body?.planKey !== 'string' || !/^[a-z][a-z0-9-]{1,59}$/.test(body.planKey)) throw new BadRequestException('planKey is invalid');
+    if (body.salesTermsAccepted !== true || body.refundPolicyAccepted !== true) throw new BadRequestException({ error: 'LEGAL_TERMS_NOT_ACCEPTED' });
     const billingUrl = process.env['BILLING_SERVICE_URL'] ?? 'http://billing:3010';
     const authorization = request.headers.authorization ?? '';
     const catalogResponse = await fetch(`${billingUrl.replace(/\/$/, '')}/v1/pricing?segment=AGENCY`, { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(5_000) }).catch(() => null);
@@ -88,7 +89,7 @@ export class AgenciesController {
     const catalog: unknown = await catalogResponse.json().catch(() => null);
     const subscription = await this.events.createAgencySubscription(request.identity.subject, workspaceId, catalog, body.planKey);
     const paymentsUrl = process.env['PAYMENTS_SERVICE_URL'] ?? 'http://payments:3011';
-    const paymentResponse = await fetch(`${paymentsUrl.replace(/\/$/, '')}/v1/payments`, { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': `agency-subscription:${subscription.id}` }, body: JSON.stringify({ packId: subscription.planPackId, orderType: 'AGENCY_SUBSCRIPTION', businessReference: subscription.id, expectedPriceScheduleId: subscription.priceScheduleId, expectedPriceScheduleVersion: subscription.priceScheduleVersion }), cache: 'no-store', signal: AbortSignal.timeout(12_000) }).catch(() => null);
+    const paymentResponse = await fetch(`${paymentsUrl.replace(/\/$/, '')}/v1/payments`, { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': `agency-subscription:${subscription.id}` }, body: JSON.stringify({ packId: subscription.planPackId, orderType: 'AGENCY_SUBSCRIPTION', businessReference: subscription.id, expectedPriceScheduleId: subscription.priceScheduleId, expectedPriceScheduleVersion: subscription.priceScheduleVersion, salesTermsAccepted: true, refundPolicyAccepted: true }), cache: 'no-store', signal: AbortSignal.timeout(12_000) }).catch(() => null);
     const payment: unknown = await paymentResponse?.json().catch(() => null);
     if (!paymentResponse?.ok || !payment || typeof payment !== 'object' || !('id' in payment) || typeof payment['id'] !== 'string' || !('order' in payment) || !payment['order'] || typeof payment['order'] !== 'object' || !('id' in payment['order']) || typeof payment['order']['id'] !== 'string') throw new ServiceUnavailableException('Agency checkout could not be created; the pending subscription can be retried');
     const attached = await this.events.attachAgencyCheckout(request.identity.subject, workspaceId, subscription.id, payment['order']['id'], payment['id']);
