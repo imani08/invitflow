@@ -11,8 +11,10 @@
     <junit.version>5.12.2</junit.version>
   </properties>
   <dependencies>
+    <dependency><groupId>org.keycloak</groupId><artifactId>keycloak-core</artifactId><version>${keycloak.version}</version><scope>provided</scope></dependency>
     <dependency><groupId>org.keycloak</groupId><artifactId>keycloak-server-spi</artifactId><version>${keycloak.version}</version><scope>provided</scope></dependency>
     <dependency><groupId>org.keycloak</groupId><artifactId>keycloak-server-spi-private</artifactId><version>${keycloak.version}</version><scope>provided</scope></dependency>
+    <dependency><groupId>jakarta.ws.rs</groupId><artifactId>jakarta.ws.rs-api</artifactId><version>3.1.0</version><scope>provided</scope></dependency>
     <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>${junit.version}</version><scope>test</scope></dependency>
     <dependency><groupId>org.mockito</groupId><artifactId>mockito-core</artifactId><version>5.17.0</version><scope>test</scope></dependency>
   </dependencies>
