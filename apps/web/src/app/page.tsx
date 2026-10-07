@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { getSession, sessionCookieName } from '@/lib/auth-session';
 import './home.css';
 
 const capabilities = [
@@ -10,12 +12,16 @@ const capabilities = [
 ];
 
 export default async function Home({ searchParams }: { searchParams?: Promise<{ auth?: string }> }) {
-  const authStatus = (await searchParams)?.auth;
+  const [query, cookieStore] = await Promise.all([searchParams, cookies()]);
+  const session = await getSession(cookieStore.get(sessionCookieName())?.value);
+  const authStatus = query?.auth;
+  const accountHref = session ? '/account' : '/api/auth/login';
+  const accountLabel = session ? 'Mon compte' : 'Connexion';
   return <main className="home-shell">
     <nav className="home-nav" aria-label="Navigation publique">
       <BrandLogo priority className="home-brand" />
       <ThemeToggle className="home-theme-toggle" />
-      <div className="home-nav-links"><a href="#fonctionnalites">Découvrir</a><Link href="/contact">Nous contacter</Link><Link href="/api/auth/login">Connexion</Link><Link className="home-nav-cta" href="/api/auth/login">Créer mon invitation <span aria-hidden="true">↗</span></Link></div>
+      <div className="home-nav-links"><a href="#fonctionnalites">Découvrir</a><Link href="/contact">Nous contacter</Link><Link href={accountHref}>{accountLabel}</Link><Link className="home-nav-cta" href={accountHref}>{session ? 'Mon espace' : 'Créer mon invitation'} <span aria-hidden="true">↗</span></Link></div>
     </nav>
     <section className="home-hero" aria-labelledby="home-title">
       <div className="home-hero-copy">
@@ -23,7 +29,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
         <h1 id="home-title">Les beaux moments<br />commencent par <em>une invitation.</em></h1>
         {authStatus === 'failed' || authStatus === 'unavailable' ? <p className="home-auth-error" role="alert">{authStatus === 'unavailable' ? 'Le service de connexion est momentanément indisponible. Réessayez plus tard.' : 'La connexion n’a pas abouti. Réessayez.'}</p> : null}
         <p className="home-intro">Créez et gérez vos invitations, de la première idée à l’accueil de vos invités. Tout votre événement, dans un espace conçu pour vous.</p>
-        <div className="home-actions"><Link className="home-primary-action" href="/api/auth/login">Commencer à créer <span aria-hidden="true">→</span></Link><a className="home-secondary-action" href="#fonctionnalites">Découvrir InvitaFlow</a></div>
+        <div className="home-actions"><Link className="home-primary-action" href={accountHref}>{session ? 'Accéder à mon espace' : 'Commencer à créer'} <span aria-hidden="true">→</span></Link><a className="home-secondary-action" href="#fonctionnalites">Découvrir InvitaFlow</a></div>
         <p className="home-note">Connexion sécurisée · Vos événements restent les vôtres</p>
       </div>
       <div className="home-hero-art" aria-label="Illustration d’une invitation personnalisée">
@@ -37,7 +43,7 @@ export default async function Home({ searchParams }: { searchParams?: Promise<{ 
       <header><p className="home-eyebrow">DE L’IDÉE AU GRAND JOUR</p><h2 id="home-capabilities-title">Un seul espace.<br /><em>Toute votre organisation.</em></h2><p>Chaque étape se construit autour de votre événement et de vos invités.</p></header>
       <div className="home-capability-grid">{capabilities.map((item) => <article key={item.number}><span className="home-capability-number">{item.number}</span><span className="home-capability-mark" aria-hidden="true">✳</span><h3>{item.title}</h3><p>{item.text}</p></article>)}</div>
     </section>
-    <section className="home-closing"><p className="home-eyebrow">VOTRE PROCHAIN MOMENT COMMENCE ICI</p><h2>Faites place à la célébration.</h2><Link className="home-primary-action" href="/api/auth/login">Créer mon espace <span aria-hidden="true">→</span></Link></section>
+    <section className="home-closing"><p className="home-eyebrow">VOTRE PROCHAIN MOMENT COMMENCE ICI</p><h2>Faites place à la célébration.</h2><Link className="home-primary-action" href={accountHref}>{session ? 'Ouvrir mon espace' : 'Créer mon espace'} <span aria-hidden="true">→</span></Link></section>
     <footer className="home-footer"><BrandLogo className="home-footer-brand" /><p>Invitations · Événements · Ensemble</p><nav aria-label="Informations et aide"><Link href="/legal">Informations légales</Link><Link href="/privacy">Confidentialité</Link><Link href="/terms">Conditions</Link><Link href="/contact">Contact</Link></nav></footer>
   </main>;
 }

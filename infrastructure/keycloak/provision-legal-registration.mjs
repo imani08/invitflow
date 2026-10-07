@@ -61,37 +61,72 @@ if (!customFlow) {
 }
 if (!customFlow?.id) throw new Error('The InvitaFlow registration flow was not created');
 
-const visited = new Set();
-async function findRegistrationFormFlow(alias) {
-  if (visited.has(alias)) return null;
-  visited.add(alias);
+process.stdout.write(`Parent flow: ${customFlow.id} ${customFlow.alias} ${customFlow.providerId ?? '(providerId unavailable)'}\n`);
 
-  const executions = await admin(`/authentication/flows/${encodeURIComponent(alias)}/executions`);
+const visited = new Set();
+process.stdout.write(`Legal registration parent flow: ${customAlias}\n`);
+const parentExecutions = await admin(`/authentication/flows/${encodeURIComponent(customAlias)}/executions`);
+// The full catalog is only a fallback when an execution omits flowId.
+flows = await admin('/authentication/flows');
+
+async function resolveChildFlow(execution) {
+  const flowId = execution.flowId ?? execution.subFlowId;
+  if (flowId) {
+    try {
+      // Keycloak 26.7.4 supports resolving the AuthenticationFlowRepresentation
+      // directly by id; treat this response as authoritative.
+      return await admin(`/authentication/flows/${encodeURIComponent(flowId)}`);
+    } catch (error) {
+      if (execution.flowId) throw error;
+    }
+  }
+
+  // Older representations may omit flowId. Resolve only against structural
+  // catalog fields first; displayName is the last-resort fallback.
+  const aliasReference = execution.alias;
+  const byAlias = aliasReference ? flows.find((flow) => flow.alias === aliasReference || flow.id === aliasReference) : null;
+  if (byAlias) return byAlias;
+  const displayReference = execution.displayName;
+  return displayReference ? flows.find((flow) => flow.alias === displayReference || flow.id === displayReference) ?? null : null;
+}
+
+async function findRegistrationFormFlow(parentAlias) {
+  if (visited.has(parentAlias)) return null;
+  visited.add(parentAlias);
+
+  const executions = parentAlias === customAlias
+    ? parentExecutions
+    : await admin(`/authentication/flows/${encodeURIComponent(parentAlias)}/executions`);
   for (const execution of executions.filter((item) => item.authenticationFlow === true)) {
-    // The execution alias points to the child flow. Resolve it from the flow
-    // catalog, then verify its structural provider type instead of using its
-    // translated display name (which can vary by Keycloak version/locale).
-    const child = flows.find((flow) => flow.alias === execution.alias)
-      ?? (execution.alias ? await admin(`/authentication/flows/${encodeURIComponent(execution.alias)}`) : null);
-    if (child?.providerId === 'form-flow') {
+    process.stdout.write(`Child flow execution: ${execution.flowId ?? '(no flowId)'} ${execution.displayName ?? '(no display name)'}\n`);
+    const child = await resolveChildFlow(execution);
+    process.stdout.write(`Resolved child flow: ${child?.id ?? '(unknown id)'} ${child?.alias ?? '(unknown alias)'} ${child?.providerId ?? '(unresolved providerId)'}\n`);
+    if (!child?.alias) continue;
+
+    if (child.providerId === 'form-flow') {
       const childExecutions = await admin(`/authentication/flows/${encodeURIComponent(child.alias)}/executions`);
-      const userCreation = childExecutions.find((item) => item.providerId === 'registration-user-creation');
+      process.stdout.write(`Executions for ${child.alias}:\n`);
+      for (const item of childExecutions) {
+        process.stdout.write(`  ${item.displayName ?? '(no display name)'} | ${item.authenticator ?? '(no authenticator)'} | ${item.providerId ?? '(no providerId)'} | ${item.requirement ?? '(no requirement)'}\n`);
+      }
+      const userCreation = childExecutions.find((item) =>
+        [item.providerId, item.authenticator].some((provider) => provider === 'registration-user-creation')
+        || /registration\s+user\s+creation/i.test(item.displayName ?? ''));
       if (userCreation) return { id: child.id, alias: child.alias, executions: childExecutions, userCreation };
     }
 
-    if (execution.alias) {
-      const nested = await findRegistrationFormFlow(execution.alias);
-      if (nested) return nested;
-    }
+    const nested = await findRegistrationFormFlow(child.alias);
+    if (nested) return nested;
   }
   return null;
 }
 
-process.stdout.write(`Legal registration parent flow: ${customAlias}\n`);
 const registrationForm = await findRegistrationFormFlow(customAlias);
 if (!registrationForm?.id || !registrationForm.alias) throw new Error('Could not find the registration form subflow containing Registration User Creation');
-process.stdout.write(`Registration form flow: ${registrationForm.alias}\n`);
-process.stdout.write('Provider found: invitaflow-legal-acceptance\n');
+process.stdout.write(`Registration form flow: ${registrationForm.id} ${registrationForm.alias} ${'form-flow'}\n`);
+for (const execution of registrationForm.executions) {
+  process.stdout.write(`Registration form execution: ${execution.displayName ?? '(no display name)'} | ${execution.providerId ?? execution.authenticator ?? '(no provider/authenticator)'} | ${execution.requirement ?? '(no requirement)'} | ${execution.priority ?? '(no priority)'}\n`);
+}
 
 const legalExecution = registrationForm.executions.find((execution) =>
   execution.providerId === 'invitaflow-legal-acceptance' || execution.authenticator === 'invitaflow-legal-acceptance');
@@ -99,7 +134,7 @@ let legalExecutionState = 'already present';
 if (!legalExecution) {
   await admin(`/authentication/flows/${encodeURIComponent(registrationForm.alias)}/executions/execution`, {
     method: 'POST',
-    body: JSON.stringify({ provider: 'invitaflow-legal-acceptance', priority: registrationForm.userCreation.priority + 1 }),
+    body: JSON.stringify({ provider: 'invitaflow-legal-acceptance' }),
   });
   legalExecutionState = 'created';
 }
@@ -111,17 +146,24 @@ const configuredLegalExecution = updatedExecutions.find((execution) =>
   execution.providerId === 'invitaflow-legal-acceptance' || execution.authenticator === 'invitaflow-legal-acceptance');
 if (!configuredLegalExecution?.id) throw new Error('Keycloak did not create the legal acceptance execution');
 const requiredPriority = registrationForm.userCreation.priority + 1;
-if (configuredLegalExecution.requirement !== 'REQUIRED' || configuredLegalExecution.priority !== requiredPriority) {
+if (configuredLegalExecution.requirement !== 'REQUIRED' || configuredLegalExecution.priority <= registrationForm.userCreation.priority) {
   await admin(`/authentication/flows/${encodeURIComponent(registrationForm.alias)}/executions`, {
     method: 'PUT',
     body: JSON.stringify({ id: configuredLegalExecution.id, requirement: 'REQUIRED', priority: requiredPriority }),
   });
 }
-process.stdout.write(`Legal execution: ${legalExecutionState}\n`);
+const finalExecutions = await admin(`/authentication/flows/${encodeURIComponent(registrationForm.alias)}/executions`);
+const finalLegalExecution = finalExecutions.find((execution) =>
+  execution.providerId === 'invitaflow-legal-acceptance' || execution.authenticator === 'invitaflow-legal-acceptance');
+if (!finalLegalExecution || finalLegalExecution.requirement !== 'REQUIRED' || finalLegalExecution.priority <= registrationForm.userCreation.priority) {
+  throw new Error('Legal execution must be REQUIRED and ordered after registration-user-creation');
+}
+process.stdout.write(`Legal action: ${legalExecutionState}\n`);
+process.stdout.write(`Final legal requirement: ${finalLegalExecution.requirement}; priority ${finalLegalExecution.priority} after registration-user-creation priority ${registrationForm.userCreation.priority}\n`);
 
 const realm = await admin('');
 if (realm.registrationFlow !== customAlias) {
   realm.registrationFlow = customAlias;
   await admin('', { method: 'PUT', body: JSON.stringify(realm) });
 }
-process.stdout.write(`Registration flow binding: ${realm.registrationFlow}\n`);
+process.stdout.write(`Final registration binding: ${realm.registrationFlow}\n`);
