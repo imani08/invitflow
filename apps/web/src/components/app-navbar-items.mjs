@@ -15,7 +15,7 @@ export function uniqueNavigationItems(items) {
 }
 
 export function getDefaultPostLoginDestination(returnTo) {
-  return isSafeReturnTo(returnTo) ? returnTo : '/';
+  return isSafeReturnTo(returnTo) ? returnTo : '/dashboard';
 }
 
 export function isSafeReturnTo(value) {

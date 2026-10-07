@@ -35,23 +35,7 @@ const purposes: Record<string, string> = {
   partenaires: 'Conditions applicables aux partenaires et prestataires.',
 };
 
-const legalPathPattern = /^\/legal\/([^/?#]+)$/;
-
-export const legalDocuments = manifest.documents.flatMap((document) => {
-  const match = legalPathPattern.exec(document.slug);
-  const slug = match?.[1];
-
-  if (!slug) {
-    return [];
-  }
-
-  return [{
-    ...document,
-    slug,
-    href: document.slug,
-    purpose: purposes[slug] ?? document.title,
-  }];
-});
+export const legalDocuments = manifest.documents.map((document) => ({ ...document, purpose: purposes[document.slug] ?? document.title }));
 
 export type LegalSlug = (typeof legalDocuments)[number]['slug'];
 

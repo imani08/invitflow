@@ -30,10 +30,13 @@ test('mobile navigation deterministically deduplicates Alertes by semantic route
   ]);
 });
 
-test('post-login destination defaults home and keeps only safe local return paths', () => {
-  assert.equal(getDefaultPostLoginDestination(null), '/');
-  assert.equal(getDefaultPostLoginDestination(''), '/');
-  assert.equal(getDefaultPostLoginDestination('//evil.example'), '/');
-  assert.equal(getDefaultPostLoginDestination('/\\evil.example'), '/');
+test('post-login destination defaults to dashboard and keeps only safe local return paths', () => {
+  assert.equal(getDefaultPostLoginDestination(null), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination(undefined), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination(''), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination('https://evil.example'), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination('//evil.example'), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination('/\\evil.example'), '/dashboard');
+  assert.equal(getDefaultPostLoginDestination('/account/wallet'), '/account/wallet');
   assert.equal(getDefaultPostLoginDestination('/events?view=upcoming'), '/events?view=upcoming');
 });

@@ -67,6 +67,9 @@ if (!response.ok) throw new Error(`Could not read Keycloak realm settings (${res
 const realm = await response.json();
 realm.smtpServer = smtp;
 realm.emailTheme = 'invitaflow';
+realm.internationalizationEnabled = true;
+realm.supportedLocales = ['fr'];
+realm.defaultLocale = 'fr';
 realm.verifyEmail = true;
 realm.resetPasswordAllowed = true;
 realm.loginWithEmailAllowed = true;

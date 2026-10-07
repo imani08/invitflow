@@ -15,6 +15,8 @@ const emailTemplate = await readFile(new URL('./themes/invitaflow/email/html/ema
 const compose = await readFile(new URL('../../compose.yaml', import.meta.url), 'utf8');
 const authSession = await readFile(new URL('../../apps/web/src/lib/auth-session.ts', import.meta.url), 'utf8');
 const authCallback = await readFile(new URL('../../apps/web/src/app/api/auth/callback/route.ts', import.meta.url), 'utf8');
+const loginProperties = await readFile(new URL('./themes/invitaflow/login/theme.properties', import.meta.url), 'utf8');
+const emailProperties = await readFile(new URL('./themes/invitaflow/email/theme.properties', import.meta.url), 'utf8');
 
 test('registration requires a fresh unchecked legal acceptance checkbox and public legal links', () => {
   const checkbox = /<input\b([^>]*\bname="invitaflow_legal_acceptance"[^>]*)>/i.exec(template)?.[1];
@@ -24,7 +26,23 @@ test('registration requires a fresh unchecked legal acceptance checkbox and publ
   assert.doesNotMatch(checkbox, /\bchecked\b/i);
   assert.match(template, /href="\$\{invitaflowPublicWebUrl\}\/legal\/cgu" target="_blank" rel="noopener noreferrer"/);
   assert.match(template, /href="\$\{invitaflowPublicWebUrl\}\/legal\/confidentialite" target="_blank" rel="noopener noreferrer"/);
+  assert.match(action, /System\.getenv\(PUBLIC_WEB_URL_ENV\)/);
+  assert.match(action, /invitaflowPublicWebUrl/);
+  assert.match(action, /URI\.create\(base\)/);
   assert.match(french, /invitaflowLegalAcceptanceRequired=/);
+});
+
+test('V1 Keycloak experience exposes French only while keeping internationalization enabled', () => {
+  assert.equal(realm.internationalizationEnabled, true);
+  assert.deepEqual(realm.supportedLocales, ['fr']);
+  assert.equal(realm.defaultLocale, 'fr');
+  assert.match(loginProperties, /^locales=fr$/m);
+  assert.match(emailProperties, /^locales=fr$/m);
+  assert.match(emailBootstrap, /realm\.internationalizationEnabled = true/);
+  assert.match(emailBootstrap, /realm\.supportedLocales = \['fr'\]/);
+  assert.match(emailBootstrap, /realm\.defaultLocale = 'fr'/);
+  assert.doesNotMatch(loginProperties, /\ben\b/);
+  assert.doesNotMatch(emailProperties, /\ben\b/);
 });
 
 test('acceptance component keeps keyboard focus visible and adapts to light, dark and narrow screens', () => {
@@ -45,22 +63,22 @@ test('server validates the checkbox and persists acceptance after user creation'
   assert.match(action, /context\.success\(\)/);
   assert.match(action, /Clock\.systemUTC\(\)/);
   assert.match(action, /user::setAttribute/);
-  assert.match(bootstrap, /providerId === 'registration-user-creation'/);
+  assert.match(bootstrap, /provider === 'registration-user-creation'/);
 });
 
 test('legal FormAction is discovered and provisioned idempotently in the registration form-flow child', () => {
   assert.match(bootstrap, /authenticationFlow === true/);
-  assert.match(bootstrap, /child\?\.providerId === 'form-flow'/);
-  assert.match(bootstrap, /const userCreation = childExecutions\.find\(\(item\) => item\.providerId === 'registration-user-creation'\)/);
+  assert.match(bootstrap, /child\.providerId === 'form-flow'/);
+  assert.match(bootstrap, /const userCreation = childExecutions\.find\(\(item\) =>[\s\S]*registration-user-creation/);
 
-  const postMatch = /admin\(`\/authentication\/flows\/\$\{encodeURIComponent\(registrationForm\.alias\)\}\/executions\/execution`,\s*\{\s*method: 'POST',\s*body: JSON\.stringify\(\{ provider: 'invitaflow-legal-acceptance', priority: registrationForm\.userCreation\.priority \+ 1 \}\)/.exec(bootstrap);
+  const postMatch = /admin\(`\/authentication\/flows\/\$\{encodeURIComponent\(registrationForm\.alias\)\}\/executions\/execution`,\s*\{\s*method: 'POST',\s*body: JSON\.stringify\(\{ provider: 'invitaflow-legal-acceptance' \}\)/.exec(bootstrap);
   assert.ok(postMatch, 'FormAction POST must target the dynamically discovered child form flow alias');
   assert.doesNotMatch(bootstrap, /admin\(`\/authentication\/flows\/\$\{encodeURIComponent\(customAlias\)\}\/executions\/execution`/);
 
   assert.match(bootstrap, /execution\.providerId === 'invitaflow-legal-acceptance' \|\| execution\.authenticator === 'invitaflow-legal-acceptance'/);
   assert.match(bootstrap, /requirement: 'REQUIRED', priority: requiredPriority/);
   assert.match(bootstrap, /registrationFlow = customAlias/);
-  assert.match(bootstrap, /Registration flow binding: \$\{realm\.registrationFlow\}/);
+  assert.match(bootstrap, /Final registration binding: \$\{realm\.registrationFlow\}/);
 });
 
 test('realm requires verification and rejects duplicate accounts while SMTP remains out of static realm config', () => {

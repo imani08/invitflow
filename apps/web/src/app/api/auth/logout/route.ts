@@ -15,7 +15,10 @@ export async function POST(request: Request) {
   } catch {
     // Expire the browser cookie even if the identity provider is unavailable.
   }
-  const response = NextResponse.json({ signedOut: true });
+  const response = NextResponse.redirect(
+    new URL('/', process.env['WEB_ORIGIN'] ?? 'http://localhost:3000'),
+    { status: 303 },
+  );
   response.cookies.set(sessionCookieName(), '', { ...cookieOptions(), maxAge: 0 });
   response.headers.set('Cache-Control', 'no-store');
   return response;

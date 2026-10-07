@@ -5,6 +5,7 @@ import { test } from 'node:test';
 const landing = await readFile(new URL('../app/page.tsx', import.meta.url), 'utf8');
 const callback = await readFile(new URL('../app/api/auth/callback/route.ts', import.meta.url), 'utf8');
 const authSession = await readFile(new URL('./auth-session.ts', import.meta.url), 'utf8');
+const postLogin = await readFile(new URL('../components/app-navbar-items.mjs', import.meta.url), 'utf8');
 
 test('public landing keeps login links while a valid server session points calls to the account', () => {
   assert.match(landing, /import \{ cookies \} from 'next\/headers'/);
@@ -35,4 +36,10 @@ test('login keeps one-time state, PKCE, nonce and ID token claim validation', ()
   assert.match(authSession, /if \(!isVerifiedEmailClaim\(payload\)\) throw new EmailVerificationRequiredError\(\)/);
   assert.match(authSession, /await client\.set\(opaqueKey\('auth:session', sessionId\)/);
   assert.match(callback, /response\.cookies\.set\(sessionCookieName\(\), sessionId, cookieOptions\(\)\)/);
+});
+
+test('successful callback uses the dashboard fallback and sets the session cookie on its redirect', () => {
+  assert.match(postLogin, /isSafeReturnTo\(returnTo\) \? returnTo : '\/dashboard'/);
+  assert.match(callback, /NextResponse\.redirect\(publicUrl\(getDefaultPostLoginDestination\(returnTo\)\)\)/);
+  assert.ok(callback.indexOf('NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo)))') < callback.indexOf('response.cookies.set(sessionCookieName(), sessionId, cookieOptions())'));
 });
