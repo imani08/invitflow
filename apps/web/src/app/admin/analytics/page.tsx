@@ -82,7 +82,7 @@ export default async function AnalyticsAdminPage({
   return (
     <main className="admin-shell">
       <nav>
-        <BrandLogo variant="compact" />
+        <BrandLogo variant="compact" href="/dashboard" />
         <a href="/admin">← Administration</a>
         <div>
           <a href="/admin/finance">Paiements ↗</a>

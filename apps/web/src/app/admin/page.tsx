@@ -44,7 +44,7 @@ export default async function AdminPage({
     return (
       <main className="admin-shell">
         <nav>
-          <BrandLogo variant="compact" />
+          <BrandLogo variant="compact" href="/dashboard" />
           <a href="/account">← Mon compte</a>
         </nav>
         <section className="admin-panel">
@@ -100,7 +100,7 @@ export default async function AdminPage({
   return (
     <main className="admin-shell">
       <nav>
-        <BrandLogo variant="compact" />
+        <BrandLogo variant="compact" href="/dashboard" />
         <a href="/account">← Mon compte</a>
         <div>
           {canFinance && <a href="/admin/analytics">Indicateurs ↗</a>}

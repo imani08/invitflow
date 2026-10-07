@@ -39,3 +39,22 @@ test('brand metadata and responsive/reduced-motion tokens are present', async ()
   assert.match(css, /max-width:600px/);
   assert.match(css, /prefers-reduced-motion/);
 });
+
+test('authenticated admin pages give compact logos an explicit dashboard destination', async () => {
+  const pages = [
+    '../app/admin/page.tsx',
+    '../app/admin/analytics/page.tsx',
+    '../app/admin/finance/page.tsx',
+    '../app/admin/partners/page.tsx',
+    '../app/admin/pricing/page.tsx',
+    '../app/admin/storage/page.tsx',
+  ];
+  for (const page of pages) {
+    const source = await readFile(new URL(page, import.meta.url), 'utf8');
+    for (const match of source.matchAll(/<BrandLogo\b([^>]*)>/g)) {
+      if (!/\bvariant="compact"/.test(match[1])) continue;
+      assert.match(match[1], /\bhref="\/dashboard"/, `${page} compact logo must link to /dashboard`);
+      assert.doesNotMatch(match[1], /\bhref="\/"/);
+    }
+  }
+});

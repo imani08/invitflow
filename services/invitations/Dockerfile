@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:24.21.0-slim
-FROM ${NODE_IMAGE}
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 RUN npm install --global pnpm@12.8.0
-RUN groupadd --system app && useradd --system --gid app app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/admin/package.json ./apps/admin/package.json
 COPY apps/gateway/package.json ./apps/gateway/package.json
@@ -29,9 +28,17 @@ COPY packages/legal-contract/package.json ./packages/legal-contract/package.json
 COPY packages/observability/package.json ./packages/observability/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 RUN --mount=type=cache,id=invitaflow-pnpm-store,target=/pnpm/store,sharing=locked pnpm install --store-dir=/pnpm/store --frozen-lockfile --filter @invitaflow/invitations...
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY . .
 WORKDIR /app/services/invitations
 RUN DATABASE_URL=postgresql://generate:generate@localhost:5432/invitations pnpm prisma:generate && pnpm exec tsc -p tsconfig.json && cp src/*.mjs dist/src/
+RUN pnpm --filter @invitaflow/invitations --prod deploy --legacy /prod
+
+FROM ${NODE_IMAGE} AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/* && install -d -o node -g node /app
+COPY --from=builder --chown=node:node /prod ./
+USER node
 EXPOSE 3013
-USER app
-CMD ["pnpm", "start"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && exec node dist/src/main.js"]

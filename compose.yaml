@@ -405,7 +405,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: apps/web/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -470,7 +470,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: apps/admin/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -494,7 +494,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: apps/gateway/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -547,7 +547,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/audit/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -586,7 +586,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/profile/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -624,7 +624,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/events/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -662,7 +662,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/guests/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -704,7 +704,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/seating/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -749,7 +749,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/designs/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -791,7 +791,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/media/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -905,7 +905,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/ai-design/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -962,7 +962,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/wallet/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1001,7 +1001,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/billing/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1040,7 +1040,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/payments/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1094,7 +1094,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/notifications/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1132,7 +1132,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/analytics/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1186,7 +1186,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/invitations/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}
@@ -1257,7 +1257,7 @@ services:
     build:
       context: .
       args:
-        NODE_IMAGE: node:26.10.0-slim
+        NODE_IMAGE: node:24.21.0-bookworm-slim
       dockerfile: services/access/Dockerfile
     environment:
       NODE_ENV: ${NODE_ENV:-development}

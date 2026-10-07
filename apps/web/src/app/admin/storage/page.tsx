@@ -49,7 +49,7 @@ export default async function StorageAdminPage() {
     ['Originaux', 'originals'], ['PNG dérivés', 'derived'], ['Previews', 'previews'], ['PDF finaux', 'pdfFinal'], ['ZIP', 'zip'], ['Temporaires', 'temp'],
   ] as const;
   return <main className="admin-shell">
-    <nav><BrandLogo variant="compact" /><a href="/admin">← Administration</a><a href="/account">Mon compte</a></nav>
+    <nav><BrandLogo variant="compact" href="/dashboard" /><a href="/admin">← Administration</a><a href="/account">Mon compte</a></nav>
     <header><span>INVITAFLOW · STOCKAGE</span><h1>Capacité et fichiers</h1><p>Les chiffres applicatifs viennent des assets Media prêts. L’espace disque est lu sur le volume MinIO lorsqu’il est monté et accessible.</p></header>
     {!data ? <section className="admin-panel"><h2>Mesures indisponibles</h2><p>Le service Media n’a pas répondu. Aucune valeur n’est simulée.</p></section> : <>
       <section className="admin-panel"><div className="admin-panel-head"><div><small>CAPACITÉ FILESYSTEM DU VOLUME MONTÉ</small><h2>{data.disk.diskStatsAvailable ? `${bytes(data.disk.usedBytes)} / ${bytes(data.disk.totalBytes)}` : 'Mesure disque indisponible'}</h2></div><span>{data.disk.percentage === null ? '—' : `${data.disk.percentage.toFixed(1)} % · ${data.disk.level}`}</span></div><p>{data.disk.diskStatsAvailable ? `${bytes(data.disk.freeBytes)} libres` : 'Le chemin du volume n’est pas monté ou statfs est indisponible.'}</p><p>Cette capacité système ne représente pas le total exact des objets/buckets MinIO. Seuils filesystem : warning {data.disk.thresholds.warning} %, sérieux {data.disk.thresholds.serious} %, critique {data.disk.thresholds.critical} %, urgence {data.disk.thresholds.emergency} %.</p></section>

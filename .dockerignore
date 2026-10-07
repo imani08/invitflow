@@ -22,3 +22,4 @@
 .agents
 tmp
 data
+.minio-build/

@@ -1,6 +1,8 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
+  outputFileTracingRoot: path.join(process.cwd(), '../..'),
   poweredByHeader: false,
   reactStrictMode: true,
   devIndicators: false,
@@ -14,5 +16,7 @@ const config: NextConfig = {
     ] }];
   }
 };
+
+if (process.env['INVITAFLOW_DOCKER_BUILD'] === '1') config.output = 'standalone';
 
 export default config;

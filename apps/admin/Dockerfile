@@ -1,9 +1,8 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:24.21.0-slim
-FROM ${NODE_IMAGE}
+ARG NODE_IMAGE=node:24.21.0-bookworm-slim
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 RUN npm install --global pnpm@12.8.0
-RUN groupadd --system app && useradd --system --gid app app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/admin/package.json ./apps/admin/package.json
 COPY apps/gateway/package.json ./apps/gateway/package.json
@@ -29,10 +28,20 @@ COPY packages/legal-contract/package.json ./packages/legal-contract/package.json
 COPY packages/observability/package.json ./packages/observability/package.json
 COPY packages/ui/package.json ./packages/ui/package.json
 RUN --mount=type=cache,id=invitaflow-pnpm-store,target=/pnpm/store,sharing=locked pnpm install --store-dir=/pnpm/store --frozen-lockfile --filter @invitaflow/admin...
+
+FROM deps AS builder
+WORKDIR /app
 COPY . .
-WORKDIR /app/apps/admin
-ENV NODE_ENV=development
-RUN install -d -o app -g app /app/apps/admin/.next
+ENV NODE_ENV=production INVITAFLOW_DOCKER_BUILD=1
+RUN pnpm --filter @invitaflow/admin build
+
+FROM ${NODE_IMAGE} AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=3001 HOSTNAME=0.0.0.0
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* && install -d -o node -g node /app
+COPY --from=builder --chown=node:node /app/apps/admin/.next/standalone ./
+COPY --from=builder --chown=node:node /app/apps/admin/.next/static ./apps/admin/.next/static
+COPY --from=builder --chown=node:node /app/apps/admin/public ./apps/admin/public
+USER node
 EXPOSE 3001
-USER app
-CMD ["pnpm", "dev"]
+CMD ["node", "apps/admin/server.js"]
