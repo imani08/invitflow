@@ -66,7 +66,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
     notificationMobileItem,
   ];
   const mobileItems = uniqueNavigationItems([
-    { href: '/', label: 'Accueil', icon: 'home' as const },
+    { href: '/dashboard', label: 'Accueil', icon: 'home' as const },
     eventItems[1]!,
     { href: '/events#create-event', label: 'Créer', icon: 'create' as const, primary: true },
     eventItems.length > 2 ? eventItems[4]! : notificationMobileItem,
@@ -91,7 +91,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
 
   return <>
     <aside className="app-sidebar" aria-label="Navigation de l’application">
-      <div className="app-sidebar-brand"><BrandLogo variant="compact" href="/events" /></div>
+      <div className="app-sidebar-brand"><BrandLogo variant="compact" href="/dashboard" /></div>
       <Link className="app-create-link" href={area === 'agency' ? '/agencies#create-event' : area === 'partner' ? '/partners#attributions' : '/events#create-event'}><Icon name={area === 'partner' ? 'partner' : 'create'} />{area === 'agency' ? 'Créer un événement client' : area === 'partner' ? 'Lien partenaire' : 'Créer un événement'}</Link>
       <nav className="app-sidebar-links" aria-label="Principale">
         <p className="app-nav-caption">ESPACE</p>
@@ -105,7 +105,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
       </nav>
       <div className="app-sidebar-bottom"><ThemeToggle/><form className="app-sidebar-logout" action="/api/auth/logout" method="post"><button type="submit">Déconnexion</button></form></div>
     </aside>
-    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/events" /><ThemeToggle/></div>
+    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/dashboard" /><ThemeToggle/></div>
     {eventId && <nav className="event-subnav" aria-label="Sections de l’événement">{eventLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined}>{item.label}</Link>)}</nav>}
     <nav className="app-mobile-nav" aria-label="Navigation mobile principale" style={{ gridTemplateColumns: `repeat(${visibleMobileItems.length}, minmax(0, 1fr))` }}>{visibleMobileItems.map((item) => <Link key={`${item.href}:${item.label}`} href={item.href} aria-current={mobileActive(item.href) ? 'page' : undefined} className={`${mobileActive(item.href) ? 'is-active' : ''}${'primary' in item && item.primary ? ' app-mobile-create' : ''}`}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</nav>
   </>;
