@@ -66,7 +66,7 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
       },
       ...(body ? { body } : {}),
       cache: 'no-store',
-      signal: AbortSignal.timeout(path.length === 2 && path[1] === 'complete' ? 70_000 : 10_000),
+      signal: AbortSignal.timeout(10_000),
     });
     const payload = await response.json().catch(() => ({ error: 'invalid_media_response' }));
     return NextResponse.json(payload, {

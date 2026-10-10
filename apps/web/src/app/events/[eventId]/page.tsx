@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import AppNavbar from '@/components/AppNavbar';
+import EventJourney from '@/components/event-journey';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import '../events.css';
 import '../journey.css';
@@ -18,6 +19,7 @@ type EventOverview = {
 
 export default async function EventOverviewPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
+  const eventStatusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'Publié', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
   const returnTo = encodeURIComponent(`/events/${eventId}`);
   const session = await getSession((await cookies()).get(sessionCookieName())?.value);
   if (!session) redirect(`/api/auth/login?returnTo=${returnTo}`);
@@ -50,47 +52,15 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
     );
   }
 
-  const steps = [
-    ['Cérémonies', 'Configurez les horaires et lieux'],
-    ['Invités', 'Ajoutez ou importez votre liste'],
-    ['Placement', 'Organisez les tables et les zones'],
-    ['Design', 'Choisissez puis personnalisez un modèle'],
-    ['Invitations', 'Prévisualisez et générez les invitations'],
-    ['Check-in', 'Accueillez vos invités avec leur QR privé'],
-  ] as const;
-  const urls = [
-    `/events?event=${encodeURIComponent(eventId)}`,
-    `/events/${encodeURIComponent(eventId)}/guests`,
-    `/events/${encodeURIComponent(eventId)}/seating`,
-    `/events/${encodeURIComponent(eventId)}/designs`,
-    `/events/${encodeURIComponent(eventId)}/invitations`,
-    `/events/${encodeURIComponent(eventId)}/check-in`,
-  ];
-
   return (
     <main className="events-shell">
       <AppNavbar eventId={eventId} />
       <header className="events-heading">
-        <p className="eyebrow">APERÇU DE L’ÉVÉNEMENT · {event.status}</p>
+        <p className="eyebrow">APERÇU DE L’ÉVÉNEMENT · {eventStatusLabels[event.status] ?? 'Statut à vérifier'}</p>
         <h1>{event.name}</h1>
-        <p>Suivez les étapes de préparation de votre événement.</p>
+        <p>Votre événement est enregistré. Configurez les cérémonies, puis poursuivez à votre rythme.</p>
       </header>
-      <section className="event-overview-steps" id="ceremonies">
-        <h2>Votre parcours</h2>
-        <ol>
-          {steps.map(([title, description], index) => (
-            <li key={title}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <strong>{title}</strong>
-                <small>{description}</small>
-              </div>
-              <Link href={urls[index]!}>Ouvrir →</Link>
-            </li>
-          ))}
-        </ol>
-        <p>{event.ceremonies?.length ?? 0} cérémonie(s) configurée(s)</p>
-      </section>
+      <EventJourney eventId={eventId} activeStep="ceremonies" ceremonyCount={event.ceremonies?.length ?? 0} eventStatus={event.status} />
     </main>
   );
 }

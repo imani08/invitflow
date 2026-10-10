@@ -1,4 +1,5 @@
 import AppNavbar from '@/components/AppNavbar';
+import EventJourney from '@/components/event-journey';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -34,7 +35,8 @@ export default async function SeatingPage({ params }: { params: Promise<{ eventI
     return <main className="events-shell seating-page"><AppNavbar eventId={eventId} /><section className="events-notice"><h1>Plan de salle indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><a href={returnTo}>Réessayer</a></section></main>;
   }
   return <main className="events-shell seating-page"><AppNavbar eventId={eventId} />
-    <header className="seating-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">PLACEMENT & CAPACITÉS</p><h1>{event.name}</h1><p>Préparez un plan de salle distinct pour chaque cérémonie.</p><a className="seating-guest-link" href={`/events/${event.id}/designs`}>Créer une invitation →</a><a className="seating-guest-link" href={`/events/${event.id}/guests`}>Gérer les invités →</a></header>
+    <header className="seating-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">PLACEMENT & CAPACITÉS</p><h1>{event.name}</h1><p>Le placement est facultatif. Créez des tables ou des zones si votre réception en a besoin.</p></header>
+    <EventJourney eventId={event.id} activeStep="seating" ceremonyCount={event.ceremonies.length} eventStatus={event.status} />
     <SeatingWorkspace event={event} />
   </main>;
 }

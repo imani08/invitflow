@@ -8,6 +8,13 @@ test('all event, ceremony and program datetime writes use the offset-aware conve
   assert.equal([...workspace.matchAll(/localTimeInZone\(/g)].length, 10);
 });
 
+test('successful event creation opens its event workspace for ceremony setup', async () => {
+  const workspace = await readFile(new URL('./workspace.tsx', import.meta.url), 'utf8');
+  assert.match(workspace, /router\.push\(`\/events\/\$\{encodeURIComponent\(created\.id\)\}`\)/);
+  assert.match(workspace, /id=\{`ceremony-\$\{event\.id\}`\}/);
+  assert.match(workspace, /window\.location\.hash\.startsWith\('#ceremony-'\)/);
+});
+
 test('event API errors preserve safe Nest message strings and validation arrays', async () => {
   const workspace = await readFile(new URL('./workspace.tsx', import.meta.url), 'utf8');
   assert.match(workspace, /typeof message === 'string' \? message : Array\.isArray\(message\)/);

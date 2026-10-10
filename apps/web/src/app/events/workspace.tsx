@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { Ceremony, CeremonyProgramItem, Event } from './types';
 import { formatDateTimeInTimeZone } from '@/lib/date-format.mjs';
 import { localTimeInZone } from '@/lib/local-time-in-zone.mjs';
@@ -74,6 +75,7 @@ function CeremonyProgramEditor({ eventId, ceremony, editable, onRefresh, onMessa
 }
 
 export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEvents: Event[]; expandedEventId: string | undefined }) {
+  const router = useRouter();
   const [events, setEvents] = useState(initialEvents);
   const [expanded, setExpanded] = useState<string | null>(expandedEventId ?? null);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
@@ -96,6 +98,19 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
     return () => window.removeEventListener('hashchange', openCreateFromHash);
   }, []);
 
+  useEffect(() => {
+    const openCeremonyFromHash = () => {
+      if (!window.location.hash.startsWith('#ceremony-')) return;
+      window.requestAnimationFrame(() => {
+        const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth';
+        document.getElementById(decodeURIComponent(window.location.hash.slice(1)))?.scrollIntoView({ behavior, block: 'center' });
+      });
+    };
+    openCeremonyFromHash();
+    window.addEventListener('hashchange', openCeremonyFromHash);
+    return () => window.removeEventListener('hashchange', openCeremonyFromHash);
+  }, []);
+
   async function refresh() {
     const result = await api('?limit=50') as { items: Event[] };
     setEvents(result.items);
@@ -108,10 +123,13 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
       const start = String(form.get('startAt') ?? '');
       const end = String(form.get('endAt') ?? '');
       const created = await api('', 'POST', { name: form.get('name'), eventType: form.get('eventType'), description: form.get('description') || null, timezone, ...(start ? { startAt: localTimeInZone(start, timezone) } : {}), ...(end ? { endAt: localTimeInZone(end, timezone) } : {}) }) as Event;
+      if (created?.id) {
+        router.push(`/events/${encodeURIComponent(created.id)}`);
+        return;
+      }
       await refresh();
       setCreating(false);
-      if (created?.id) setExpanded(created.id);
-      setMessage('Événement créé. Ajoutez une cérémonie pour pouvoir le publier.');
+      setMessage('Événement créé. Vous pouvez maintenant configurer ses cérémonies.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Création impossible.'); }
     finally { setBusy(false); }
   }
@@ -201,7 +219,7 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
       <h3>{event.name}</h3><p className="event-date">{localDate(event.startAt ?? event.ceremonies[0]?.startAt ?? null, event.timezone)}</p><p className="event-description">{event.description || 'Une belle occasion de se réunir.'}</p><div className="event-workspace-links"><Link className="subtle-link" href={`/events/${event.id}/designs`}>Créer une invitation →</Link><Link className="subtle-link" href={`/events/${event.id}/guests`}>Gérer les invités →</Link><Link className="subtle-link" href={`/events/${event.id}/seating`}>Plan de salle →</Link><Link className="subtle-link" href={`/events/${event.id}`}>Vue événement →</Link></div>
       {editingEvent === event.id && <form className="ceremony-form" onSubmit={(e) => { e.preventDefault(); void updateEvent(event.id, new FormData(e.currentTarget)); }}><strong>Modifier l’événement</strong><input name="name" defaultValue={event.name} minLength={2} maxLength={120} required /><div className="form-pair"><select name="eventType" defaultValue={event.eventType}>{Object.entries(typeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><select name="timezone" defaultValue={event.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></div><div className="form-pair"><input name="startAt" type="datetime-local" defaultValue={dateTimeInput(event.startAt, event.timezone)} /><input name="endAt" type="datetime-local" defaultValue={dateTimeInput(event.endAt, event.timezone)} /></div><textarea name="description" defaultValue={event.description ?? ''} maxLength={4000} /><button className="small-action" disabled={busy}>Enregistrer</button></form>}
       <button className="event-expand" onClick={() => setExpanded(expanded === event.id ? null : event.id)}>{expanded === event.id ? 'Masquer le programme' : `Programme · ${event.ceremonies.length} cérémonie${event.ceremonies.length > 1 ? 's' : ''}`} <span>↗</span></button>
-      {expanded === event.id && <div className="ceremony-panel">
+      {expanded === event.id && <div className="ceremony-panel" id={`ceremony-${event.id}`}>
         <div className="ceremony-list">{event.ceremonies.length === 0 ? <p>Aucune cérémonie pour le moment.</p> : event.ceremonies.map((ceremony) => <div className="ceremony-row" key={ceremony.id}><div><strong>{ceremony.name} <small>{ceremony.ceremonyType}</small></strong><span>{localDate(ceremony.startAt, ceremony.timezone)}{ceremony.location ? ` · ${ceremony.location}` : ''}{ceremony.address ? ` · ${ceremony.address}` : ''}</span>{ceremony.dressCode && <span>Tenue : {ceremony.dressCode}</span>}{ceremony.instructions && <span>{ceremony.instructions}</span>}<CeremonyProgramEditor eventId={event.id} ceremony={ceremony} editable={event.status === 'DRAFT'} onRefresh={refresh} onMessage={setMessage} /></div>{event.status === 'DRAFT' && <><button aria-label={`Modifier ${ceremony.name}`} onClick={() => setEditingCeremony(editingCeremony === ceremony.id ? null : ceremony.id)} disabled={busy}>Modifier</button><button aria-label={`Supprimer ${ceremony.name}`} onClick={() => void removeCeremony(event.id, ceremony.id)} disabled={busy}>×</button></>}</div>)}</div>
         {editingCeremony && event.ceremonies.find((item) => item.id === editingCeremony) && (() => { const item = event.ceremonies.find((entry) => entry.id === editingCeremony)!; const localStart = dateTimeInput(item.startAt, item.timezone); return <form className="ceremony-form" onSubmit={(e) => { e.preventDefault(); void updateCeremony(event.id, item.id, new FormData(e.currentTarget)); }}><strong>Modifier {item.name}</strong><input name="name" defaultValue={item.name} minLength={2} maxLength={120} required /><select name="ceremonyType" defaultValue={item.ceremonyType}><option value="CIVIL">Civile</option><option value="RELIGIOUS">Religieuse</option><option value="RECEPTION">Soirée / réception</option><option value="DOT">Dot</option><option value="TRADITIONAL">Traditionnelle</option><option value="OTHER">Autre</option></select><div className="form-pair"><input name="startAt" type="datetime-local" defaultValue={localStart} onChange={updateCeremonyStartMinimum} required /><input name="endAt" type="datetime-local" defaultValue={dateTimeInput(item.endAt, item.timezone)} min={localStart || undefined} onChange={validateCeremonyEndAt} onInvalid={showCeremonyEndAtError} /></div><div className="form-pair"><input name="location" placeholder="Lieu" defaultValue={item.location ?? ''} /><input name="address" placeholder="Adresse" defaultValue={item.address ?? ''} /></div><div className="form-pair"><input name="dressCode" placeholder="Dress code" defaultValue={item.dressCode ?? ''} /><input name="capacity" type="number" min="1" max="100000" placeholder="Capacité" defaultValue={item.capacity ?? ''} /></div><div className="form-pair"><input name="latitude" type="number" step="any" placeholder="Latitude GPS" defaultValue={item.latitude ?? ''} /><input name="longitude" type="number" step="any" placeholder="Longitude GPS" defaultValue={item.longitude ?? ''} /></div><textarea name="description" placeholder="Description" defaultValue={item.description ?? ''} /><textarea name="instructions" placeholder="Instructions" defaultValue={item.instructions ?? ''} /><textarea name="notes" placeholder="Notes" defaultValue={item.notes ?? ''} /><select name="timezone" defaultValue={item.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select><button className="small-action" disabled={busy}>Enregistrer la cérémonie</button></form>; })()}
         {event.status === 'DRAFT' && <form className="ceremony-form" onSubmit={(e) => submitCeremony(e, event.id)}><strong>Ajouter une cérémonie</strong><div className="form-pair"><input name="name" placeholder="Nom (ex. cérémonie civile)" minLength={2} maxLength={120} required /><select name="ceremonyType" defaultValue="CIVIL"><option value="CIVIL">Civile</option><option value="RELIGIOUS">Religieuse</option><option value="RECEPTION">Soirée / réception</option><option value="DOT">Dot</option><option value="TRADITIONAL">Traditionnelle</option><option value="OTHER">Autre</option></select></div><div className="form-pair"><input name="startAt" type="datetime-local" onChange={updateCeremonyStartMinimum} required /><input name="endAt" type="datetime-local" onChange={validateCeremonyEndAt} onInvalid={showCeremonyEndAtError} /><input name="location" placeholder="Lieu (optionnel)" maxLength={300} /></div><div className="form-pair"><input name="address" placeholder="Adresse (optionnel)" maxLength={500} /><input name="dressCode" placeholder="Dress code (facultatif)" maxLength={200} /></div><div className="form-pair"><input name="capacity" type="number" min="1" max="100000" placeholder="Capacité (optionnelle)" /><select name="timezone" defaultValue={event.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></div><div className="form-pair"><input name="latitude" type="number" step="any" placeholder="Latitude GPS" /><input name="longitude" type="number" step="any" placeholder="Longitude GPS" /></div><textarea name="description" placeholder="Description (facultatif)" maxLength={2000} /><textarea name="instructions" placeholder="Instructions (facultatif)" maxLength={4000} /><textarea name="notes" placeholder="Notes (facultatif)" maxLength={2000} /><button className="small-action" disabled={busy}>Ajouter au programme</button></form>}

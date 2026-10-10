@@ -1,4 +1,5 @@
 import AppNavbar from '@/components/AppNavbar';
+import EventJourney from '@/components/event-journey';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -32,7 +33,8 @@ export default async function GuestsPage({ params }: { params: Promise<{ eventId
     return <main className="events-shell"><AppNavbar eventId={eventId} /><section className="events-notice"><h1>Liste d’invités indisponible</h1><p>Le service Événements est momentanément inaccessible.</p><Link href={`/events/${eventId}/guests`}>Réessayer</Link></section></main>;
   }
   return <main className="events-shell"><AppNavbar eventId={eventId} />
-    <header className="guests-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Préparez votre liste et choisissez les cérémonies accessibles à chaque invité.</p><nav className="guest-next-actions" aria-label="Autres étapes de préparation"><Link href={`/events/${event.id}/designs`}>Créer un design →</Link><Link href={`/events/${event.id}/invitations`}>Générer les invitations →</Link><Link href={`/events/${event.id}/seating`}>Ouvrir le plan de salle →</Link></nav></header>
+    <header className="guests-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">GESTION DES INVITÉS</p><h1>{event.name}</h1><p>Ajoutez votre liste, puis associez les personnes aux cérémonies auxquelles elles sont conviées.</p></header>
+    <EventJourney eventId={event.id} activeStep="guests" ceremonyCount={event.ceremonies.length} eventStatus={event.status} />
     <GuestsWorkspace event={event} />
   </main>;
 }

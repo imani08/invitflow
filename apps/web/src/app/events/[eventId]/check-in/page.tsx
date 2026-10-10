@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import AppNavbar from '@/components/AppNavbar';
+import EventJourney from '@/components/event-journey';
 import { CheckInWorkspace } from './workspace';
 import './check-in.css';
 import '../../journey.css';
@@ -26,6 +27,6 @@ export default async function CheckInPage({ params }: { params: Promise<{ eventI
       const assignments = await context.json() as { name: string; ceremonies: { id: string; name: string; startAt?: string }[] };
       event = { id: eventId, name: assignments.name || 'Pointage invité', ceremonies: assignments.ceremonies };
     }
-    return <main className="check-shell"><AppNavbar eventId={eventId} /><header><p>ACCUEIL DES INVITÉS</p><h1>{event.name}</h1><span>Scannez le QR de l’invitation ou saisissez son code.</span></header><CheckInWorkspace eventId={eventId} ceremonies={event.ceremonies ?? []} isOwner={isOwner} /></main>;
+    return <main className="check-shell"><AppNavbar eventId={eventId} />{isOwner && <EventJourney eventId={eventId} activeStep="checkin" ceremonyCount={event.ceremonies?.length ?? 0} loadFacts={false} />}<header><p>ACCUEIL DES INVITÉS</p><h1>{event.name}</h1><span>Scannez le QR de l’invitation ou saisissez son code.</span></header><CheckInWorkspace eventId={eventId} ceremonies={event.ceremonies ?? []} isOwner={isOwner} /></main>;
   } catch (error) { if (error && typeof error === 'object' && 'digest' in error) throw error; return <main className="check-shell"><AppNavbar eventId={eventId} /><h1>Pointage indisponible</h1><p>Réessayez lorsque les services seront accessibles.</p></main>; }
 }

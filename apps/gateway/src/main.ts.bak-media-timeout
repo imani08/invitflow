@@ -21,11 +21,6 @@ import { performance } from 'node:perf_hooks';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { HttpMetrics } from './http-metrics.js';
 import {
-  DESIGNS_COMPOSER_ROUTES,
-  forwardDesignsRequest,
-  mediaProxyTimeoutMs,
-} from './designs-forwarding.js';
-import {
   createRequestContext,
   withRequestContextHeaders,
   type RequestContext,
@@ -289,7 +284,7 @@ class MediaProxyController {
           },
           ...(request.method !== 'GET' ? { body: JSON.stringify(request.body ?? {}) } : {}),
           cache: 'no-store',
-          signal: AbortSignal.timeout(mediaProxyTimeoutMs(request.url)),
+          signal: AbortSignal.timeout(8_000),
         },
       );
       return reply
@@ -576,12 +571,6 @@ class SeatingProxyController {
 
 @Controller('/v1/events/:eventId/designs')
 class DesignsProxyController {
-  @All(DESIGNS_COMPOSER_ROUTES.proposals) composerProposals(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
-    return this.proxy(request, reply);
-  }
-  @All(DESIGNS_COMPOSER_ROUTES.select) composerSelect(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
-    return this.proxy(request, reply);
-  }
   @All() collection(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
@@ -634,12 +623,18 @@ class DesignsProxyController {
       throw new UnauthorizedException();
     reply.header('Cache-Control', 'private, no-store');
     try {
-      const context = requestContexts.get(request);
-      if (!context) throw new Error('Request context was not initialized');
-      const upstream = await forwardDesignsRequest(
-        request,
-        requiredEnv('DESIGNS_SERVICE_URL'),
-        context,
+      const upstream = await fetchWithRequestContext(request,
+        `${requiredEnv('DESIGNS_SERVICE_URL').replace(/\/$/, '')}${request.url}`,
+        {
+          method: request.method,
+          headers: {
+            authorization,
+            ...(request.body !== undefined ? { 'content-type': 'application/json' } : {}),
+          },
+          ...(request.body !== undefined ? { body: JSON.stringify(request.body) } : {}),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(8_000),
+        },
       );
       const payload = await upstream.json().catch(() => ({ error: 'invalid_upstream_response' }));
       return reply.code(upstream.status).send(payload);
