@@ -40,4 +40,18 @@ if ! mc admin policy info local storage-inventory-readonly >/dev/null 2>&1; then
   mc admin policy create local storage-inventory-readonly /storage-audit-policy.json
 fi
 mc admin policy attach local storage-inventory-readonly --user "$MINIO_STORAGE_AUDIT_ACCESS_KEY"
-mc cors set local/media-quarantine /media-cors.xml || echo "CORS bucket non supporté par cette édition MinIO, étape ignorée."
+
+web_origin=${WEB_ORIGIN:-http://localhost:3000}
+case "$web_origin" in
+  http://*|https://*) ;;
+  *) echo "WEB_ORIGIN must be an HTTP(S) origin." >&2; exit 1 ;;
+esac
+web_authority=${web_origin#*://}
+case "$web_authority" in
+  ''|*/*|*\?*|*\#*|*@*|*[!A-Za-z0-9.:-]*)
+    echo "WEB_ORIGIN must contain only an HTTP(S) scheme and host." >&2
+    exit 1
+    ;;
+esac
+sed "s|__WEB_ORIGIN__|$web_origin|g" /media-cors.xml > /tmp/media-cors.xml
+mc cors set local/media-quarantine /tmp/media-cors.xml || echo "CORS bucket non supporté par cette édition MinIO, étape ignorée."

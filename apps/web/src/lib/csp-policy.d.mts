@@ -1,1 +1,1 @@
-export function buildContentSecurityPolicy(nonce: string, development?: boolean): string;
+export function buildContentSecurityPolicy(nonce: string, development?: boolean, connectOrigins?: string[]): string;

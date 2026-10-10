@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, createHmac } from 'node:crypto';
 import { createBoundedPostUpload, createSignedGetDownload } from '../s3-presign.mjs';
 import { requiredEnv } from './env.js';
@@ -6,9 +6,19 @@ import { requiredEnv } from './env.js';
 const sha256 = (value: Uint8Array | string) => createHash('sha256').update(value).digest('hex');
 const hmac = (key: Uint8Array | string, value: string) =>
   createHmac('sha256', key).update(value).digest();
+const safeS3ErrorCodes = new Set([
+  'SignatureDoesNotMatch', 'AccessDenied', 'NoSuchKey', 'NoSuchBucket',
+  'InvalidAccessKeyId', 'RequestTimeTooSkewed',
+]);
+
+function safeS3ErrorCode(responseBody: string) {
+  const code = responseBody.match(/<Code>([^<]{1,64})<\/Code>/)?.[1];
+  return code && safeS3ErrorCodes.has(code) ? code : 'S3RequestRejected';
+}
 
 @Injectable()
 export class MediaStorage {
+  private readonly logger = new Logger(MediaStorage.name);
   private readonly endpoint = new URL(requiredEnv('MINIO_ENDPOINT', 'http://minio:9000'));
   private readonly publicEndpoint = new URL(
     requiredEnv('MINIO_PUBLIC_ENDPOINT', 'http://localhost:9000'),
@@ -57,22 +67,27 @@ export class MediaStorage {
     const day = now.slice(0, 8);
     const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
     const canonicalHeaders = `host:${target.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${now}\n`;
-    const canonicalRequest = `GET\n${target.pathname}\n${target.search.slice(1)}\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`;
+    const canonicalRequest = `GET\n${target.pathname}\n${target.search.slice(1)}\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
     const scope = `${day}/${this.region}/s3/aws4_request`;
     const stringToSign = `AWS4-HMAC-SHA256\n${now}\n${scope}\n${sha256(canonicalRequest)}`;
     const signingKey = hmac(hmac(hmac(hmac(`AWS4${this.inventorySecretKey}`, day), this.region), 's3'), 'aws4_request');
     const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+    let response: Response;
     try {
-      const response = await fetch(target, { headers: {
+      response = await fetch(target, { headers: {
         'x-amz-content-sha256': payloadHash,
         'x-amz-date': now,
         authorization: `AWS4-HMAC-SHA256 Credential=${this.inventoryAccessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
       }, cache: 'no-store', signal: AbortSignal.timeout(30_000) });
-      if (response.ok) return response;
-      throw new Error(`MinIO ListObjectsV2 returned ${response.status}`);
-    } catch {
+    } catch (error) {
+      const errorName = error instanceof Error && /^[A-Za-z]+Error$/.test(error.name) ? error.name : 'NetworkError';
+      this.logger.error(`MinIO inventory GET failed: network error (${errorName}).`);
       throw new ServiceUnavailableException('MinIO inventory is unavailable');
     }
+    if (response.ok) return response;
+    const errorCode = safeS3ErrorCode(await response.text().catch(() => ''));
+    this.logger.error(`MinIO inventory GET rejected: ${errorCode} (HTTP ${response.status}).`);
+    throw new ServiceUnavailableException('MinIO inventory is unavailable');
   }
 
   async createUploadUrl(
@@ -246,7 +261,7 @@ export class MediaStorage {
     const day = now.slice(0, 8);
     const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
     const canonicalHeaders = `host:${target.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${now}\n`;
-    const canonicalRequest = `${method}\n${target.pathname}\n\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`;
+    const canonicalRequest = `${method}\n${target.pathname}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
     const scope = `${day}/${this.region}/s3/aws4_request`;
     const stringToSign = `AWS4-HMAC-SHA256\n${now}\n${scope}\n${sha256(canonicalRequest)}`;
     const signingKey = hmac(
@@ -254,8 +269,9 @@ export class MediaStorage {
       'aws4_request',
     );
     const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+    let response: Response;
     try {
-      const response = await fetch(target, {
+      response = await fetch(target, {
         method,
         headers: {
           'x-amz-content-sha256': payloadHash,
@@ -267,14 +283,16 @@ export class MediaStorage {
         cache: 'no-store',
         signal: AbortSignal.timeout(8_000),
       });
-      if (response.ok || (missingOk && response.status === 404)) return response;
-      if (response.status === 404) throw new NotFoundException('Fichier téléversé introuvable.');
-      throw new Error('Object storage rejected the request');
     } catch (error) {
-      if (error instanceof ServiceUnavailableException || error instanceof NotFoundException)
-        throw error;
+      const errorName = error instanceof Error && /^[A-Za-z]+Error$/.test(error.name) ? error.name : 'NetworkError';
+      this.logger.error(`MinIO ${method} request failed: network error (${errorName}).`);
       throw new ServiceUnavailableException('Media object storage is unavailable');
     }
+    if (response.ok || (missingOk && response.status === 404)) return response;
+    const errorCode = safeS3ErrorCode(await response.text().catch(() => ''));
+    this.logger.error(`MinIO ${method} request rejected: ${errorCode} (HTTP ${response.status}).`);
+    if (response.status === 404) throw new NotFoundException('Fichier téléversé introuvable.');
+    throw new ServiceUnavailableException('Media object storage is unavailable');
   }
 
   private objectUrl(

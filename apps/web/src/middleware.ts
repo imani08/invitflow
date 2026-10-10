@@ -4,7 +4,8 @@ import { buildContentSecurityPolicy } from '@/lib/csp-policy.mjs';
 export function middleware(request: NextRequest) {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   const nonce = btoa(String.fromCharCode(...bytes));
-  const policy = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === 'development');
+  const connectOrigins = process.env['MEDIA_UPLOAD_ORIGIN'] ? [process.env['MEDIA_UPLOAD_ORIGIN']] : [];
+  const policy = buildContentSecurityPolicy(nonce, process.env.NODE_ENV === 'development', connectOrigins);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('Content-Security-Policy', policy);
   requestHeaders.set('x-nonce', nonce);

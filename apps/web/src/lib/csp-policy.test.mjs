@@ -16,6 +16,28 @@ test('allows development hot reload without weakening production policy', () => 
   assert.match(policy, /connect-src 'self' ws: wss:/);
 });
 
+test('defaults connect-src to self and normalizes storage URLs to their origin', () => {
+  const nonce = 'YWJjMTIz';
+  const defaultPolicy = buildContentSecurityPolicy(nonce);
+  assert.match(defaultPolicy, /connect-src 'self'(?:;|$)/);
+
+  const policy = buildContentSecurityPolicy(nonce, true, ['http://localhost:9000/media-quarantine']);
+  assert.match(policy, /connect-src 'self' http:\/\/localhost:9000 ws: wss:/);
+  assert.doesNotMatch(policy, /connect-src[^;]*media-quarantine/);
+  assert.doesNotMatch(policy, /connect-src[^;]*\*/);
+});
+
+test('rejects unsafe, credentialed, query-bearing and hash-bearing connect URLs', () => {
+  const nonce = 'YWJjMTIz';
+  for (const origin of [
+    'javascript:alert(1)', 'file:///tmp/uploads', 'data:text/plain,upload',
+    'http://user:pass@localhost:9000', 'https://storage.example.test?bucket=media',
+    'https://storage.example.test#uploads', 'https://*.example.test',
+  ]) {
+    assert.throws(() => buildContentSecurityPolicy(nonce, false, [origin]), TypeError, origin);
+  }
+});
+
 test('rejects non-base64 nonce input', () => {
   assert.throws(() => buildContentSecurityPolicy('bad nonce'), TypeError);
 });

@@ -125,7 +125,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
       MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
     volumes: [minio_data:/data]
-    networks: [storage, minio_host]
+    networks: [storage]
     ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
     healthcheck:
       test: ['CMD', 'mc', 'ready', 'local']
@@ -1360,7 +1360,6 @@ networks:
   messaging: { internal: true }
   identity: {}
   storage: { internal: true }
-  minio_host: {}
   media_scanner: { internal: true }
   clamav_egress: {}
   metrics: { internal: true }
