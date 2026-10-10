@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import type { Ceremony, CeremonyProgramItem, Event } from './types';
 import { formatDateTimeInTimeZone } from '@/lib/date-format.mjs';
+import { localTimeInZone } from '@/lib/local-time-in-zone.mjs';
 
 const typeLabels: Record<string, string> = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', GRADUATION: 'Graduation', BAPTISM: 'Baptême', BABY_SHOWER: 'Baby shower', CONFERENCE: 'Conférence', GALA: 'Gala', DINNER: 'Dîner', CORPORATE: 'Événement professionnel', CEREMONY: 'Cérémonie', RELIGIOUS: 'Cérémonie religieuse', ANNIVERSARY: 'Anniversaire de mariage', OTHER: 'Autre' };
 const statusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'Publié', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
@@ -11,33 +12,16 @@ const statusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'P
 async function api(path: string, method = 'GET', data?: Record<string, unknown>) {
   const response = await fetch(`/api/events/${path}`, { method, ...(data !== undefined ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) } : {}) });
   const result: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result && typeof result === 'object' && 'message' in result && typeof result.message === 'string' ? result.message : 'Une erreur est survenue.');
+  if (!response.ok) {
+    const message = result && typeof result === 'object' && 'message' in result ? result.message : null;
+    const safeMessage = typeof message === 'string' ? message : Array.isArray(message) ? message.filter((part): part is string => typeof part === 'string').join(' ') : '';
+    throw new Error(safeMessage || 'Une erreur est survenue.');
+  }
   return result;
 }
 
 function localDate(value: string | null, timeZone = 'Africa/Kinshasa') {
   return value ? formatDateTimeInTimeZone(value, timeZone) : 'Date à préciser';
-}
-
-function localTimeInZone(value: string, timeZone: string) {
-  const match = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)$/.exec(value);
-  if (!match) throw new Error('Saisissez une date et une heure valides.');
-  const target = match.slice(1).map(Number);
-  const targetUtc = Date.UTC(target[0]!, target[1]! - 1, target[2]!, target[3]!, target[4]!);
-  let candidate = targetUtc;
-  const formatter = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate)).map((part) => [part.type, part.value]));
-    const representedUtc = Date.UTC(Number(parts['year']), Number(parts['month']) - 1, Number(parts['day']), Number(parts['hour']), Number(parts['minute']));
-    const adjustment = targetUtc - representedUtc;
-    candidate += adjustment;
-    if (adjustment === 0) break;
-  }
-  const result = formatter.formatToParts(new Date(candidate)).reduce<Record<string, string>>((acc, part) => { acc[part.type] = part.value; return acc; }, {});
-  if (Number(result['year']) !== target[0]! || Number(result['month']) !== target[1]! || Number(result['day']) !== target[2]! || Number(result['hour']) !== target[3]! || Number(result['minute']) !== target[4]!) {
-    throw new Error('Cette heure n’existe pas dans le fuseau choisi à cause du changement d’heure.');
-  }
-  return new Date(candidate).toISOString();
 }
 
 function dateTimeInput(value: string | null, timeZone: string) {

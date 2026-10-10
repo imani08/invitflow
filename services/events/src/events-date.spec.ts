@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseIsoTimestamp, timestampMatchesTimeZone } from './events-date.js';
+import { localTimeInZone } from '../../../apps/web/src/lib/local-time-in-zone.mjs';
 
 test('accepts valid leap days and preserves explicit timezone offsets', () => {
   assert.equal(parseIsoTimestamp('2024-02-29T12:30Z')?.toISOString(), '2024-02-29T12:30:00.000Z');
@@ -26,4 +27,22 @@ test('checks local wall time against the selected timezone across DST boundaries
   assert.equal(timestampMatchesTimeZone('2026-03-29T03:30:00+02:00', 'Europe/Paris'), true);
   assert.equal(timestampMatchesTimeZone('2026-10-25T02:30:00+02:00', 'Europe/Paris'), true);
   assert.equal(timestampMatchesTimeZone('2026-10-25T02:30:00+01:00', 'Europe/Paris'), true);
+});
+
+test('frontend local date conversion matches the Events API timestamp contract', () => {
+  const cases = [
+    ['Africa/Kinshasa', '2026-10-10T10:00', '2026-10-10T10:00:00+01:00'],
+    ['UTC', '2026-10-10T10:00', '2026-10-10T10:00:00+00:00'],
+    ['Europe/Paris', '2026-01-15T10:00', '2026-01-15T10:00:00+01:00'],
+    ['Europe/Paris', '2026-07-15T10:00', '2026-07-15T10:00:00+02:00'],
+  ] as const;
+
+  for (const [timeZone, localTime, expected] of cases) {
+    const timestamp = localTimeInZone(localTime, timeZone);
+    assert.equal(timestamp, expected);
+    assert.ok(parseIsoTimestamp(timestamp));
+    assert.equal(timestampMatchesTimeZone(timestamp, timeZone), true);
+  }
+
+  assert.throws(() => localTimeInZone('2026-03-29T02:30', 'Europe/Paris'), /n’existe pas/);
 });

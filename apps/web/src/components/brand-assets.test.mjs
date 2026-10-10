@@ -19,6 +19,16 @@ test('brand artwork has separate horizontal and square app assets at declared si
   assert.deepEqual(apple, { width: 180, height: 180 });
 });
 
+test('favicon.ico packages the existing official InvitaFlow app icon', async () => {
+  const favicon = await readFile(new URL('../app/favicon.ico', import.meta.url));
+  const icon = await readFile(new URL('../app/icon.png', import.meta.url));
+  assert.equal(favicon.readUInt16LE(0), 0);
+  assert.equal(favicon.readUInt16LE(2), 1);
+  assert.equal(favicon.readUInt16LE(4), 1);
+  assert.equal(favicon.readUInt32LE(14), icon.length);
+  assert.deepEqual(favicon.subarray(22), icon);
+});
+
 test('shared logo component includes accessible full, compact and icon variants', async () => {
   const component = await readFile(new URL('./brand-logo.tsx', import.meta.url), 'utf8');
   assert.match(component, /variant\?: 'full' \| 'compact' \| 'icon'/);
