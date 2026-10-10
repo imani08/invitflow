@@ -86,6 +86,7 @@ function ImageInspector({ layer, canvas, uploading, backgroundStatus, background
 }
 
 export function DesignsWorkspace({ event }: { event: Event }) {
+  event = { ...event, ceremonies: Array.isArray(event.ceremonies) ? event.ceremonies : [] };
   const [mediaInventory, setMediaInventory] = useState<{ hasPhotos: boolean; photoCount: number; photoOrientation: string } | null>(null);
   const [mediaError, setMediaError] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -149,6 +150,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
       const [templateResponse, designResponse] = await Promise.all([
         api<{ items: Template[] }>(event.id, 'templates'), api<{ items: Design[] }>(event.id, ''),
       ]);
+      if (!Array.isArray(templateResponse.items) || !Array.isArray(designResponse.items)) throw new Error('Le catalogue Design a renvoyé une réponse incomplète. Réessayez dans un instant.');
       setTemplates(templateResponse.items); setDesigns(designResponse.items);
     } catch (error) { setCatalogError(error instanceof Error ? error.message : 'Chargement impossible.'); }
     finally { setLoading(false); }

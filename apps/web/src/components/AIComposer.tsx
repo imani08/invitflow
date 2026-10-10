@@ -6,9 +6,18 @@ import Image from 'next/image';
 import { loadPrivateMediaPreview } from '@/lib/private-media-preview.mjs';
 import { PROFESSIONAL_RECIPES, renderResolvedLayoutSvg, resolveDesignLayout, type DesignDocument } from '@invitaflow/design-document';
 
-type ComposerEvent = { id: string; name: string; eventType?: string; startAt?: string | null; venue?: string | null; coupleNames?: string | null; invitationText?: string | null; ceremonies: { name: string; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null }[] };
+type ComposerEvent = { id: string; name: string; eventType?: string; startAt?: string | null; venue?: string | null; coupleNames?: string | null; invitationText?: string | null; ceremonies?: { name: string; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null }[] };
 type Proposal = { document: DesignDocument; recipeId: string; reason: string; fingerprint: string; score: Record<string, number> };
 type PrivatePhoto = { id: string; width: number; height: number; purpose: string; status: string };
+function errorMessage(reason: unknown, fallback: string) {
+  if (reason instanceof Error && reason.message) return reason.message;
+  if (reason && typeof reason === 'object' && 'message' in reason) {
+    const message = reason.message;
+    if (typeof message === 'string' && message) return message;
+    if (Array.isArray(message)) return message.filter((part): part is string => typeof part === 'string').join(' ') || fallback;
+  }
+  return fallback;
+}
 const styleOptions: readonly [string, string][] = [['botanical', 'Botanique'], ['classic', 'Classique'], ['luxury', 'Luxueux'], ['editorial', 'Éditorial'], ['modern', 'Moderne'], ['african-contemporary', 'Africain contemporain'], ['minimal', 'Minimaliste']];
 const moodOptions: readonly [string, string][] = [['romantic', 'Romantique'], ['formal', 'Formel'], ['religious', 'Religieux'], ['warm', 'Chaleureux'], ['minimal', 'Sobre']];
 const colorOptions: readonly [string, string][] = [['gold', 'Or'], ['ivory', 'Ivoire'], ['green', 'Vert'], ['dark', 'Sombre']];
@@ -35,7 +44,8 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
   const [assets, setAssets] = useState<Record<string, string>>({});
   const requestController = useRef<AbortController | null>(null);
   const previewDialog = useRef<HTMLDialogElement>(null);
-  const ids = useMemo(() => [...new Set(proposals.flatMap(item => item.document['elements'].filter((layer: Record<string, unknown>) => layer['type'] === 'IMAGE' && typeof layer['assetId'] === 'string').map((layer: Record<string, unknown>) => layer['assetId'] as string)))], [proposals]);
+  const ids = useMemo(() => [...new Set(proposals.flatMap(item => (Array.isArray(item.document['elements']) ? item.document['elements'] : []).filter((layer: Record<string, unknown>) => layer['type'] === 'IMAGE' && typeof layer['assetId'] === 'string').map((layer: Record<string, unknown>) => layer['assetId'] as string)))], [proposals]);
+  const ceremonies = Array.isArray(event.ceremonies) ? event.ceremonies : [];
   const eventType = event.eventType === 'OTHER' ? 'CUSTOM' : event.eventType;
   const recipeTypes = useMemo(() => [...new Set(PROFESSIONAL_RECIPES.flatMap(recipe => recipe.supportedEventTypes))], []);
   const supportedEvent = !!eventType && recipeTypes.includes(eventType);
@@ -85,11 +95,11 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
         method: 'POST', cache: 'no-store', signal: controller.signal, headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ seed: crypto.randomUUID(), preferences: { style, mood, colors, media, description, count: Number(count), photoIds: media === 'WITHOUT_PHOTO' ? [] : selectedPhotoIds.length ? selectedPhotoIds : undefined }, previouslyShown: seen.slice(-200) }),
       });
-      const payload = await response.json() as { items?: Proposal[]; message?: string };
-      if (!response.ok) throw new Error(payload.message ?? 'Le Composer ne peut pas proposer de compositions maintenant.');
+      const payload = await response.json().catch(() => ({})) as { items?: Proposal[]; message?: string | string[]; error?: string };
+      if (!response.ok) throw new Error(Array.isArray(payload.message) ? payload.message.join(' ') : payload.message ?? (response.status === 404 ? 'Le Composer n’est pas disponible sur le Gateway actuellement. Recréez le service Gateway puis réessayez.' : 'Le Composer ne peut pas proposer de compositions maintenant.'));
       if (!Array.isArray(payload.items) || payload.items.length === 0) { setProposals([]); setError('Nous n’avons pas encore trouvé de composition adaptée à ces critères. Essayez sans certaines préférences ou laissez InvitaFlow choisir les photos.'); return; }
       setProposals(payload.items); setSeen(current => [...current, ...payload.items!.map(item => item.fingerprint)]);
-    } catch (reason) { if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Propositions indisponibles.'); }
+    } catch (reason) { if (!controller.signal.aborted) setError(errorMessage(reason, 'Propositions indisponibles.')); }
     finally { if (requestController.current === controller) { requestController.current = null; setRequesting(false); } }
   }
 
@@ -97,7 +107,7 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
     return resolveDesignLayout(proposal.document, {
       guest: { name: '' }, table: { name: '' },
       event: { title: event.name, coupleNames: event.coupleNames ?? '', invitationText: event.invitationText ?? '', date: event.startAt ?? '', venue: event.venue ?? '' },
-      ceremonies: event.ceremonies.map(ceremony => ({ name: ceremony.name, date: ceremony.date ?? '', time: ceremony.time ?? '', venue: ceremony.venue ?? '', address: ceremony.address ?? '', reference: ceremony.reference ?? '', dressCode: ceremony.dressCode ?? '' })),
+      ceremonies: ceremonies.map(ceremony => ({ name: ceremony.name, date: ceremony.date ?? '', time: ceremony.time ?? '', venue: ceremony.venue ?? '', address: ceremony.address ?? '', reference: ceremony.reference ?? '', dressCode: ceremony.dressCode ?? '' })),
       qr: { available: false },
     }, undefined, assets, { mode: 'web' });
   }
@@ -155,7 +165,7 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
   return <section className="ai-composer" aria-labelledby="ai-composer-title">
     <div className="ai-composer-heading"><span className="design-kicker">COMPOSITION GUIDÉE · SANS IMAGE GÉNÉRÉE</span><h2 id="ai-composer-title">Créer avec InvitaFlow AI</h2><p>Nous préparons des propositions à partir des informations de votre événement.</p></div>
     <nav className="journey-steps" aria-label="Étapes de création">{steps.map((label, index) => <button type="button" key={label} aria-current={step === index ? 'step' : undefined} onClick={() => { if (index < step) setStep(index); else if (index === step + 1 && (index !== 3 || supportedEvent)) setStep(index); }}>{index + 1}. {label}</button>)}</nav>
-    {step === 0 && <div className="journey-event-summary"><h3>{event.name}</h3><p>{eventType ? `Type : ${eventType}` : 'Type d’événement non renseigné'} · {event.ceremonies.length ? `${event.ceremonies.length} cérémonie(s)` : 'Aucune cérémonie renseignée'}</p><p>Vous pouvez compléter ou modifier ces informations depuis l’événement.</p><Link href="/events">Modifier les informations de l’événement</Link><button type="button" className="ai-request-action" onClick={() => setStep(1)}>Continuer</button></div>}
+    {step === 0 && <div className="journey-event-summary"><h3>{event.name}</h3><p>{eventType ? `Type : ${eventType}` : 'Type d’événement non renseigné'} · {ceremonies.length ? `${ceremonies.length} cérémonie(s)` : 'Aucune cérémonie renseignée'}</p><p>Vous pouvez compléter ou modifier ces informations depuis l’événement.</p><Link href={`/events?event=${encodeURIComponent(event.id)}#ceremony-${encodeURIComponent(event.id)}`}>Modifier les informations de l’événement</Link><button type="button" className="ai-request-action" onClick={() => setStep(1)}>Continuer</button></div>}
     {step === 1 && <div className="journey-photo-step"><h3>Souhaitez-vous utiliser des photos ?</h3><p>Une photo n’est jamais obligatoire pour obtenir une proposition soignée.</p><div className="ai-composer-chips" role="group" aria-label="Utilisation des photos">{([['ANY', 'Laisser InvitaFlow décider'], ['WITH_PHOTO', 'Avec mes photos'], ['WITHOUT_PHOTO', 'Sans photo']] as const).map(([value, label]) => <button type="button" key={value} aria-pressed={media === value} onClick={() => setMedia(value)}>{label}</button>)}</div>{media !== 'WITHOUT_PHOTO' && <><div className="journey-photo-grid" aria-busy={photoLoading}>{photoLoading ? <p role="status">Chargement des photos privées…</p> : photoInventory.length ? photoInventory.map(photo => <PhotoChoice key={photo.id} photo={photo} selected={selectedPhotoIds.includes(photo.id)} onToggle={() => togglePhoto(photo.id)} />) : <p>Aucune photo disponible. Vous pouvez continuer sans photo ou laisser InvitaFlow décider.</p>}</div><button type="button" className="journey-photo-upload" disabled={photoUploading || selectedPhotoIds.length >= 20} onClick={() => photoInput.current?.click()}>{photoUploading ? 'Import et validation en cours…' : 'Ajouter une photo'}</button><input ref={photoInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void uploadPhoto(event.target.files?.[0])} />{photoError && <p role="alert" className="ai-composer-error">{photoError}</p>}{photoInventory.length > 0 && <p>{selectedPhotoIds.length ? `${selectedPhotoIds.length} photo(s) choisie(s)` : 'Aucune sélection : InvitaFlow utilisera les photos adaptées.'}</p>}</>}<button type="button" className="ai-request-action" onClick={() => setStep(2)}>Continuer</button></div>}
     {step === 2 && <div className="ai-composer-preferences">
       <label>Style<select value={style} onChange={eventChange => setStyle(eventChange.target.value)}><option value="">Choisir un style</option>{styleOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

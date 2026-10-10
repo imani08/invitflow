@@ -7,7 +7,7 @@
     "build": "next build",
     "lint": "eslint --ignore-pattern next-env.d.ts --ignore-pattern dist/** .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/lib/editorial-assist.test.mjs src/lib/profile-export.test.mjs src/lib/session-refresh.test.mjs src/lib/account-export.test.mjs src/lib/design-guest-preview.test.mjs src/lib/csp-policy.test.mjs src/lib/same-origin.test.mjs src/lib/auth-logout.test.mjs src/app/agencies/agency-period.test.mjs src/app/account/report/report-form.test.mjs src/app/events/workspace.test.mjs src/lib/event-journey.test.mjs src/components/brand-assets.test.mjs src/components/admin/admin-shell.test.mjs"
+    "test": "node --test src/lib/editorial-assist.test.mjs src/lib/profile-export.test.mjs src/lib/session-refresh.test.mjs src/lib/account-export.test.mjs src/lib/design-guest-preview.test.mjs src/lib/csp-policy.test.mjs src/lib/same-origin.test.mjs src/lib/auth-logout.test.mjs src/app/agencies/agency-period.test.mjs src/app/account/report/report-form.test.mjs src/app/events/workspace.test.mjs src/lib/designs-runtime-safety.test.mjs src/lib/event-journey.test.mjs src/components/brand-assets.test.mjs src/components/admin/admin-shell.test.mjs"
   },
   "dependencies": {
     "@invitaflow/design-document": "workspace:*",
