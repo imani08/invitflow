@@ -1,6 +1,45 @@
 # Parcours événement et IA — état de livraison du 11 octobre 2026
 
-## Audit crédits et reprise — en cours, non validé intégralement
+## Clôture de passe ciblée — brouillons, Wallet et finalisation
+
+État : code raccordé, contrôles ciblés réussis ; parcours réel **non validé**. Les sections historiques ci-dessous décrivent les livraisons précédentes et ne remplacent pas cet état.
+
+- Storyboard : six étapes conservées, personnalisation facultative, aucune refonte.
+- Brouillons : stockage serveur chiffré par propriétaire, brouillons incomplets distincts des validations métier, révision atomique et file de sauvegarde ; sauvegarde attendue avant navigation. Dernière version du design explicitement enregistrée avant les invités. Un fichier d’import non analysé, y compris déposé, bloque le départ plutôt que d’être perdu.
+- Crédits : solde disponible serveur, chargement/erreur sans faux zéro ; achat via Wallet et destination interne contrôlée. Aucun lancement automatique d’émission au retour.
+- Finalisation : fichiers relus avant règlement, nombre de succès figé, règlement idempotent, publication après confirmation financière. Succès partiels facturés seuls ; reprise technique des échecs. Une réponse financière perdue laisse FINALIZING et reprend le même règlement, sans remboursement spéculatif. Archives partielles/annulées financées incluses dans l’inventaire ; archives FINALIZING protégées dans l’inventaire et non téléchargeables. Merci exige aussi la confirmation financière.
+
+| Point d’entrée | Autorisation/calcul | Réservation, doublons | Accès fichiers | Preuve disponible / limite |
+| --- | --- | --- | --- | --- |
+| Émission individuelle, sélection ou lot | Événement/design/invités contrôlés serveur ; déduplication | Empreinte événement/design/version/sélection, clé stable ; réservation Wallet/quota | Seulement résultats financés | Tests service simulés ; API et concurrence PostgreSQL réelles non validées |
+| Worker et reprise technique | Items du lot autorisé ; seuls succès facturés | Baux, statut FINALIZING, compteur figé, règlement idempotent | Publication après règlement | Tests succès partiel, annulation, fichier absent, réponse financière perdue ; redémarrage réel non validé |
+| PDF, ZIP, reconstruction | Propriétaire et lot financé | Retéléchargement/reconstruction sans nouveau débit | Marqueur financier obligatoire | Tests doubles Prisma/stockage ; vrais PDF/ZIP/QR non validés |
+| RSVP/QR et assets | Version publiée financée ; routes publiques existantes conservées | Pas de débit au téléchargement | Contrôle serveur ; buckets non publics | Inspection statique ; liens signés et QR réels non validés |
+| Brouillons et aller-retour Wallet | Session, origine, accès événement, chemin interne autorisé | Comparaison atomique de révision ; sauvegarde avant départ | Sans objet | Handler HTTP de production avec dépendances simulées ; Redis et interactions navigateur réelles non validés |
+| Confirmation d’achat | Événement paiement serveur validé ; retour navigateur sans valeur probante | Notification idempotente | Sans génération automatique | Tests routage paiement et double notification simulés ; achat réussi/annulé/échoué/en attente réel non validé |
+
+### Vérifications de clôture exécutées
+
+- Typecheck et lint web / Invitations : réussis. Typecheck Gateway, Events et Wallet : réussis.
+- 34 tests ciblés distincts : 6 brouillons, 2 politique émission, 2 confirmation, 12 service/finalisation Invitations, 6 quota agence, 6 Wallet/routage paiement : réussis. Les 5 tests financiers ont été relancés après la correction d’inventaire.
+- Les tests utilisent des doubles en mémoire et un handler HTTP réel avec dépendances simulées. **Aucune vraie base de données ni API de paiement utilisée.**
+- Windows : spawn EPERM contourné avec --test-isolation=none ; tests tsx/esbuild exécutés avec autorisation hors sandbox.
+- Aucun Docker, déploiement, migration, appel GPT/FLUX payant, commit ou push exécuté pendant cette clôture.
+
+### Validations reportées et mise en service
+
+Non validés : parcours authentifié desktop/mobile, sauvegarde/reconnexion Redis réelle, accès inter-utilisateurs via stack réelle, concurrence/verrous PostgreSQL, finalisation Media/MinIO, crash/reprise workers, achats et notifications réels, PDF/ZIP et QR, GPT/FLUX réels.
+
+Prérequis : appliquer au déploiement contrôlé la migration Invitations 202610110002_financial_finalization (non exécutée ici), puis reconstruire uniquement web, gateway, invitations, events et wallet modifiés. Commandes Docker ultérieures : docker compose build web gateway invitations events wallet ; docker compose up -d --no-deps web gateway invitations events wallet. Vérifier la procédure de migration existante avant démarrage. Ne pas reconstruire toute la stack.
+
+### Fichiers ajustés pendant cette clôture
+
+apps/web/package.json ; apps/web/src/app/events/[eventId]/designs/workspace.tsx ; apps/web/src/app/events/[eventId]/guests/workspace.tsx ; apps/web/src/components/journey-drafts.tsx ; apps/web/src/lib/invitation-confirmation.mjs ; apps/web/src/lib/invitation-confirmation.test.mjs ; apps/web/src/lib/journey-drafts.test.mjs ; services/invitations/src/invitation.service.ts ; services/invitations/src/invitation.service.spec.ts ; services/invitations/src/emission-policy.spec.mjs ; services/invitations/src/financial-finalization.spec.ts ; docs/event-journey-ai.md. Le fichier tsconfig.tsbuildinfo a également été actualisé par TypeScript.
+
+---
+
+
+## Historique — audit crédits et reprise avant cette clôture
 
 Règle commerciale confirmée par le propriétaire : **chaque nouvelle émission coûte un crédit**, notamment après modification du design ou des informations du même invité. Le retéléchargement d'un PDF déjà financé et la reconstruction de son ZIP ne doivent pas débiter de crédit. Une réservation n'est pas encore une consommation définitive.
 

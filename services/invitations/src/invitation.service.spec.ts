@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { emissionRequestHash } from './emission-policy.mjs';
 import { InvitationService } from './invitation.service.js';
 import type { PrismaService } from './prisma.service.js';
 import type { InvitationStorage } from './invitation-storage.js';
@@ -13,7 +14,7 @@ const guestB = '66666666-6666-4666-8666-666666666666';
 const guestC = '77777777-7777-4777-8777-777777777777';
 
 test('rendered PDFs cannot be downloaded before financial finalization', async () => {
-  for (const status of ['RESERVING', 'QUEUED', 'GENERATING', 'FAILED', 'CANCELLED', 'PARTIAL']) {
+  for (const status of ['RESERVING', 'QUEUED', 'GENERATING', 'FINALIZING', 'COMPLETED', 'FAILED', 'CANCELLED', 'PARTIAL']) {
     let storageCalls = 0;
     const prisma = { invitationBatch: { findFirst: async () => ({ status, items: [{ id: 'item', guestId: guestA, status: 'GENERATED', objectKey: 'private.pdf' }] }) } } as unknown as PrismaService;
     const storage = { stream: async () => { storageCalls++; return new Response('pdf'); } } as unknown as InvitationStorage;
@@ -27,7 +28,7 @@ test('a completed invitation can be downloaded repeatedly without contacting Wal
   let reads = 0;
   const prisma = { invitationBatch: { findFirst: async (args: unknown) => {
     assert.deepEqual(args, { where: { id: 'batch', ownerSubject: 'owner' }, include: { items: true } });
-    return { status: 'COMPLETED', items: [{ id: 'item', guestId: guestA, status: 'GENERATED', objectKey: 'private.pdf' }] };
+    return { status: 'COMPLETED', settledAt: new Date(), settlementCredits: 1, items: [{ id: 'item', guestId: guestA, status: 'GENERATED', objectKey: 'private.pdf' }] };
   } } } as unknown as PrismaService;
   const storage = { stream: async () => { reads++; return new Response('pdf'); } } as unknown as InvitationStorage;
   const service = new InvitationService(prisma, storage);
@@ -50,7 +51,7 @@ async function withStorageCapacity<T>(work: () => Promise<T>) {
 }
 
 function serviceWithPrior() {
-  const prior = { id: 'batch-1', eventId, designId, designVersion: 3, items: [{ guestId: guestA }, { guestId: guestB }] };
+  const prior = { requestHash: null as string | null, id: 'batch-1', eventId, designId, designVersion: 3, items: [{ guestId: guestA }, { guestId: guestB }] };
   const prisma = { invitationBatch: { findUnique: async () => prior } } as unknown as PrismaService;
   return { service: new InvitationService(prisma, {} as InvitationStorage), prior };
 }
@@ -68,19 +69,21 @@ test('generation idempotency returns a prior batch only for the same event, desi
   });
 });
 
-test('generation idempotency treats an omitted guest list and an empty list as the same all-guests request', async () => {
+test('all-guests replay is bound to its original intent; explicit empty selection is rejected', async () => {
   await withStorageCapacity(async () => {
     const { service, prior } = serviceWithPrior();
+    prior.requestHash = emissionRequestHash(eventId, designId, undefined, []);
     const omitted = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId });
-    const empty = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] });
+    await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] }), /au moins un invité/);
     assert.equal(omitted, prior);
-    assert.equal(empty, prior);
+
   });
 });
 
 test('a replay cannot reuse a reservation for a different reviewed design version', async () => {
   await withStorageCapacity(async () => {
     const { service, prior } = serviceWithPrior();
+    prior.requestHash = emissionRequestHash(eventId, designId, 3, []);
     assert.equal(await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 3 }), prior);
     await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 4 }), /autre demande/);
     await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 0 }), /Version/);
@@ -96,9 +99,10 @@ test('pending reservation release is retried idempotently and only cleared after
   let calls = 0;
   let cleared = 0;
   const prisma = {
+    batchItem: { updateMany: async () => ({ count: 4 }) },
     invitationBatch: {
       findMany: async () => [{ id: 'batch-1', ownerSubject: 'owner', reservationReference: 'reservation-1', totalItems: 4 }],
-      updateMany: async (args: unknown) => { assert.deepEqual(args, { where: { id: 'batch-1', status: 'FAILED', reservationReleasePending: true }, data: { reservationReleasePending: false } }); cleared += 1; return { count: 1 }; },
+      updateMany: async (args: unknown) => { assert.deepEqual(args, { where: { id: 'batch-1', status: 'FAILED', reservationReleasePending: true }, data: { reservationReleasePending: false, failedItems: 4 } }); cleared += 1; return { count: 1 }; },
     },
   } as never;
   globalThis.fetch = async (url, init) => {

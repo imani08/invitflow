@@ -64,7 +64,7 @@ function DraftPage({ path, children }: { path: string; children: ReactNode }) {
   }, [queue]);
   const context = useMemo<Context>(() => ({ loaded, read: key => data.current[key], write, flush: () => queue.flush() }), [loaded, write, queue]);
   const beforeLeave = async () => {
-    if (Array.from(root.current?.querySelectorAll<HTMLInputElement>('input[type=file]') ?? []).some(input => input.files?.length)) throw new Error('Terminez l’import ou retirez le fichier sélectionné avant de quitter.');
+    if (root.current?.querySelector('[data-pending-import="true"]') || Array.from(root.current?.querySelectorAll<HTMLInputElement>('input[type=file]') ?? []).some(input => input.files?.length)) throw new Error('Terminez l’import ou retirez le fichier sélectionné avant de quitter.');
     await queue.flush();
   };
   useEffect(() => {
@@ -113,7 +113,7 @@ function DraftPage({ path, children }: { path: string; children: ReactNode }) {
       const url = new URL(anchor.href, location.href);
       if (url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname === location.pathname && url.search === location.search) return;
       event.preventDefault(); event.stopImmediatePropagation();
-      if (Array.from(root.current?.querySelectorAll<HTMLInputElement>('input[type=file]') ?? []).some(input => input.files?.length)) {
+      if (root.current?.querySelector('[data-pending-import="true"]') || Array.from(root.current?.querySelectorAll<HTMLInputElement>('input[type=file]') ?? []).some(input => input.files?.length)) {
         setError('Terminez l’import ou retirez le fichier sélectionné avant de quitter. Un fichier local ne peut pas être restauré.'); setStatus('error'); return;
       }
       void queue.flush().then(() => router.push(url.pathname + url.search + url.hash)).catch(() => undefined);

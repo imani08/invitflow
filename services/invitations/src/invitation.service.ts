@@ -107,7 +107,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy() { if (this.cleanupTimer) clearInterval(this.cleanupTimer); }
 
   private async cleanupExpiredExports() {
-    const batches = await this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { lt: new Date() }, zipDeletedAt: null }, orderBy: { zipExpiresAt: 'asc' }, take: 50, select: { id: true, zipExpiresAt: true, zipCleanupAttempts: true } });
+    const batches = await this.prisma.invitationBatch.findMany({ where: { status: { in: [BatchStatus.COMPLETED, BatchStatus.PARTIAL, BatchStatus.CANCELLED] }, zipExpiresAt: { lt: new Date() }, zipDeletedAt: null }, orderBy: { zipExpiresAt: 'asc' }, take: 50, select: { id: true, zipExpiresAt: true, zipCleanupAttempts: true } });
     for (const batch of batches) {
       try {
         await this.storage.delete(`batches/${batch.id}.zip`);
@@ -723,7 +723,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
     const [pdfs, zips, byEvent, byAgency] = await Promise.all([
       this.prisma.batchItem.aggregate({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null } }, _sum: { sizeBytes: true }, _count: { _all: true } }),
-      this.prisma.invitationBatch.aggregate({ where: { status: BatchStatus.COMPLETED, zipDeletedAt: null, zipExpiresAt: { gt: now } }, _sum: { zipSizeBytes: true }, _count: { _all: true } }),
+      this.prisma.invitationBatch.aggregate({ where: { status: { in: [BatchStatus.COMPLETED, BatchStatus.PARTIAL, BatchStatus.CANCELLED] }, zipDeletedAt: null, zipExpiresAt: { gt: now } }, _sum: { zipSizeBytes: true }, _count: { _all: true } }),
       this.prisma.$queryRaw<Array<{ event_id: string; bytes: bigint | null; pdf_count: bigint; zip_bytes: bigint | null; zip_count: bigint }>>(Prisma.sql`
         WITH pdf AS (
           SELECT b.event_id, SUM(i.size_bytes) AS bytes, COUNT(i.id) FILTER (WHERE i.object_key IS NOT NULL AND i.status = 'GENERATED') AS file_count
@@ -752,7 +752,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     return {
       measuredAt: now.toISOString(),
       pdf: { bytes: num(pdfs._sum.sizeBytes), count: pdfs._count._all, unknownSizeCount: await this.prisma.batchItem.count({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null }, sizeBytes: null } }) },
-      zip: { bytes: num(zips._sum.zipSizeBytes), count: zips._count._all, unknownSizeCount: await this.prisma.invitationBatch.count({ where: { status: BatchStatus.COMPLETED, zipDeletedAt: null, zipExpiresAt: { gt: now }, zipSizeBytes: null } }) },
+      zip: { bytes: num(zips._sum.zipSizeBytes), count: zips._count._all, unknownSizeCount: await this.prisma.invitationBatch.count({ where: { status: { in: [BatchStatus.COMPLETED, BatchStatus.PARTIAL, BatchStatus.CANCELLED] }, zipDeletedAt: null, zipExpiresAt: { gt: now }, zipSizeBytes: null } }) },
       cleanup: { zipDeletionErrors: await this.prisma.invitationBatch.count({ where: { zipDeletedAt: null, zipCleanupAttempts: { gt: 0 } } }), zipRetryable: await this.prisma.invitationBatch.count({ where: { zipDeletedAt: null, zipCleanupAttempts: { gt: 0 }, zipExpiresAt: { lt: now } } }) },
       byEvent: byEvent.map((row) => ({ eventId: row.event_id, bytes: num(row.bytes), pdfCount: num(row.pdf_count), zipBytes: num(row.zip_bytes), zipCount: num(row.zip_count) })),
       byAgencyOrClient: byAgency.map((row) => ({ agencyWorkspaceId: row.agency_workspace_id, ownerSubject: row.owner_subject, bytes: num(row.bytes), fileCount: num(row.file_count) })),
@@ -774,7 +774,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const limit = 500;
     const [pdfRows, zipRows] = await Promise.all([
       this.prisma.batchItem.findMany({ where: { status: BatchItemStatus.GENERATED, objectKey: { not: null } }, orderBy: { id: 'asc' }, take: limit + 1, ...(pdfCursor ? { cursor: { id: pdfCursor }, skip: 1 } : {}), select: { id: true, objectKey: true } }),
-      this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.COMPLETED, zipExpiresAt: { not: null }, zipDeletedAt: null }, orderBy: { id: 'asc' }, take: limit + 1, ...(zipCursor ? { cursor: { id: zipCursor }, skip: 1 } : {}), select: { id: true, zipExpiresAt: true, zipSizeBytes: true } }),
+      this.prisma.invitationBatch.findMany({ where: { status: { in: [BatchStatus.COMPLETED, BatchStatus.PARTIAL, BatchStatus.CANCELLED, BatchStatus.FINALIZING] }, zipExpiresAt: { not: null }, zipDeletedAt: null }, orderBy: { id: 'asc' }, take: limit + 1, ...(zipCursor ? { cursor: { id: zipCursor }, skip: 1 } : {}), select: { id: true, zipExpiresAt: true, zipSizeBytes: true } }),
     ]);
     const pdfHasMore = pdfRows.length > limit;
     const zipHasMore = zipRows.length > limit;
@@ -1155,6 +1155,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         await this.storage.put('batches/' + id + '.zip', zip, 'application/zip');
         if (!(await this.storage.get('batches/' + id + '.zip')).equals(zip)) throw new Error('Archive durability verification failed');
         zipSizeBytes = BigInt(zip.byteLength);
+        await this.prisma.invitationBatch.updateMany({ where: { id, status: BatchStatus.FINALIZING, settledAt: null }, data: { zipSizeBytes, zipExpiresAt: new Date(Date.now() + Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5))) * 86_400_000) } });
       }
       // Immutable settlement count and idempotency key survive crashes, including
       // a crash after Wallet commits but before this service receives its reply.

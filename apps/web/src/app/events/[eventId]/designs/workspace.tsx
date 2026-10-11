@@ -431,7 +431,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
       const persisted = dirty ? await api<Design>(event.id, encodeURIComponent(selected.id), 'PUT', { name: selected.name, document: selected.document, expectedVersion: selected.version }) : selected;
       setSelected(persisted); setSavedDocument(clone(persisted.document)); setSavedName(persisted.name);
       await api(event.id, `${encodeURIComponent(persisted.id)}/continue`, 'POST', { expectedVersion: persisted.version });
-      await draft.flush();
+      await draft.save({ selected: persisted, savedDocument: clone(persisted.document), savedName: persisted.name, personalizing, aiPrompt, previewCeremonyId, previewTableName });
       router.push(`/events/${encodeURIComponent(event.id)}/guests`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Le design ne peut pas encore être validé.'); }
     finally { continuing.current = false; setBusy(false); }

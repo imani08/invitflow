@@ -137,7 +137,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
       const response = await fetch(`/api/events/${event.id}/guest-imports`, { method: 'POST', body: form });
       const payload: unknown = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string' ? payload.message : 'Analyse du fichier impossible.');
-      const result = payload as ImportAnalysis; setAnalysis(result); setMapping(result.suggestedMapping); setMessage(`${result.rowCount} ligne(s) détectée(s) dans « ${result.originalName} ».`);
+      const result = payload as ImportAnalysis; document.querySelectorAll<HTMLInputElement>('input[type="file"]').forEach(input => { input.value = ""; }); setAnalysis(result); setMapping(result.suggestedMapping); setMessage(`${result.rowCount} ligne(s) détectée(s) dans « ${result.originalName} ».`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Analyse du fichier impossible.'); }
     finally { setBusy(false); }
   }
@@ -158,7 +158,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     finally { setBusy(false); }
   }
 
-  return <section className="guests-layout"><JourneyNavigationSafety watchForms />
+  return <section className="guests-layout" data-pending-import={file && !analysis ? "true" : undefined}><JourneyNavigationSafety watchForms />
     <div>
       <section className="guest-panel" id="guest-workspace"><div className="events-list-head"><div><p className="eyebrow">LISTE DE PRÉSENCE</p><h2>Invités <span>{totalGuests.toString().padStart(2, '0')}</span></h2></div><button className="small-action" onClick={() => setSelected(null)}>+ Ajouter</button></div>
         <p className="guests-status" role="status" aria-live="polite">{message}</p>
