@@ -3,15 +3,15 @@ import test from 'node:test';
 import { aiJobLimits } from './env.js';
 
 test('AI job limits default to conservative owner, global and hourly quotas', () => {
-  const names = ['AI_MAX_ACTIVE_PER_OWNER', 'AI_MAX_ACTIVE_GLOBAL', 'AI_MAX_REQUESTS_PER_HOUR_PER_OWNER'] as const;
+  const names = ['AI_MAX_ACTIVE_PER_OWNER', 'AI_MAX_ACTIVE_GLOBAL', 'AI_MAX_REQUESTS_PER_HOUR_PER_OWNER', 'AI_MAX_REQUESTS_PER_HOUR_PER_EVENT'] as const;
   const previous = names.map((name) => process.env[name]);
   try {
     for (const name of names) delete process.env[name];
-    assert.deepEqual(aiJobLimits(), { activePerOwner: 2, activeGlobal: 20, requestsPerHourPerOwner: 10 });
+    assert.deepEqual(aiJobLimits(), { activePerOwner: 2, activeGlobal: 20, requestsPerHourPerOwner: 10, requestsPerHourPerEvent: 6 });
     process.env['AI_MAX_ACTIVE_PER_OWNER'] = '4';
     process.env['AI_MAX_ACTIVE_GLOBAL'] = '80';
     process.env['AI_MAX_REQUESTS_PER_HOUR_PER_OWNER'] = '25';
-    assert.deepEqual(aiJobLimits(), { activePerOwner: 4, activeGlobal: 80, requestsPerHourPerOwner: 25 });
+    assert.deepEqual(aiJobLimits(), { activePerOwner: 4, activeGlobal: 80, requestsPerHourPerOwner: 25, requestsPerHourPerEvent: 6 });
   } finally {
     names.forEach((name, index) => previous[index] === undefined ? delete process.env[name] : process.env[name] = previous[index]);
   }

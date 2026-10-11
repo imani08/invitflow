@@ -10,7 +10,8 @@ export class AgencyQuotaInternalController {
     if (body?.consumedCredits !== undefined && typeof body.consumedCredits !== 'number') throw new BadRequestException('consumedCredits must be an integer');
     return this.events.finalizeAgencyQuotaReservation('internal:invitations', workspaceId, referenceKey, 'CONSUMED', body?.consumedCredits as number | undefined, true);
   }
-  @Post('/release') release(@Param('workspaceId') workspaceId: string, @Param('referenceKey') referenceKey: string) {
-    return this.events.finalizeAgencyQuotaReservation('internal:invitations', workspaceId, referenceKey, 'RELEASED', undefined, true);
+  @Post('/release') release(@Param('workspaceId') workspaceId: string, @Param('referenceKey') referenceKey: string, @Body() body?: { eventId?: unknown }) {
+    if (body?.eventId !== undefined && typeof body.eventId !== 'string') throw new BadRequestException('eventId must be a UUID');
+    return this.events.finalizeAgencyQuotaReservation('internal:invitations', workspaceId, referenceKey, 'RELEASED', undefined, true, body?.eventId as string | undefined);
   }
 }

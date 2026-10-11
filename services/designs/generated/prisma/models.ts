@@ -8,6 +8,7 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/EventDesignSelection.js'
 export type * from './models/DesignTemplate.js'
 export type * from './models/DesignTemplateVersion.js'
 export type * from './models/Design.js'

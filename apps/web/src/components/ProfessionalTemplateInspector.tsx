@@ -1,4 +1,5 @@
 'use client';
+import { FONT_REGISTRY } from '@invitaflow/design-document';
 
 type PhotoSlot = { id: string; elementId: string };
 export default function ProfessionalTemplateInspector({ metadata, elements, uploading, onPhoto, onCrop, onColor, onFont, onReuse }: {
@@ -8,11 +9,11 @@ export default function ProfessionalTemplateInspector({ metadata, elements, uplo
   onPhoto: (elementId: string) => void;
   onCrop: (elementId: string, change: { cropScale?: number; focalPoint?: { x: number; y: number } }) => void;
   onColor: (color: string) => void;
-  onFont: (fontId: 'georgia' | 'arial') => void;
+  onFont: (fontId: string) => void;
   onReuse: (slotId: string) => void;
 }) {
   const slots = (metadata['photoSlots'] ?? []) as PhotoSlot[];
-  const policy = metadata['personalization'] as { colors: string[] };
+  const policy = metadata['personalization'] as { colors: string[]; fonts: string[] };
   return <aside className="editor-panel editor-right"><span className="design-kicker">PERSONNALISATION GUIDÉE</span><h2>{String(metadata['name'] ?? 'Invitation')}</h2>
     <p className="inspector-note">La composition et le programme sont protégés. Les noms, dates et cérémonies proviennent de votre événement et de chaque invité.</p>
     <div className="inspector-fields">{slots.map((slot) => {
@@ -24,7 +25,7 @@ export default function ProfessionalTemplateInspector({ metadata, elements, uplo
           {(['x', 'y'] as const).map((axis) => <label key={axis}>Point focal {axis === 'x' ? 'horizontal' : 'vertical'}<input type="range" min="0" max="1" step="0.01" value={photo.focalPoint?.[axis] ?? 0.5} onChange={(event) => onCrop(slot.elementId, { focalPoint: { ...(photo.focalPoint ?? { x: 0.5, y: 0.5 }), [axis]: Number(event.target.value) } })} /></label>)}</>}
       </fieldset>;
     })}<fieldset><legend>Couleur du texte</legend>{policy.colors.map((color) => <button key={color} onClick={() => onColor(color)} aria-label={`Texte ${color}`} style={{ borderBottom: `6px solid ${color}` }}>{color}</button>)}</fieldset>
-    <fieldset><legend>Typographie autorisée</legend><button onClick={() => onFont('georgia')}>Georgia</button><button onClick={() => onFont('arial')}>Arial</button></fieldset>
+    <fieldset><legend>Typographie autorisée</legend>{policy.fonts.map(id => <button key={id} onClick={() => onFont(id)}>{FONT_REGISTRY[id]?.family ?? id}</button>)}</fieldset>
     <p className="inspector-note">Le changement de photo conserve le cadrage du template. Aucun crédit consommé avant la génération finale.</p></div>
   </aside>;
 }

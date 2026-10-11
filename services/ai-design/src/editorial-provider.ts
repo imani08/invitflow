@@ -8,7 +8,7 @@ export function assertEditorialLanguage(text: string, language: string) {
   if (other >= 2 && other > own) throw new Error('wrong_language');
   if (own < 2) throw new Error('language_unverified');
 }
-export type EditorialInput = { text: string; language: string; tone: string; compressionLevel: string; targetLength: number; maxEstimatedLines: number; targetReductionRatio: number };
+export type EditorialInput = { action?: string; text: string; language: string; tone: string; compressionLevel: string; targetLength: number; maxEstimatedLines: number; targetReductionRatio: number };
 export interface EditorialProvider { compress(input: EditorialInput): Promise<{ text: string; language: string; usage: Record<string, number> | null }> }
 export class SelfHostedEditorialProvider implements EditorialProvider {
   async compress(input: EditorialInput) {

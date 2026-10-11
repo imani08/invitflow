@@ -21,6 +21,7 @@ export type AiJobLimits = {
   activePerOwner: number;
   activeGlobal: number;
   requestsPerHourPerOwner: number;
+  requestsPerHourPerEvent: number;
 };
 
 function boundedInteger(name: string, fallback: number, maximum: number): number {
@@ -38,5 +39,6 @@ export function aiJobLimits(): AiJobLimits {
     activePerOwner: boundedInteger('AI_MAX_ACTIVE_PER_OWNER', 2, 100),
     activeGlobal: boundedInteger('AI_MAX_ACTIVE_GLOBAL', 20, 10_000),
     requestsPerHourPerOwner: boundedInteger('AI_MAX_REQUESTS_PER_HOUR_PER_OWNER', 10, 10_000),
+    requestsPerHourPerEvent: boundedInteger('AI_MAX_REQUESTS_PER_HOUR_PER_EVENT', 6, 100),
   };
 }

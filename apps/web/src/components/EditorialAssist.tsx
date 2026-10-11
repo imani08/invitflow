@@ -10,6 +10,7 @@ export default function EditorialAssist({ eventId, designId, sourceVersion, elem
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [opened, setOpened] = useState(false);
   const [level, setLevel] = useState('BALANCED');
+  const [action, setAction] = useState(sourceText.trim() ? 'REFORMULATE' : 'GENERATE');
   const [language, setLanguage] = useState('fr');
   const [tone, setTone] = useState('preserve');
   const [terms, setTerms] = useState('');
@@ -47,7 +48,7 @@ export default function EditorialAssist({ eventId, designId, sourceVersion, elem
   async function generate() {
     setBusy(true); setError('');
     try {
-      const next = await request('/ai-jobs', 'POST', { workflow: 'EDITORIAL_COMPRESSION', elementId, sourceVersion, language, tone, compressionLevel: level, protectedTerms: terms.split('\n').map(term => term.trim()).filter(Boolean) }) as Job;
+      const next = await request('/ai-jobs', 'POST', { workflow: action === 'SHORTEN' ? 'EDITORIAL_COMPRESSION' : 'EDITORIAL_REWRITE', ...(action === 'SHORTEN' ? {} : { action }), elementId, sourceVersion, language, tone, compressionLevel: level, protectedTerms: terms.split('\n').map(term => term.trim()).filter(Boolean) }) as Job;
       setJob(next); setManualText(null); setAttempts(count => count + 1);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Demande impossible.'); }
     finally { setBusy(false); }
@@ -63,14 +64,14 @@ export default function EditorialAssist({ eventId, designId, sourceVersion, elem
     setOpened(false); setJob(null);
   }
   return <section className="design-status">
-    <p>Votre texte est trop long pour cette composition. L’original est conservé.</p>
-    <button type="button" disabled={dirty} onClick={() => { setManualText(null); setOpened(true); }}>Raccourcir avec InvitaFlow</button>{' '}
+    <p>Préparez votre texte d’invitation. Les noms, dates et lieux restent dans les champs dédiés. L’original est conservé.</p>
+    <button type="button" disabled={dirty} onClick={() => { setManualText(null); setOpened(true); }}>Proposer ou reformuler mon texte</button>{' '}
     <button type="button" disabled={dirty} onClick={() => { setManualText(sourceText); setOpened(true); }}>Modifier moi-même</button>{' '}
     <button type="button" onClick={onTemplate}>Changer de disposition / template</button>
     <p>Pour modifier vous-même le texte source, utilisez les informations de l’événement. Enregistrez le design avant de demander une proposition.</p>
     {opened && <dialog ref={dialogRef} aria-labelledby="editorial-title" aria-modal="true" className="template-preview-dialog editorial-assist-dialog" onCancel={event => { event.preventDefault(); if (!busy) void cancel(); }}><div className="template-preview-card">
       <button type="button" className="template-preview-close" aria-label="Annuler l’assistance" disabled={busy} onClick={() => void cancel()}>×</button>
-      <h2 id="editorial-title">Raccourcir votre texte</h2>
+      <h2 id="editorial-title">Votre texte d’invitation</h2><label>Action<select value={action} onChange={event => setAction(event.target.value)}><option value="GENERATE">Proposer un texte</option><option value="REFORMULATE" disabled={!sourceText.trim()}>Reformuler</option><option value="SHORTEN" disabled={!sourceText.trim()}>Raccourcir un texte trop long</option></select></label>
       <label>Langue<select value={language} onChange={event => setLanguage(event.target.value)}><option value="fr">Français</option><option value="en">English</option><option value="ln">Lingala — nécessite un provider compatible</option></select></label>
       <label>Ton<select value={tone} onChange={event => setTone(event.target.value)}>{['preserve', 'romantic', 'religious', 'traditional', 'formal', 'warm', 'elegant', 'institutional', 'friendly'].map(value => <option key={value} value={value}>{({ preserve: 'Conserver le ton original', romantic: 'Romantique', religious: 'Religieux', traditional: 'Traditionnel', formal: 'Formel', warm: 'Chaleureux', elegant: 'Élégant', institutional: 'Institutionnel', friendly: 'Convivial' } as Record<string, string>)[value]}</option>)}</select></label>
       <label>Réduction<select value={level} onChange={event => setLevel(event.target.value)}><option value="LIGHT">Légère (10–20 %)</option><option value="BALANCED">Équilibrée (25–40 %)</option><option value="CONCISE">Forte, adaptée à la zone</option></select></label>
@@ -81,7 +82,7 @@ export default function EditorialAssist({ eventId, designId, sourceVersion, elem
       {job?.errorCode && <p role="alert">{job.errorCode} — l’original reste intact.</p>}
       {stale && <p role="alert">Proposition obsolète : enregistrez vos modifications et demandez une nouvelle proposition.</p>}
       {error && <><p role="alert">{error}</p>{job && ['QUEUED', 'PROCESSING'].includes(job.status) && <button type="button" onClick={() => { setError(''); setJob({ ...job }); }}>Réessayer le suivi</button>}</>}
-      <button type="button" onClick={() => void generate()} disabled={busy || stale || attempts >= 3 || (!!job && ['QUEUED', 'PROCESSING'].includes(job.status))}>{job ? 'Générer une autre proposition' : 'Proposer une version courte'}</button>{' '}
+      <button type="button" onClick={() => void generate()} disabled={busy || stale || attempts >= 3 || (!!job && ['QUEUED', 'PROCESSING'].includes(job.status))}>{job ? 'Générer une autre proposition' : 'Demander une proposition'}</button>{' '}
       <button type="button" onClick={() => void accept()} disabled={busy || !canApplyEditorial(job, { dirty, currentVersion: sourceVersion, manualText })}>Utiliser cette version</button>{' '}
       <button type="button" disabled={busy} onClick={() => setManualText(job?.editorial?.proposedText ?? sourceText)}>Modifier manuellement</button>{' '}
       <button type="button" disabled={busy} onClick={() => void cancel()}>Annuler — garder l’original</button>

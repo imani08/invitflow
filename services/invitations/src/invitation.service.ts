@@ -9,6 +9,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { emissionRequestHash, finalBatchStatus, isFundedBatch } from './emission-policy.mjs';
 import {
   BatchItemStatus,
   BatchStatus,
@@ -26,7 +27,7 @@ import { requiredEnv } from './env.js';
 import { invitationIdFromToken, invitationToken } from './invitation-token.mjs';
 import { renderInvitationImage } from './invitation-image-render.mjs';
 import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
-import { readPrivateImageDimensions, renderResolvedLayoutSvg } from '@invitaflow/design-document';
+import { readPrivateImageDimensions, renderResolvedLayoutSvg, invitationPrintFormat, invitationDisplayFields, guestCeremonySnapshots } from '@invitaflow/design-document';
 
 type Obj = Record<string, unknown>;
 const object = (v: unknown): Obj =>
@@ -151,6 +152,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     designId: string,
     guestIds: string[],
     authorization: string,
+    includeRenderData = true,
   ) {
     const events = requiredEnv('EVENTS_SERVICE_URL');
     const designs = requiredEnv('DESIGNS_SERVICE_URL');
@@ -168,14 +170,16 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         `${guests}/v1/events/${eventId}/guests?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
         authorization,
       );
-      allGuests.push(...(Array.isArray(page?.items) ? page.items : []));
+      if (!Array.isArray(page?.items)) throw new ServiceUnavailableException('Liste des invités indisponible.');
+      allGuests.push(...page.items);
       cursor = typeof page?.nextCursor === 'string' ? page.nextCursor : '';
       if (allGuests.length > 5000)
         throw new BadRequestException('Un lot ne peut pas dépasser 5 000 invités.');
     } while (cursor);
+    const uniqueGuests = [...new Map(allGuests.map(guest => [String(guest.id), guest])).values()];
     const selected = guestIds.length
-      ? allGuests.filter((g) => typeof g.id === 'string' && guestIds.includes(g.id))
-      : allGuests;
+      ? uniqueGuests.filter((g) => typeof g.id === 'string' && guestIds.includes(g.id))
+      : uniqueGuests;
     if (!selected.length || selected.length > 5000)
       throw new BadRequestException('Le lot doit contenir entre 1 et 5 000 invités.');
     if (guestIds.length && selected.length !== new Set(guestIds).size)
@@ -227,7 +231,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       .filter((value: unknown) => object(value).type === 'IMAGE' && typeof object(value).assetId === 'string')
       .map((value: unknown) => object(value))
       .map((layer) => [String(layer.assetId), { assetId: String(layer.assetId), fallbackAssetId: typeof layer.originalAssetId === 'string' ? layer.originalAssetId : null }] as const)).values()];
-    const photoAssets = await Promise.all(photoLayers.map(async ({ assetId, fallbackAssetId }) => {
+    const photoAssets = await Promise.all((includeRenderData ? photoLayers : []).map(async ({ assetId, fallbackAssetId }) => {
       const getContent = (id: string) => fetch(media.replace(/\/$/, '') + '/v1/assets/' + encodeURIComponent(id) + '/content', { headers: { authorization }, cache: 'no-store', signal: AbortSignal.timeout(12_000) });
       let response = await getContent(assetId);
       let storedFromAssetId = assetId;
@@ -266,11 +270,13 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const input = object(raw);
     const designId = input.designId;
     if (
-      Object.keys(input).some((k) => !['designId', 'guestIds'].includes(k)) ||
+      Object.keys(input).some((k) => !['designId', 'guestIds', 'expectedDesignVersion'].includes(k)) ||
       typeof designId !== 'string' ||
       !uuid.test(designId)
     )
       throw new BadRequestException('designId invalide.');
+    const expectedDesignVersion = input.expectedDesignVersion;
+    if (expectedDesignVersion !== undefined && (!Number.isSafeInteger(expectedDesignVersion) || (expectedDesignVersion as number) < 1)) throw new BadRequestException('Version du design invalide.');
     const guestIdsInput = input.guestIds;
     const guestIds = guestIdsInput === undefined ? [] : guestIdsInput;
     if (
@@ -279,7 +285,9 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       guestIds.some((id: unknown) => typeof id !== 'string' || !uuid.test(id))
     )
       throw new BadRequestException('guestIds doit être une liste d’UUID.');
+    if (guestIdsInput !== undefined && Array.isArray(guestIds) && guestIds.length === 0) throw new BadRequestException('Sélectionnez au moins un invité.');
     const validatedGuestIds = guestIds as string[];
+    const requestHash = emissionRequestHash(eventId, designId, expectedDesignVersion as number | undefined, validatedGuestIds);
     const prior = await this.prisma.invitationBatch.findUnique({
       where: { ownerSubject_idempotencyKey: { ownerSubject: owner, idempotencyKey } },
       include: { items: true },
@@ -288,8 +296,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       const requestedGuests = [...new Set(validatedGuestIds)].sort();
       const priorGuests = [...new Set(prior.items.map((item) => item.guestId))].sort();
       if (
+        (prior.requestHash ? prior.requestHash !== requestHash : requestedGuests.length === 0) ||
         prior.eventId !== eventId ||
         prior.designId !== designId ||
+        (expectedDesignVersion !== undefined && prior.designVersion !== expectedDesignVersion) ||
         (requestedGuests.length > 0 &&
           (requestedGuests.length !== priorGuests.length ||
             requestedGuests.some((guestId, index) => guestId !== priorGuests[index])))
@@ -298,39 +308,44 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       return prior;
     }
     const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization);
+    if (expectedDesignVersion !== undefined && snapshot.design.version !== expectedDesignVersion) throw new ConflictException('Le design a changé depuis votre aperçu. Vérifiez sa nouvelle version avant de générer.');
     const document = object(snapshot.design.document) ? object(snapshot.design.document) as Obj : {};
     const constraints = object(document.constraints) ? object(document.constraints) : {};
     const rawSafeMargin = constraints.safeMargin;
     const marginObject = object(rawSafeMargin);
     const safeMargin = typeof rawSafeMargin === 'number' ? rawSafeMargin : ['top', 'right', 'bottom', 'left'].every((edge) => typeof marginObject[edge] === 'number') ? marginObject as { top: number; right: number; bottom: number; left: number } : 64;
     const resolvedLayouts = new Map<string, unknown>();
+    const guestProgrammes = new Map<string, typeof snapshot.ceremonySnapshots>();
     for (const guest of snapshot.guests) {
-      const seating = snapshot.seatingFor(String(guest.id));
+      let programmes: typeof snapshot.ceremonySnapshots;
+      try { programmes = guestCeremonySnapshots(snapshot.ceremonySnapshots, guest.access); } catch { throw new BadRequestException('Les accès aux cérémonies de cet invité sont incomplets. Vérifiez sa fiche.'); }
+      if (!programmes.length) throw new BadRequestException('Un invité du lot n’est affecté à aucune cérémonie. Vérifiez les accès avant de générer.');
+      guestProgrammes.set(String(guest.id), programmes);
+      const invitedIds = new Set(programmes.map(entry => object(entry.ceremony).id));
+      const seating = snapshot.seatingFor(String(guest.id)).filter(entry => invitedIds.has(entry.ceremonyId));
       const tableName = [...new Set(seating.map((item: Obj) => item.tableName).filter((name: unknown): name is string => typeof name === 'string' && !!name.trim()))].join(' · ');
-      const ceremonyName = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => { const ceremony = object(object(item).ceremony); return String(ceremony.name ?? ceremony.title ?? ''); }).filter(Boolean).join(' · ');
+      const ceremonyName = programmes.map((item: unknown) => { const ceremony = object(object(item).ceremony); return String(ceremony.name ?? ceremony.title ?? ''); }).filter(Boolean).join(' · ');
       const previewQrUrl = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${invitationToken(randomUUID())}`;
-      const ceremonyData = (Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : []).map((item: unknown) => {
-        const ceremony = object(object(item).ceremony);
-        return { name: ceremony.name ?? ceremony.title, date: ceremony.date ?? ceremony.startAt, time: ceremony.time, venue: ceremony.venue, address: ceremony.address, reference: ceremony.reference, dressCode: ceremony.dressCode };
-      });
-      const layout = validateInvitationLayout({ document, values: { guest_name: String(guest.fullName ?? ''), guest_email: String(guest.email ?? ''), table_name: tableName, event_name: String(object(snapshot.event).name ?? ''), couple_names: String(object(snapshot.event).coupleNames ?? ''), invitation_text: String(object(snapshot.event).invitationText ?? ''), ceremony_name: ceremonyName, ceremonies: ceremonyData, event_date: String(object(snapshot.event).startAt ?? object(snapshot.event).date ?? ''), event_location: String(object(object(snapshot.event).venue).name ?? object(snapshot.event).location ?? ''), contact: String(object(snapshot.event).contact ?? ''), qr_code: previewQrUrl, rsvp_link: previewQrUrl }, safeMargin });
+      const display = invitationDisplayFields({ ...snapshot.event, ceremonies: programmes.map((item: unknown) => object(object(item).ceremony)) });
+      const ceremonyData = display.ceremonies;
+      const layout = validateInvitationLayout({ document, values: { guest_name: String(guest.fullName ?? ''), guest_email: String(guest.email ?? ''), table_name: tableName, event_name: String(object(snapshot.event).name ?? ''), couple_names: String(object(snapshot.event).coupleNames ?? ''), invitation_text: String(object(snapshot.event).invitationText ?? ''), ceremony_name: ceremonyName, ceremonies: ceremonyData, event_date: display.event.date ?? '', event_weekday: display.event.weekday ?? '', event_day: display.event.day ?? '', event_month: display.event.month ?? '', event_year: display.event.year ?? '', event_location: display.event.venue ?? '', contact: String(object(snapshot.event).contact ?? ''), qr_code: previewQrUrl, rsvp_link: previewQrUrl }, safeMargin });
       if (layout.errors.length) throw new BadRequestException({ code: 'INVITATION_LAYOUT_INVALID', errors: layout.errors });
       resolvedLayouts.set(String(guest.id), layout.resolvedLayout);
     }
     const batchId = randomUUID();
     const renderAssets = Object.fromEntries(snapshot.photoAssets.map((asset) => [asset.assetId, { key: 'batches/' + batchId + '/' + asset.assetId + (asset.mimeType === 'image/png' ? '.png' : '.webp'), mimeType: asset.mimeType }]));
     const ref = `invitation-batch/${batchId}`;
-    const eventsUrl = requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '');
     const agencyWorkspaceId = typeof snapshot.event?.agencyWorkspaceId === 'string' ? snapshot.event.agencyWorkspaceId : null;
-    let agencyReservedCredits = 0;
+    const agencyReservedCredits = 0;
     let agencyReference: string | null = null;
     if (agencyWorkspaceId) {
       agencyReference = `agency-invitation-batch/${batchId}`;
     }
-    let walletReservedCredits = snapshot.guests.length;
+    const walletReservedCredits = snapshot.guests.length;
     try {
     for (const asset of snapshot.photoAssets) await this.storage.put(renderAssets[asset.assetId]!.key, asset.bytes, asset.mimeType!);
     await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${eventId}))`);
       const created = await tx.invitationBatch.create({
         data: {
           id: batchId,
@@ -339,6 +354,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
           designId,
           designVersion: snapshot.design.version,
           idempotencyKey,
+          requestHash,
           reservationReference: ref,
           agencyReservationReference: agencyReference,
           agencyWorkspaceId,
@@ -358,7 +374,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
             guestId: guest.id,
             status: InvitationStatus.GENERATION_PENDING,
           },
-          update: { status: InvitationStatus.GENERATION_PENDING },
+          update: {},
         });
         const old = await tx.invitationVersion.findFirst({
           where: { invitationId: invitation.id },
@@ -371,8 +387,8 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
           designSnapshot: snapshot.design,
           guestSnapshot: guest,
           eventSnapshot: snapshot.event,
-          ceremonySnapshots: snapshot.ceremonySnapshots,
-          seatingSnapshot: snapshot.seatingFor(guest.id),
+          ceremonySnapshots: guestProgrammes.get(String(guest.id)),
+          seatingSnapshot: snapshot.seatingFor(guest.id).filter(entry => (guestProgrammes.get(String(guest.id)) ?? []).some(programme => object(programme.ceremony).id === entry.ceremonyId)),
           renderAssets,
           resolvedLayout: resolvedLayouts.get(String(guest.id)),
         };
@@ -385,13 +401,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
             snapshot: renderSnapshot as Prisma.InputJsonValue,
           },
         });
-        await tx.invitation.update({
-          where: { id: invitation.id },
-          data: { currentVersionId: version.id },
-        });
         await tx.batchItem.create({
           data: {
             batchId,
+            invitationVersionId: version.id,
             invitationId: invitation.id,
             guestId: guest.id,
             snapshot: renderSnapshot as Prisma.InputJsonValue,
@@ -399,70 +412,90 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         });
       }
       return created;
-    });
+    }, { timeout: 60_000 });
     } catch (error) {
       await Promise.allSettled(Object.values(renderAssets).map((entry) => this.storage.delete(entry.key)));
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.prisma.invitationBatch.findUnique({ where: { ownerSubject_idempotencyKey: { ownerSubject: owner, idempotencyKey } } });
+        if (existing?.requestHash === requestHash) return this.getBatch(owner, existing.id);
+        throw new ConflictException('Cette clé d’idempotence correspond à une autre émission.');
+      }
       throw error;
     }
+    return this.reserveAndQueue(owner, batchId, authorization);
+  }
+  private async reserveAndQueue(owner: string, batchId: string, authorization: string) {
+    let batch = await this.prisma.invitationBatch.findFirstOrThrow({ where: { id: batchId, ownerSubject: owner } });
     try {
-      if (agencyReference && agencyWorkspaceId) {
-        const quotaReservation = await fetch(`${eventsUrl}/v1/agencies/${encodeURIComponent(agencyWorkspaceId)}/quota/reservations`, { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': `reserve-${batchId}` }, body: JSON.stringify({ eventId, referenceKey: agencyReference, credits: snapshot.guests.length, allowPartial: true }), signal: AbortSignal.timeout(10_000) });
-        const reservation: unknown = await quotaReservation.json().catch(() => null);
-        const reserved = reservation && typeof reservation === 'object' ? (reservation as Record<string, unknown>)['reservedCredits'] : undefined;
-        if (!quotaReservation.ok || !Number.isSafeInteger(reserved) || (reserved as number) < 0 || (reserved as number) > snapshot.guests.length) throw new Error(`agency quota reservation failed ${quotaReservation.status}`);
-        agencyReservedCredits = reserved as number;
-        walletReservedCredits = snapshot.guests.length - agencyReservedCredits;
-        if (agencyReservedCredits === 0) agencyReference = null;
-        await this.prisma.invitationBatch.update({ where: { id: batchId }, data: { agencyReservationReference: agencyReference, agencyReservedCredits, walletReservedCredits } });
+      if (batch.agencyReservationReference && batch.agencyWorkspaceId) {
+        const response = await fetch(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/agencies/' + batch.agencyWorkspaceId + '/quota/reservations', { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': 'reserve-' + batchId }, body: JSON.stringify({ eventId: batch.eventId, referenceKey: batch.agencyReservationReference, credits: batch.totalItems, allowPartial: true }), signal: AbortSignal.timeout(10_000) });
+        const value = await response.json().catch(() => null) as { reservedCredits?: number } | null;
+        if (!response.ok || !Number.isSafeInteger(value?.reservedCredits) || value!.reservedCredits! < 0 || value!.reservedCredits! > batch.totalItems) throw new Error('Agency reservation unavailable');
+        const updated = await this.prisma.invitationBatch.updateMany({ where: { id: batchId, status: BatchStatus.RESERVING }, data: { agencyReservationReference: value!.reservedCredits === 0 ? null : batch.agencyReservationReference, agencyReservedCredits: value!.reservedCredits!, walletReservedCredits: batch.totalItems - value!.reservedCredits! } });
+        if (!updated.count) throw new Error('Reservation stopped');
+        batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id: batchId } });
       }
-      if (walletReservedCredits > 0) {
-      const response = await fetch(
-        `${requiredEnv('WALLET_SERVICE_URL')}/v1/internal/wallets/${encodeURIComponent(owner)}/reservations`,
-        {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'),
-            'idempotency-key': `reserve-${batchId}`,
-          },
-          body: JSON.stringify({ credits: walletReservedCredits, referenceId: ref }),
-          signal: AbortSignal.timeout(10000),
-        },
-      );
-      if (!response.ok) throw new Error(`wallet reservation failed ${response.status}`);
+      if (batch.walletReservedCredits > 0) {
+        const response = await fetch(requiredEnv('WALLET_SERVICE_URL').replace(/\/$/, '') + '/v1/internal/wallets/' + encodeURIComponent(owner) + '/reservations', { method: 'POST', headers: { 'content-type': 'application/json', 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'idempotency-key': 'reserve-' + batchId }, body: JSON.stringify({ credits: batch.walletReservedCredits, referenceId: batch.reservationReference }), signal: AbortSignal.timeout(10_000) });
+        if (!response.ok) throw new Error('Wallet reservation unavailable');
       }
-      await this.prisma.$transaction(async (tx) => {
-        await tx.invitationBatch.update({
-          where: { id: batchId },
-          data: { status: BatchStatus.QUEUED },
-        });
-        await tx.outboxMessage.create({
-          data: {
-            eventType: 'invitation.render.requested.v1',
-            aggregateId: batchId,
-            payload: { batchId, itemCount: snapshot.guests.length, ownerSubject: owner },
-          },
-        });
+      await this.prisma.$transaction(async tx => {
+        const queued = await tx.invitationBatch.updateMany({ where: { id: batchId, status: BatchStatus.RESERVING }, data: { status: BatchStatus.QUEUED } });
+        if (!queued.count) throw new Error('Reservation stopped');
+        await tx.outboxMessage.create({ data: { eventType: 'invitation.render.requested.v1', aggregateId: batchId, payload: { batchId, itemCount: batch.totalItems, ownerSubject: owner } } });
       });
     } catch {
-      const [walletReleased, agencyReleased] = await Promise.all([
-        walletReservedCredits > 0 ? this.releaseReservation(owner, ref, walletReservedCredits) : Promise.resolve(true),
-        agencyReference && agencyWorkspaceId ? this.releaseAgencyQuota(agencyWorkspaceId, agencyReference, authorization) : Promise.resolve(true),
-      ]);
-      await this.prisma.$transaction(async (tx) => {
-        await tx.invitationBatch.update({
-          where: { id: batchId },
-          data: { status: BatchStatus.FAILED, reservationReleasePending: !walletReleased || !agencyReleased },
-        });
-        await tx.batchItem.updateMany({
-          where: { batchId },
-          data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' },
-        });
-      });
-      await Promise.allSettled(Object.values(renderAssets).map((entry) => this.storage.delete(entry.key)));
-      throw new ConflictException('Les crédits n’ont pas pu être réservés; le lot a été arrêté.');
+      const stopped = await this.prisma.invitationBatch.updateMany({ where: { id: batchId, status: BatchStatus.RESERVING }, data: { status: BatchStatus.FAILED, reservationReleasePending: true } });
+      if (!stopped.count) return this.getBatch(owner, batchId);
+      await this.prisma.batchItem.updateMany({ where: { batchId, status: BatchItemStatus.QUEUED }, data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' } });
+      // Durable release intent retries even if storage/Wallet/network is unavailable.
+      await this.retryPendingReservationReleases();
+      throw new ConflictException('Les crédits n’ont pas pu être réservés. Aucun rendu n’a commencé. Réessayez après vérification du solde.');
     }
     return this.getBatch(owner, batchId);
+  }
+  async retryFailed(owner: string, id: string, authorization: string) {
+    const source = await this.prisma.invitationBatch.findFirst({ where: { id, ownerSubject: owner }, include: { items: true } });
+    if (!source) throw new NotFoundException('Lot introuvable.');
+    // An idempotent retry is permanently attached to this attempt, never a new
+    // voluntary emission. Successful, already financed items are excluded.
+    const existing = await this.prisma.invitationBatch.findUnique({ where: { retryOfBatchId: id } });
+    if (existing) return this.getBatch(owner, existing.id);
+    if (!['PARTIAL', 'FAILED'].includes(source.status) || source.reservationReleasePending || source.status === 'PARTIAL' && !isFundedBatch(source)) throw new ConflictException('La finalisation du lot doit être confirmée avant sa reprise.');
+    const failed = source.items.filter(item => item.status === BatchItemStatus.FAILED);
+    if (!failed.length) throw new ConflictException('Aucune invitation en échec à reprendre.');
+    // Recheck current event access; stale ownership must not grant a retry.
+    await this.upstream(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/events/' + source.eventId, authorization);
+    const batchId = randomUUID();
+    try {
+      await this.prisma.$transaction(async tx => {
+        await tx.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId: source.eventId, designId: source.designId, designVersion: source.designVersion, retryOfBatchId: id, idempotencyKey: 'technical-retry/' + id, requestHash: source.requestHash, totalItems: failed.length, reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: failed.length, agencyWorkspaceId: source.agencyWorkspaceId, agencyReservationReference: source.agencyWorkspaceId ? 'agency-invitation-batch/' + batchId : null } });
+        await tx.batchItem.createMany({ data: failed.map(item => ({ batchId, invitationId: item.invitationId, invitationVersionId: item.invitationVersionId, guestId: item.guestId, snapshot: item.snapshot as Prisma.InputJsonValue })) });
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      const raced = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { retryOfBatchId: id } });
+      return this.getBatch(owner, raced.id);
+    }
+    return this.reserveAndQueue(owner, batchId, authorization);
+  }
+  async quote(owner: string, eventId: string, authorization: string, raw: unknown) {
+    const input = object(raw);
+    if (!uuid.test(eventId) || typeof input.designId !== 'string' || !uuid.test(input.designId) || Object.keys(input).some(key => !['designId', 'guestIds', 'expectedDesignVersion'].includes(key))) throw new BadRequestException('Demande de devis invalide.');
+    const ids = input.guestIds;
+    if (ids !== undefined && (!Array.isArray(ids) || ids.length < 1 || ids.length > 5000 || ids.some(id => typeof id !== 'string' || !uuid.test(id)))) throw new BadRequestException('Sélection d’invités invalide.');
+    const snapshot = await this.snapshots(eventId, input.designId, (ids ?? []) as string[], authorization, false);
+    if (input.expectedDesignVersion !== undefined && input.expectedDesignVersion !== snapshot.design.version) throw new ConflictException('Le design a changé. Actualisez son aperçu.');
+    const balance = await this.upstream(requiredEnv('WALLET_SERVICE_URL').replace(/\/$/, '') + '/v1/wallet/me', authorization);
+    if (!Number.isSafeInteger(balance.availableCredits) || balance.availableCredits < 0) throw new ServiceUnavailableException('Solde indisponible.');
+    let agencyAvailable = 0;
+    if (typeof snapshot.event.agencyWorkspaceId === 'string') {
+      const quota = await this.upstream(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/agencies/' + snapshot.event.agencyWorkspaceId + '/quota', authorization);
+      if (!Number.isSafeInteger(quota.remaining) || quota.remaining < 0) throw new ServiceUnavailableException('Quota agence indisponible.');
+      agencyAvailable = quota.remaining;
+    }
+    const count = snapshot.guests.length, available = balance.availableCredits + agencyAvailable;
+    return { invitationCount: count, creditsRequired: count, availableCredits: available, walletAvailableCredits: balance.availableCredits, agencyAvailableCredits: agencyAvailable, missingCredits: Math.max(0, count - available), guestIds: snapshot.guests.map(guest => guest.id), designVersion: snapshot.design.version, ownerSubject: owner };
   }
   async list(owner: string, eventId?: string, rawLimit?: string, cursor?: string) {
     const where = { ownerSubject: owner, ...(eventId ? { eventId } : {}) };
@@ -519,45 +552,15 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     return batch;
   }
   async cancel(owner: string, id: string) {
-    let batch = await this.prisma.invitationBatch.findFirst({
-      where: { id, ownerSubject: owner },
-      include: { items: true },
-    });
+    const batch = await this.prisma.invitationBatch.findFirst({ where: { id, ownerSubject: owner } });
     if (!batch) throw new NotFoundException('Lot introuvable.');
-    if (batch.status === BatchStatus.COMPLETED || batch.status === BatchStatus.FAILED)
-      return this.getBatch(owner, id);
-    if (batch.status === BatchStatus.RESERVING)
-      throw new ConflictException(
-        'La réservation des crédits est en cours; réessayez dans quelques instants.',
-      );
-    await this.prisma.invitationBatch.updateMany({
-      where: {
-        id,
-        ownerSubject: owner,
-        status: { in: [BatchStatus.RESERVING, BatchStatus.QUEUED, BatchStatus.GENERATING] },
-      },
-      data: { status: BatchStatus.CANCELLED, cancelledAt: new Date() },
+    if (batch.status === BatchStatus.RESERVING) throw new ConflictException('La réservation est en cours.');
+    await this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM invitation_batches WHERE id = ${id}::uuid FOR UPDATE`);
+      const changed = await tx.invitationBatch.updateMany({ where: { id, ownerSubject: owner, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] }, settlementCredits: null }, data: { cancelledAt: new Date() } });
+      if (changed.count) await tx.batchItem.updateMany({ where: { batchId: id, status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] } }, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } });
     });
-    batch = await this.prisma.invitationBatch.findFirstOrThrow({
-      where: { id, ownerSubject: owner },
-      include: { items: true },
-    });
-    const generated = batch.items.filter((i) => i.status === BatchItemStatus.GENERATED);
-    const failed = batch.items.filter((i) => i.status === BatchItemStatus.FAILED).length;
-    const consumed = generated.length;
-    await this.settle(batch, consumed);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.invitationBatch.update({
-        where: { id },
-        data: { completedItems: consumed, failedItems: failed },
-      });
-      await tx.batchItem.updateMany({
-        where: { batchId: id, status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] } },
-        data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
-      });
-    });
-    const activeItems = await this.prisma.batchItem.count({ where: { batchId: id, status: BatchItemStatus.GENERATING } });
-    if (!activeItems) await this.cleanupRenderAssets(batch.items[0]?.snapshot);
+    await this.finishIfDone(id);
     return this.getBatch(owner, id);
   }
   private async cleanupRenderAssets(snapshotValue: unknown) {
@@ -643,26 +646,27 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       where: { status: BatchStatus.FAILED, reservationReleasePending: true },
       orderBy: { updatedAt: 'asc' },
       take: 20,
-      select: { id: true, ownerSubject: true, reservationReference: true, totalItems: true, walletReservedCredits: true, agencyWorkspaceId: true, agencyReservationReference: true },
+      select: { id: true, ownerSubject: true, reservationReference: true, totalItems: true, eventId: true, walletReservedCredits: true, agencyWorkspaceId: true, agencyReservationReference: true },
       });
       for (const batch of batches) {
         // Rows created before the agency quota split are fully backed by Wallet.
         const walletReservedCredits = batch.walletReservedCredits ?? batch.totalItems;
         const [walletReleased, agencyReleased] = await Promise.all([
           walletReservedCredits > 0 ? this.releaseReservation(batch.ownerSubject, batch.reservationReference, walletReservedCredits) : Promise.resolve(true),
-        batch.agencyWorkspaceId && batch.agencyReservationReference ? this.releaseAgencyQuotaInternal(batch.agencyWorkspaceId, batch.agencyReservationReference) : Promise.resolve(true),
+        batch.agencyWorkspaceId && batch.agencyReservationReference ? this.releaseAgencyQuotaInternal(batch.agencyWorkspaceId, batch.agencyReservationReference, batch.eventId) : Promise.resolve(true),
       ]);
       if (walletReleased && agencyReleased) {
+        await this.prisma.batchItem.updateMany({ where: { batchId: batch.id, status: BatchItemStatus.QUEUED }, data: { status: BatchItemStatus.FAILED, errorCode: 'CREDIT_RESERVATION_FAILED' } });
         await this.prisma.invitationBatch.updateMany({
           where: { id: batch.id, status: BatchStatus.FAILED, reservationReleasePending: true },
-          data: { reservationReleasePending: false },
+          data: { reservationReleasePending: false, failedItems: batch.totalItems },
         });
       }
     }
   }
-  private async releaseAgencyQuotaInternal(workspaceId: string, reference: string) {
+  private async releaseAgencyQuotaInternal(workspaceId: string, reference: string, eventId: string) {
     try {
-      const response = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/internal/agencies/${encodeURIComponent(workspaceId)}/quota/${encodeURIComponent(reference)}/release`, { method: 'POST', headers: { 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN') }, signal: AbortSignal.timeout(10_000) });
+      const response = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/internal/agencies/${encodeURIComponent(workspaceId)}/quota/${encodeURIComponent(reference)}/release`, { method: 'POST', headers: { 'x-service-token': requiredEnv('WALLET_INTERNAL_TOKEN'), 'content-type': 'application/json' }, body: JSON.stringify({ eventId }), signal: AbortSignal.timeout(10_000) });
       return response.ok;
     } catch { return false; }
   }
@@ -672,6 +676,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       include: { items: true },
     });
     if (!batch) throw new NotFoundException('Lot introuvable.');
+    // COMPLETED is persisted only after Wallet/agency settlement succeeds.
+    // A rendered item alone is not proof that its reservation was consumed.
+    if (!isFundedBatch(batch))
+      throw new ConflictException('Les invitations finales sont disponibles après la finalisation financière du lot.');
     if (itemId) {
       const item = batch.items.find((i) => i.id === itemId);
       if (!item?.objectKey || item.status !== BatchItemStatus.GENERATED)
@@ -683,7 +691,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       };
     }
     const key = `batches/${batchId}.zip`;
-    if (batch.status !== BatchStatus.COMPLETED)
+    if (!isFundedBatch(batch) || batch.completedItems < 1)
       throw new ConflictException('Le ZIP est disponible après le rendu complet du lot.');
     if (batch.zipDeletedAt || (batch.zipExpiresAt && batch.zipExpiresAt <= new Date()))
       throw new ConflictException({ code: 'ZIP_EXPIRED', message: 'Le ZIP a expiré. Régénérez-le à partir des PDF conservés.' });
@@ -698,7 +706,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     await assertStorageCapacity('la régénération d’un ZIP');
     const batch = await this.prisma.invitationBatch.findFirst({ where: { id: batchId, ownerSubject: owner }, include: { items: { where: { status: BatchItemStatus.GENERATED }, orderBy: { createdAt: 'asc' } } } });
     if (!batch) throw new NotFoundException('Lot introuvable.');
-    if (batch.status !== BatchStatus.COMPLETED || !batch.items.length || batch.items.some((item) => !item.objectKey)) throw new ConflictException('Les PDF finaux ne sont pas disponibles pour régénérer le ZIP.');
+    if (!isFundedBatch(batch) || !batch.items.length || batch.items.some((item) => !item.objectKey)) throw new ConflictException('Les PDF finaux ne sont pas disponibles pour régénérer le ZIP.');
     const files = await Promise.all(batch.items.map(async (item) => ({ name: `invitations/${safeGuestFilename(object(object(item.snapshot).guestSnapshot).fullName)}--${item.guestId.slice(0, 8)}.pdf`, bytes: await this.storage.get(item.objectKey!) })));
     const event = object(object(batch.items[0]!.snapshot).eventSnapshot);
     const readme = await renderStaticPdf(`<!doctype html><html lang="fr"><meta charset="utf-8"><style>@page{size:A4;margin:22mm}body{font:12pt Arial;line-height:1.5}h1{font:26pt Georgia;color:#684d3e}</style><h1>Votre lot d’invitations</h1><p>${esc(event.name ?? 'Événement')} · ${files.length} PDF</p><p>Les invitations individuelles se trouvent dans le dossier invitations. Conservez chaque PDF privé et transmettez-le uniquement à son invité.</p></html>`);
@@ -707,7 +715,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     await this.storage.put(key, archive, 'application/zip');
     const ttlDays = Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5)));
     const zipExpiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
-    await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, ownerSubject: owner, status: BatchStatus.COMPLETED }, data: { zipExpiresAt, zipDeletedAt: null, zipSizeBytes: BigInt(archive.byteLength) } });
+    await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, ownerSubject: owner, settledAt: { not: null } }, data: { zipExpiresAt, zipDeletedAt: null, zipSizeBytes: BigInt(archive.byteLength) } });
     return { id: batch.id, status: batch.status, zipExpiresAt };
   }
 
@@ -780,16 +788,23 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private async fundedSnapshot(invitation: { id: string; currentVersionId: string | null; versions: Array<{ id: string; snapshot: unknown }> }) {
+    const version = invitation.versions.find(version => version.id === invitation.currentVersionId);
+    if (!version) throw new NotFoundException('Invitation introuvable.');
+    const funded = await this.prisma.batchItem.findFirst({ where: { invitationId: invitation.id, invitationVersionId: version.id, status: BatchItemStatus.GENERATED, batch: { is: { settledAt: { not: null }, settlementCredits: { gt: 0 }, status: { in: [BatchStatus.COMPLETED, BatchStatus.PARTIAL, BatchStatus.CANCELLED] } } } }, select: { id: true } });
+    if (!funded) throw new NotFoundException('Invitation introuvable.');
+    return object(version.snapshot);
+  }
   async publicInvitation(token: string) {
     const invitationId = invitationIdFromToken(token);
     if (!invitationId) throw new NotFoundException('Invitation introuvable.');
     const invitation = await this.prisma.invitation.findUnique({
       where: { id: invitationId },
-      include: { versions: { orderBy: { version: 'desc' }, take: 1 }, rsvps: true },
+      include: { versions: { orderBy: { version: 'desc' } }, rsvps: true },
     });
     if (!invitation || invitation.status !== InvitationStatus.GENERATED || !invitation.versions[0])
       throw new NotFoundException('Invitation introuvable.');
-    const snapshot = object(invitation.versions[0].snapshot);
+    const snapshot = await this.fundedSnapshot(invitation);
     const guest = object(snapshot.guestSnapshot);
     const event = object(snapshot.eventSnapshot);
     const venue = object(event.venue);
@@ -929,11 +944,11 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     if (!invitationId) throw new NotFoundException('Invitation introuvable.');
     const invitation = await this.prisma.invitation.findFirst({
       where: { id: invitationId, eventId, ownerSubject: owner, status: InvitationStatus.GENERATED },
-      include: { versions: { orderBy: { version: 'desc' }, take: 1 } },
+      include: { versions: { orderBy: { version: 'desc' } } },
     });
     if (!invitation || !invitation.versions[0])
       throw new NotFoundException('Invitation introuvable pour cet événement.');
-    const snapshot = object(invitation.versions[0].snapshot);
+    const snapshot = await this.fundedSnapshot(invitation);
     const guest = object(snapshot.guestSnapshot);
     const access = (Array.isArray(guest.access) ? guest.access : []).find(
       (item: unknown) => object(item).ceremonyId === ceremonyId && object(item).isInvited === true,
@@ -1008,7 +1023,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         orderBy: { checkedAt: 'desc' },
         take: 50,
         include: {
-          invitation: { include: { versions: { orderBy: { version: 'desc' }, take: 1 } } },
+          invitation: { include: { versions: { orderBy: { version: 'desc' } } } },
         },
       }),
       this.prisma.invitationRsvp.count({
@@ -1020,7 +1035,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       accepted,
       recent: checkIns.map((row) => ({
         guestName:
-          object(object(row.invitation.versions[0]?.snapshot).guestSnapshot).fullName ?? '',
+          object(object(row.invitation.versions.find(version => version.id === row.invitation.currentVersionId)?.snapshot).guestSnapshot).fullName ?? '',
         checkedAt: row.checkedAt,
         companionCount: row.companionCount,
       })),
@@ -1031,132 +1046,53 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     if (this.busy) return;
     this.busy = true;
     try {
+      // No render can start while RESERVING. Persist a release intent before
+      // compensation; Wallet/agency release tombstones close ambiguous requests.
+      await this.prisma.invitationBatch.updateMany({ where: { status: BatchStatus.RESERVING, updatedAt: { lt: new Date(Date.now() - 10 * 60_000) } }, data: { status: BatchStatus.FAILED, reservationReleasePending: true } });
       await this.retryPendingReservationReleases();
       await this.consumeRenderQueue();
-      await this.prisma.batchItem.updateMany({
-        where: {
-          status: BatchItemStatus.GENERATING,
-          attempts: { lt: 3 },
-          updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
-          batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } },
-        },
-        data: { status: BatchItemStatus.QUEUED, errorCode: 'REQUEUED_AFTER_WORKER_RESTART' },
-      });
-      await this.prisma.batchItem.updateMany({
-        where: {
-          status: BatchItemStatus.GENERATING,
-          attempts: { gte: 3 },
-          updatedAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
-          batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } },
-        },
-        data: { status: BatchItemStatus.FAILED, errorCode: 'RENDER_FAILED' },
-      });
-      const batches = await this.prisma.invitationBatch.findMany({
-        where: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
-        orderBy: { createdAt: 'asc' },
-        take: 2,
-        include: {
-          items: {
-            where: {
-              OR: [
-                { status: BatchItemStatus.QUEUED },
-                { status: BatchItemStatus.FAILED, attempts: { lt: 3 } },
-              ],
-            },
-            take: 8,
-            orderBy: { createdAt: 'asc' },
-          },
-        },
-      });
+      const stale = { status: BatchItemStatus.GENERATING, updatedAt: { lt: new Date(Date.now() - 10 * 60_000) }, batch: { is: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } } };
+      await this.prisma.batchItem.updateMany({ where: { ...stale, attempts: { lt: 3 } }, data: { status: BatchItemStatus.QUEUED, errorCode: 'REQUEUED_AFTER_WORKER_RESTART' } });
+      await this.prisma.batchItem.updateMany({ where: { ...stale, attempts: { gte: 3 } }, data: { status: BatchItemStatus.FAILED, errorCode: 'RENDER_FAILED' } });
+      await this.prisma.batchItem.updateMany({ where: { status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] }, batch: { is: { cancelledAt: { not: null }, settlementCredits: null } } }, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } });
+      // Resume settlement independently: an unavailable Wallet must not starve rendering.
+      const finalizing = await this.prisma.invitationBatch.findMany({ where: { status: BatchStatus.FINALIZING }, take: 10, orderBy: { updatedAt: 'asc' } });
+      for (const batch of finalizing) await this.finishIfDone(batch.id);
+      const batches = await this.prisma.invitationBatch.findMany({ where: { status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } }, orderBy: { createdAt: 'asc' }, take: 2,
+        include: { items: { where: { status: BatchItemStatus.QUEUED }, take: 8, orderBy: { createdAt: 'asc' } } } });
       for (const batch of batches) {
-        const active = await this.prisma.invitationBatch.updateMany({
-          where: { id: batch.id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
-          data: { status: BatchStatus.GENERATING },
-        });
-        if (!active.count) continue;
-        await Promise.all(
-          batch.items.map(async (item) => {
-            try {
-              const claim = await this.prisma.batchItem.updateMany({
-                where: {
-                  id: item.id,
-                  status: { in: [BatchItemStatus.QUEUED, BatchItemStatus.FAILED] },
-                  attempts: { lt: 3 },
-                },
-                data: {
-                  status: BatchItemStatus.GENERATING,
-                  attempts: { increment: 1 },
-                  errorCode: null,
-                },
-              });
-              if (!claim.count) return;
-              const latestBefore = await this.prisma.invitationBatch.findUniqueOrThrow({
-                where: { id: batch.id },
-                select: { status: true },
-              });
-              if (latestBefore.status === BatchStatus.CANCELLED) {
-                await this.prisma.batchItem.update({
-                  where: { id: item.id },
-                  data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
-                });
-                return;
+        await this.prisma.invitationBatch.updateMany({ where: { id: batch.id, status: BatchStatus.QUEUED }, data: { status: BatchStatus.GENERATING } });
+        await Promise.all(batch.items.map(async item => {
+          const attempt = item.attempts + 1;
+          const owned = { id: item.id, status: BatchItemStatus.GENERATING, attempts: attempt };
+          try {
+            const claim = await this.prisma.batchItem.updateMany({ where: { id: item.id, status: BatchItemStatus.QUEUED, attempts: item.attempts, batch: { is: { cancelledAt: null, settlementCredits: null, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } } }, data: { status: BatchItemStatus.GENERATING, attempts: { increment: 1 }, errorCode: null } });
+            if (!claim.count) return;
+            const pdf = await this.render(object(item.snapshot));
+            // Immutable attempt keys: a stale worker cannot overwrite a funded file.
+            const key = 'pdf/' + batch.id + '/' + randomUUID() + '.pdf';
+            await this.storage.put(key, pdf, 'application/pdf');
+            const committed = await this.prisma.$transaction(async tx => {
+              await tx.$queryRaw(Prisma.sql`SELECT id FROM invitation_batches WHERE id = ${batch.id}::uuid FOR UPDATE`);
+              const current = await tx.invitationBatch.findUniqueOrThrow({ where: { id: batch.id } });
+              if (current.cancelledAt || current.settlementCredits !== null) {
+                await tx.batchItem.updateMany({ where: owned, data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' } });
+                return false;
               }
-              const pdf = await this.render(object(item.snapshot));
-              const key = `pdf/${batch.id}/${item.guestId}.pdf`;
-              await this.storage.put(key, pdf, 'application/pdf');
-              const committed = await this.prisma.$transaction(async (tx) => {
-                const activeBatch = await tx.invitationBatch.updateMany({
-                  where: {
-                    id: batch.id,
-                    status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] },
-                  },
-                  data: { completedItems: { increment: 1 } },
-                });
-                if (!activeBatch.count) {
-                  await tx.batchItem.update({
-                    where: { id: item.id },
-                    data: { status: BatchItemStatus.CANCELLED, errorCode: 'BATCH_CANCELLED' },
-                  });
-                  return false;
-                }
-                await tx.batchItem.update({
-                  where: { id: item.id },
-                  data: { status: BatchItemStatus.GENERATED, objectKey: key, sizeBytes: BigInt(pdf.byteLength) },
-                });
-                await tx.invitation.update({
-                  where: { id: item.invitationId },
-                  data: { status: InvitationStatus.GENERATED },
-                });
-                return true;
-              });
-              if (!committed) await this.storage.delete(key);
-            } catch {
-              const attempt = item.attempts + 1;
-              await this.prisma.$transaction([
-                this.prisma.batchItem.update({
-                  where: { id: item.id },
-                  data: {
-                    status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED,
-                    errorCode: attempt >= 3 ? 'RENDER_FAILED' : 'RETRYING',
-                  },
-                }),
-                ...(attempt >= 3
-                  ? [
-                      this.prisma.invitationBatch.update({
-                        where: { id: batch.id },
-                        data: { failedItems: { increment: 1 } },
-                      }),
-                    ]
-                  : []),
-              ]);
-            }
-          }),
-        );
+              const changed = await tx.batchItem.updateMany({ where: owned, data: { status: BatchItemStatus.GENERATED, objectKey: key, sizeBytes: BigInt(pdf.byteLength) } });
+              if (changed.count) await tx.invitationBatch.update({ where: { id: batch.id }, data: { completedItems: { increment: 1 } } });
+              return changed.count === 1;
+            });
+            if (!committed) await this.storage.delete(key);
+          } catch {
+            // If commit succeeded but its acknowledgement was lost, GENERATED no
+            // longer matches this lease. Never roll it back or refund on timeout.
+            await this.prisma.batchItem.updateMany({ where: owned, data: { status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED, errorCode: attempt >= 3 ? 'RENDER_FAILED' : 'RETRYING' } });
+          }
+        }));
         await this.finishIfDone(batch.id);
       }
-    } finally {
-      this.busy = false;
-    }
+    } finally { this.busy = false; }
   }
   private async consumeRenderQueue() {
     const api = process.env['RABBITMQ_MANAGEMENT_URL'];
@@ -1194,77 +1130,59 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     }
   }
   private async finishIfDone(id: string) {
-    const items = await this.prisma.batchItem.findMany({ where: { batchId: id } });
-    if (
-      items.some(
-        (i) => i.status === BatchItemStatus.QUEUED || i.status === BatchItemStatus.GENERATING,
-      )
-    )
-      return;
-    const batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id } });
-    if (batch.status === BatchStatus.CANCELLED) {
-      await this.cleanupRenderAssets(items[0]?.snapshot);
-      return;
-    }
-    const made = items.filter((i) => i.status === BatchItemStatus.GENERATED);
-    const failed = items.filter((i) => i.status === BatchItemStatus.FAILED).length;
     try {
-      if (failed)
-        await Promise.all(
-          made.flatMap((i) => (i.objectKey ? [this.storage.delete(i.objectKey)] : [])),
-        );
-      if (!failed && made.length) {
-        const event = object(object(made[0]!.snapshot).eventSnapshot);
-        const readme = await renderStaticPdf(`<!doctype html><html lang="fr"><meta charset="utf-8"><style>@page{size:A4;margin:22mm}body{font:12pt Arial,sans-serif;color:#29251f;line-height:1.55}h1{font: bold 26pt Georgia;color:#684d3e;margin:0 0 8mm}h2{font: bold 15pt Georgia;color:#684d3e;margin:9mm 0 3mm}.meta{color:#655d57;border-bottom:1px solid #d8cabc;padding-bottom:5mm}.box{background:#f7f1e7;padding:5mm;border-radius:3mm}li{margin:2mm 0}small{color:#675f59}</style><h1>Votre lot d’invitations</h1><p class="meta">${esc(event.name ?? 'Événement')} · ${made.length} invitation${made.length > 1 ? 's' : ''}</p><div class="box">Cette archive contient les invitations personnalisées au format PDF. Chaque fichier correspond à un invité et inclut son code QR privé lorsque celui-ci est activé pour l’invitation.</div><h2>Ouvrir les invitations</h2><ol><li>Décompressez le fichier ZIP sur votre téléphone ou ordinateur.</li><li>Ouvrez le dossier <b>invitations</b>.</li><li>Chaque PDF porte le nom de l’invité. Vous pouvez ensuite l’imprimer ou le partager individuellement.</li></ol><h2>Réponses des invités</h2><p>Les invités peuvent utiliser le code QR de leur PDF pour consulter l’invitation et répondre en ligne. Conservez les PDF privés et transmettez chacun uniquement à la personne concernée.</p><h2>Besoin d’aide ?</h2><p>Retrouvez le lot dans InvitaFlow, dans la page des invitations de l’événement. Le ZIP n’est disponible qu’après la fin complète du rendu.</p><small>Document généré automatiquement par InvitaFlow.</small></html>`);
-        const zip = createZip(
-          await Promise.all(
-            made.map(async (i) => ({
-              name: `invitations/${safeGuestFilename(object(object(i.snapshot).guestSnapshot).fullName)}--${i.guestId.slice(0, 8)}.pdf`,
-              bytes: await this.storage.get(i.objectKey!),
-            })),
-          ).then((files) => [...files, { name: 'LISEZ-MOI.pdf', bytes: readme }]),
-        );
-        await this.storage.put(`batches/${id}.zip`, zip, 'application/zip');
-        await this.prisma.invitationBatch.update({ where: { id }, data: { zipSizeBytes: BigInt(zip.byteLength) } });
-      }
-      await this.cleanupRenderAssets(items[0]?.snapshot);
-      await this.settle(batch, failed ? 0 : made.length);
-      const zipTtlDays = Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5)));
-      await this.prisma.$transaction(async (tx) => {
-        const changed = await tx.invitationBatch.updateMany({
-          where: { id, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } },
-          data: {
-            status: failed ? BatchStatus.FAILED : BatchStatus.COMPLETED,
-            completedItems: failed ? 0 : made.length,
-            failedItems: failed ? items.length : 0,
-            zipExpiresAt: failed || !made.length ? null : new Date(Date.now() + zipTtlDays * 24 * 60 * 60 * 1000),
-            zipDeletedAt: null,
-          },
-        });
-        if (changed.count)
-          await tx.outboxMessage.create({
-            data: {
-              eventType: failed ? 'invitation.batch.failed.v1' : 'invitation.batch.completed.v1',
-              aggregateId: id,
-              payload: {
-                batchId: id,
-                eventId: batch.eventId,
-                ownerSubject: batch.ownerSubject,
-                generatedCount: failed ? 0 : made.length,
-                failedCount: failed ? items.length : 0,
-                occurredAt: new Date().toISOString(),
-                schemaVersion: 1,
-              },
-            },
-          });
+      const frozen = await this.prisma.$transaction(async tx => {
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM invitation_batches WHERE id = ${id}::uuid FOR UPDATE`);
+        const batch = await tx.invitationBatch.findUniqueOrThrow({ where: { id }, include: { items: true } });
+        if (![BatchStatus.QUEUED, BatchStatus.GENERATING, BatchStatus.FINALIZING].includes(batch.status as 'QUEUED' | 'GENERATING' | 'FINALIZING')) return null;
+        if (batch.items.some(item => item.status === BatchItemStatus.QUEUED || item.status === BatchItemStatus.GENERATING)) return null;
+        const generated = batch.items.filter(item => item.status === BatchItemStatus.GENERATED);
+        if (batch.settlementCredits !== null && batch.settlementCredits !== generated.length) throw new Error('Frozen settlement count mismatch');
+        if (batch.status !== BatchStatus.FINALIZING) await tx.invitationBatch.update({ where: { id }, data: { status: BatchStatus.FINALIZING, settlementCredits: generated.length } });
+        return { batch, generated };
       });
-      if (failed)
-        await this.prisma.batchItem.updateMany({
-          where: { batchId: id, status: BatchItemStatus.GENERATED },
-          data: { status: BatchItemStatus.FAILED, objectKey: null, errorCode: 'BATCH_ROLLED_BACK' },
-        });
+      if (!frozen) return;
+      const { batch, generated } = frozen;
+      let zipSizeBytes: bigint | null = null;
+      if (generated.length) {
+        const files = await Promise.all(generated.map(async item => {
+          if (!item.objectKey) throw new Error('Missing final object');
+          const bytes = await this.storage.get(item.objectKey);
+          if (!bytes.length || item.sizeBytes !== null && BigInt(bytes.byteLength) !== item.sizeBytes) throw new Error('Incomplete final object');
+          return { name: 'invitations/' + safeGuestFilename(object(object(item.snapshot).guestSnapshot).fullName) + '--' + item.guestId.slice(0, 8) + '.pdf', bytes };
+        }));
+        const zip = createZip(files);
+        await this.storage.put('batches/' + id + '.zip', zip, 'application/zip');
+        if (!(await this.storage.get('batches/' + id + '.zip')).equals(zip)) throw new Error('Archive durability verification failed');
+        zipSizeBytes = BigInt(zip.byteLength);
+      }
+      // Immutable settlement count and idempotency key survive crashes, including
+      // a crash after Wallet commits but before this service receives its reply.
+      await this.settle(batch, generated.length);
+      await this.prisma.$transaction(async tx => {
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM invitation_batches WHERE id = ${id}::uuid FOR UPDATE`);
+        const changed = await tx.invitationBatch.updateMany({ where: { id, status: BatchStatus.FINALIZING, settlementCredits: generated.length, settledAt: null }, data: {
+          status: finalBatchStatus(generated.length, batch.totalItems, !!batch.cancelledAt), settledAt: new Date(), completedItems: generated.length,
+          failedItems: batch.items.filter(item => item.status === BatchItemStatus.FAILED).length,
+          zipSizeBytes, zipDeletedAt: null,
+          zipExpiresAt: generated.length ? new Date(Date.now() + Math.max(1, Math.min(365, Number(process.env['STORAGE_ZIP_TTL_DAYS'] ?? 5))) * 86_400_000) : null,
+        } });
+        if (!changed.count) return;
+        for (const item of [...generated].sort((a, b) => a.invitationId.localeCompare(b.invitationId))) {
+          await tx.$queryRaw(Prisma.sql`SELECT id FROM invitations WHERE id = ${item.invitationId}::uuid FOR UPDATE`);
+          if (!item.invitationVersionId) continue;
+          const version = await tx.invitationVersion.findUniqueOrThrow({ where: { id: item.invitationVersionId } });
+          const invitation = await tx.invitation.findUniqueOrThrow({ where: { id: item.invitationId } });
+          const current = invitation.currentVersionId ? await tx.invitationVersion.findUnique({ where: { id: invitation.currentVersionId } }) : null;
+          if ((!current || current.version < version.version) && invitation.status !== InvitationStatus.REVOKED) await tx.invitation.update({ where: { id: invitation.id }, data: { status: InvitationStatus.GENERATED, currentVersionId: version.id } });
+        }
+        await tx.outboxMessage.create({ data: { eventType: generated.length ? 'invitation.batch.completed.v1' : 'invitation.batch.failed.v1', aggregateId: id, payload: { batchId: id, eventId: batch.eventId, ownerSubject: batch.ownerSubject, generatedCount: generated.length, failedCount: batch.totalItems - generated.length, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+      }, { timeout: 60_000 });
+      // Retain immutable image snapshots when failures remain, for technical retry.
+      if (generated.length === batch.totalItems) await this.cleanupRenderAssets(batch.items[0]?.snapshot);
     } catch {
-      /* Leave the batch generating; the next worker tick retries finalization idempotently. */
+      console.warn('[INVITATION FINALIZATION] pending; retry uses the same reservation and count');
+      // No release/refund here: the outcome of a timed-out settlement is unknown.
     }
   }
   private async render(snapshot: Obj): Promise<Buffer> {
@@ -1393,7 +1311,8 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       : legacyLayers;
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
     const hasDesignQr = renderElements.some((item: unknown) => object(item).type === 'QR');
-    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:A5;margin:0}html,body{margin:0;width:148mm;height:210mm;background:${designBackground};overflow:hidden}svg{display:block;width:148mm;height:210mm}.fallback{box-sizing:border-box;width:148mm;height:210mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
+    const { widthMm, heightMm } = invitationPrintFormat(doc);
+    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:${widthMm}mm ${heightMm}mm;margin:0}html,body{margin:0;width:${widthMm}mm;height:${heightMm}mm;background:${designBackground};overflow:hidden}svg{display:block;width:${widthMm}mm;height:${heightMm}mm}.fallback{box-sizing:border-box;width:${widthMm}mm;height:${heightMm}mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');
     const output = join(dir, 'invitation.pdf');

@@ -1,12 +1,20 @@
 export const EVENT_JOURNEY_STEPS = [
   { id: 'event', label: 'Événement' },
   { id: 'ceremonies', label: 'Cérémonies' },
+  { id: 'designs', label: 'Design et textes' },
   { id: 'guests', label: 'Invités' },
-  { id: 'seating', label: 'Placement', optional: true },
-  { id: 'designs', label: 'Design' },
   { id: 'invitations', label: 'Invitations' },
-  { id: 'checkin', label: 'Check-in' },
+  { id: 'thanks', label: 'Merci' },
 ];
+
+export function eventJourneyResumeDestination(eventId, { ceremonyCount, hasSelectedDesign, guestCount, batchCount }) {
+  if (![ceremonyCount, guestCount, batchCount].every(value => Number.isInteger(value) && value >= 0) || typeof hasSelectedDesign !== 'boolean') throw new Error('État du parcours indisponible.');
+  const base = `/events/${encodeURIComponent(eventId)}`;
+  if (batchCount > 0) return `${base}/invitations`;
+  if (!ceremonyCount) return `/events?event=${encodeURIComponent(eventId)}#ceremony-${encodeURIComponent(eventId)}`;
+  if (!hasSelectedDesign) return `${base}/designs`;
+  return `${base}/${guestCount ? 'invitations' : 'guests'}`;
+}
 
 export function deriveEventJourneyStatuses({ ceremonyCount, guestCount, designCount, hasCompletedBatch }) {
   return {
@@ -18,6 +26,7 @@ export function deriveEventJourneyStatuses({ ceremonyCount, guestCount, designCo
     invitations: guestCount === null || designCount === null
       ? 'UNKNOWN'
       : ceremonyCount === 0 || guestCount === 0 || designCount === 0 ? 'BLOCKED' : 'IN_PROGRESS',
+    thanks: hasCompletedBatch === null ? 'UNKNOWN' : hasCompletedBatch ? 'READY' : 'BLOCKED',
     checkin: hasCompletedBatch === null ? 'UNKNOWN' : hasCompletedBatch ? 'READY' : 'BLOCKED',
   };
 }

@@ -14,6 +14,7 @@ const context: RequestContext = { requestId: 'request-123', correlationId: 'flow
 for (const [route, method] of [
   [DESIGNS_COMPOSER_ROUTES.proposals, 'POST'],
   [DESIGNS_COMPOSER_ROUTES.select, 'POST'],
+  ['/design-1/continue', 'POST'],
 ] as const) {
   test(`Designs composer ${route} forwards to Designs with auth, JSON and request context`, async (t) => {
     const originalFetch = globalThis.fetch;

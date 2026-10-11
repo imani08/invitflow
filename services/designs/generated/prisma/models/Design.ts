@@ -262,6 +262,7 @@ export type DesignWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"Design"> | Date | string
   template?: Prisma.XOR<Prisma.DesignTemplateNullableScalarRelationFilter, Prisma.DesignTemplateWhereInput> | null
   versions?: Prisma.DesignVersionListRelationFilter
+  selections?: Prisma.EventDesignSelectionListRelationFilter
 }
 
 export type DesignOrderByWithRelationInput = {
@@ -278,6 +279,7 @@ export type DesignOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   template?: Prisma.DesignTemplateOrderByWithRelationInput
   versions?: Prisma.DesignVersionOrderByRelationAggregateInput
+  selections?: Prisma.EventDesignSelectionOrderByRelationAggregateInput
 }
 
 export type DesignWhereUniqueInput = Prisma.AtLeast<{
@@ -297,6 +299,7 @@ export type DesignWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"Design"> | Date | string
   template?: Prisma.XOR<Prisma.DesignTemplateNullableScalarRelationFilter, Prisma.DesignTemplateWhereInput> | null
   versions?: Prisma.DesignVersionListRelationFilter
+  selections?: Prisma.EventDesignSelectionListRelationFilter
 }, "id">
 
 export type DesignOrderByWithAggregationInput = {
@@ -348,6 +351,7 @@ export type DesignCreateInput = {
   updatedAt?: Date | string
   template?: Prisma.DesignTemplateCreateNestedOneWithoutDesignsInput
   versions?: Prisma.DesignVersionCreateNestedManyWithoutDesignInput
+  selections?: Prisma.EventDesignSelectionCreateNestedManyWithoutDesignInput
 }
 
 export type DesignUncheckedCreateInput = {
@@ -363,6 +367,7 @@ export type DesignUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   versions?: Prisma.DesignVersionUncheckedCreateNestedManyWithoutDesignInput
+  selections?: Prisma.EventDesignSelectionUncheckedCreateNestedManyWithoutDesignInput
 }
 
 export type DesignUpdateInput = {
@@ -378,6 +383,7 @@ export type DesignUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   template?: Prisma.DesignTemplateUpdateOneWithoutDesignsNestedInput
   versions?: Prisma.DesignVersionUpdateManyWithoutDesignNestedInput
+  selections?: Prisma.EventDesignSelectionUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignUncheckedUpdateInput = {
@@ -393,6 +399,7 @@ export type DesignUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   versions?: Prisma.DesignVersionUncheckedUpdateManyWithoutDesignNestedInput
+  selections?: Prisma.EventDesignSelectionUncheckedUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignCreateManyInput = {
@@ -434,6 +441,11 @@ export type DesignUncheckedUpdateManyInput = {
   document?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type DesignScalarRelationFilter = {
+  is?: Prisma.DesignWhereInput
+  isNot?: Prisma.DesignWhereInput
 }
 
 export type DesignListRelationFilter = {
@@ -494,9 +506,18 @@ export type DesignSumOrderByAggregateInput = {
   version?: Prisma.SortOrder
 }
 
-export type DesignScalarRelationFilter = {
-  is?: Prisma.DesignWhereInput
-  isNot?: Prisma.DesignWhereInput
+export type DesignCreateNestedOneWithoutSelectionsInput = {
+  create?: Prisma.XOR<Prisma.DesignCreateWithoutSelectionsInput, Prisma.DesignUncheckedCreateWithoutSelectionsInput>
+  connectOrCreate?: Prisma.DesignCreateOrConnectWithoutSelectionsInput
+  connect?: Prisma.DesignWhereUniqueInput
+}
+
+export type DesignUpdateOneRequiredWithoutSelectionsNestedInput = {
+  create?: Prisma.XOR<Prisma.DesignCreateWithoutSelectionsInput, Prisma.DesignUncheckedCreateWithoutSelectionsInput>
+  connectOrCreate?: Prisma.DesignCreateOrConnectWithoutSelectionsInput
+  upsert?: Prisma.DesignUpsertWithoutSelectionsInput
+  connect?: Prisma.DesignWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DesignUpdateToOneWithWhereWithoutSelectionsInput, Prisma.DesignUpdateWithoutSelectionsInput>, Prisma.DesignUncheckedUpdateWithoutSelectionsInput>
 }
 
 export type DesignCreateNestedManyWithoutTemplateInput = {
@@ -563,6 +584,82 @@ export type DesignUpdateOneRequiredWithoutVersionsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DesignUpdateToOneWithWhereWithoutVersionsInput, Prisma.DesignUpdateWithoutVersionsInput>, Prisma.DesignUncheckedUpdateWithoutVersionsInput>
 }
 
+export type DesignCreateWithoutSelectionsInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  templateSlug?: string | null
+  name: string
+  status?: $Enums.DesignStatus
+  version?: number
+  document: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  template?: Prisma.DesignTemplateCreateNestedOneWithoutDesignsInput
+  versions?: Prisma.DesignVersionCreateNestedManyWithoutDesignInput
+}
+
+export type DesignUncheckedCreateWithoutSelectionsInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  templateId?: string | null
+  templateSlug?: string | null
+  name: string
+  status?: $Enums.DesignStatus
+  version?: number
+  document: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  versions?: Prisma.DesignVersionUncheckedCreateNestedManyWithoutDesignInput
+}
+
+export type DesignCreateOrConnectWithoutSelectionsInput = {
+  where: Prisma.DesignWhereUniqueInput
+  create: Prisma.XOR<Prisma.DesignCreateWithoutSelectionsInput, Prisma.DesignUncheckedCreateWithoutSelectionsInput>
+}
+
+export type DesignUpsertWithoutSelectionsInput = {
+  update: Prisma.XOR<Prisma.DesignUpdateWithoutSelectionsInput, Prisma.DesignUncheckedUpdateWithoutSelectionsInput>
+  create: Prisma.XOR<Prisma.DesignCreateWithoutSelectionsInput, Prisma.DesignUncheckedCreateWithoutSelectionsInput>
+  where?: Prisma.DesignWhereInput
+}
+
+export type DesignUpdateToOneWithWhereWithoutSelectionsInput = {
+  where?: Prisma.DesignWhereInput
+  data: Prisma.XOR<Prisma.DesignUpdateWithoutSelectionsInput, Prisma.DesignUncheckedUpdateWithoutSelectionsInput>
+}
+
+export type DesignUpdateWithoutSelectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  templateSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumDesignStatusFieldUpdateOperationsInput | $Enums.DesignStatus
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  document?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  template?: Prisma.DesignTemplateUpdateOneWithoutDesignsNestedInput
+  versions?: Prisma.DesignVersionUpdateManyWithoutDesignNestedInput
+}
+
+export type DesignUncheckedUpdateWithoutSelectionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  templateId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  templateSlug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumDesignStatusFieldUpdateOperationsInput | $Enums.DesignStatus
+  version?: Prisma.IntFieldUpdateOperationsInput | number
+  document?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  versions?: Prisma.DesignVersionUncheckedUpdateManyWithoutDesignNestedInput
+}
+
 export type DesignCreateWithoutTemplateInput = {
   id?: string
   ownerSubject: string
@@ -575,6 +672,7 @@ export type DesignCreateWithoutTemplateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   versions?: Prisma.DesignVersionCreateNestedManyWithoutDesignInput
+  selections?: Prisma.EventDesignSelectionCreateNestedManyWithoutDesignInput
 }
 
 export type DesignUncheckedCreateWithoutTemplateInput = {
@@ -589,6 +687,7 @@ export type DesignUncheckedCreateWithoutTemplateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   versions?: Prisma.DesignVersionUncheckedCreateNestedManyWithoutDesignInput
+  selections?: Prisma.EventDesignSelectionUncheckedCreateNestedManyWithoutDesignInput
 }
 
 export type DesignCreateOrConnectWithoutTemplateInput = {
@@ -646,6 +745,7 @@ export type DesignCreateWithoutVersionsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   template?: Prisma.DesignTemplateCreateNestedOneWithoutDesignsInput
+  selections?: Prisma.EventDesignSelectionCreateNestedManyWithoutDesignInput
 }
 
 export type DesignUncheckedCreateWithoutVersionsInput = {
@@ -660,6 +760,7 @@ export type DesignUncheckedCreateWithoutVersionsInput = {
   document: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
+  selections?: Prisma.EventDesignSelectionUncheckedCreateNestedManyWithoutDesignInput
 }
 
 export type DesignCreateOrConnectWithoutVersionsInput = {
@@ -690,6 +791,7 @@ export type DesignUpdateWithoutVersionsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   template?: Prisma.DesignTemplateUpdateOneWithoutDesignsNestedInput
+  selections?: Prisma.EventDesignSelectionUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignUncheckedUpdateWithoutVersionsInput = {
@@ -704,6 +806,7 @@ export type DesignUncheckedUpdateWithoutVersionsInput = {
   document?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  selections?: Prisma.EventDesignSelectionUncheckedUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignCreateManyTemplateInput = {
@@ -731,6 +834,7 @@ export type DesignUpdateWithoutTemplateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   versions?: Prisma.DesignVersionUpdateManyWithoutDesignNestedInput
+  selections?: Prisma.EventDesignSelectionUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignUncheckedUpdateWithoutTemplateInput = {
@@ -745,6 +849,7 @@ export type DesignUncheckedUpdateWithoutTemplateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   versions?: Prisma.DesignVersionUncheckedUpdateManyWithoutDesignNestedInput
+  selections?: Prisma.EventDesignSelectionUncheckedUpdateManyWithoutDesignNestedInput
 }
 
 export type DesignUncheckedUpdateManyWithoutTemplateInput = {
@@ -767,10 +872,12 @@ export type DesignUncheckedUpdateManyWithoutTemplateInput = {
 
 export type DesignCountOutputType = {
   versions: number
+  selections: number
 }
 
 export type DesignCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   versions?: boolean | DesignCountOutputTypeCountVersionsArgs
+  selections?: boolean | DesignCountOutputTypeCountSelectionsArgs
 }
 
 /**
@@ -790,6 +897,13 @@ export type DesignCountOutputTypeCountVersionsArgs<ExtArgs extends runtime.Types
   where?: Prisma.DesignVersionWhereInput
 }
 
+/**
+ * DesignCountOutputType without action
+ */
+export type DesignCountOutputTypeCountSelectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.EventDesignSelectionWhereInput
+}
+
 
 export type DesignSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -805,6 +919,7 @@ export type DesignSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   updatedAt?: boolean
   template?: boolean | Prisma.Design$templateArgs<ExtArgs>
   versions?: boolean | Prisma.Design$versionsArgs<ExtArgs>
+  selections?: boolean | Prisma.Design$selectionsArgs<ExtArgs>
   _count?: boolean | Prisma.DesignCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["design"]>
 
@@ -856,6 +971,7 @@ export type DesignOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 export type DesignInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   template?: boolean | Prisma.Design$templateArgs<ExtArgs>
   versions?: boolean | Prisma.Design$versionsArgs<ExtArgs>
+  selections?: boolean | Prisma.Design$selectionsArgs<ExtArgs>
   _count?: boolean | Prisma.DesignCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DesignIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -870,6 +986,7 @@ export type $DesignPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
   objects: {
     template: Prisma.$DesignTemplatePayload<ExtArgs> | null
     versions: Prisma.$DesignVersionPayload<ExtArgs>[]
+    selections: Prisma.$EventDesignSelectionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1279,6 +1396,7 @@ export interface Prisma__DesignClient<T, Null = never, ExtArgs extends runtime.T
   readonly [Symbol.toStringTag]: "PrismaPromise"
   template<T extends Prisma.Design$templateArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Design$templateArgs<ExtArgs>>): Prisma.Prisma__DesignTemplateClient<runtime.Types.Result.GetResult<Prisma.$DesignTemplatePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   versions<T extends Prisma.Design$versionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Design$versionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DesignVersionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  selections<T extends Prisma.Design$selectionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Design$selectionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$EventDesignSelectionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1760,6 +1878,30 @@ export type Design$versionsArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.DesignVersionScalarFieldEnum | Prisma.DesignVersionScalarFieldEnum[]
+}
+
+/**
+ * Design.selections
+ */
+export type Design$selectionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the EventDesignSelection
+   */
+  select?: Prisma.EventDesignSelectionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the EventDesignSelection
+   */
+  omit?: Prisma.EventDesignSelectionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.EventDesignSelectionInclude<ExtArgs> | null
+  where?: Prisma.EventDesignSelectionWhereInput
+  orderBy?: Prisma.EventDesignSelectionOrderByWithRelationInput | Prisma.EventDesignSelectionOrderByWithRelationInput[]
+  cursor?: Prisma.EventDesignSelectionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.EventDesignSelectionScalarFieldEnum | Prisma.EventDesignSelectionScalarFieldEnum[]
 }
 
 /**

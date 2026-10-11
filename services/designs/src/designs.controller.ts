@@ -106,6 +106,10 @@ export class DesignsController {
     );
   }
 
+  @Post('/:designId/continue') continueJourney(@Req() request: AuthenticatedRequest, @Param('eventId') eventId: string, @Param('designId') designId: string, @Body() body: unknown) {
+    return this.designs.continueJourney(eventId, request.identity!.subject, authorization(request), designId, body);
+  }
+
   @Post('/:designId/validate') async validate(
     @Req() request: AuthenticatedRequest,
     @Param('eventId') eventId: string,
@@ -117,7 +121,7 @@ export class DesignsController {
       authorization(request),
       designId,
     );
-    return { ...this.designs.inspectDocument(design.document), editorial: await this.designs.editorialContext(eventId, request.identity!.subject, authorization(request), designId) };
+    return { ...(await this.designs.inspectDocument(design.document)), editorial: await this.designs.editorialContext(eventId, request.identity!.subject, authorization(request), designId) };
   }
 
   @Get('/:designId') get(

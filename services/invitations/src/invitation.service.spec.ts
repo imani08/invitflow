@@ -12,6 +12,30 @@ const guestA = '33333333-3333-4333-8333-333333333333';
 const guestB = '66666666-6666-4666-8666-666666666666';
 const guestC = '77777777-7777-4777-8777-777777777777';
 
+test('rendered PDFs cannot be downloaded before financial finalization', async () => {
+  for (const status of ['RESERVING', 'QUEUED', 'GENERATING', 'FAILED', 'CANCELLED', 'PARTIAL']) {
+    let storageCalls = 0;
+    const prisma = { invitationBatch: { findFirst: async () => ({ status, items: [{ id: 'item', guestId: guestA, status: 'GENERATED', objectKey: 'private.pdf' }] }) } } as unknown as PrismaService;
+    const storage = { stream: async () => { storageCalls++; return new Response('pdf'); } } as unknown as InvitationStorage;
+    const service = new InvitationService(prisma, storage);
+    await assert.rejects(service.download('owner', 'batch', 'item'), /finalisation financière/);
+    assert.equal(storageCalls, 0);
+  }
+});
+
+test('a completed invitation can be downloaded repeatedly without contacting Wallet', async () => {
+  let reads = 0;
+  const prisma = { invitationBatch: { findFirst: async (args: unknown) => {
+    assert.deepEqual(args, { where: { id: 'batch', ownerSubject: 'owner' }, include: { items: true } });
+    return { status: 'COMPLETED', items: [{ id: 'item', guestId: guestA, status: 'GENERATED', objectKey: 'private.pdf' }] };
+  } } } as unknown as PrismaService;
+  const storage = { stream: async () => { reads++; return new Response('pdf'); } } as unknown as InvitationStorage;
+  const service = new InvitationService(prisma, storage);
+  assert.equal((await service.download('owner', 'batch', 'item')).type, 'application/pdf');
+  assert.equal((await service.download('owner', 'batch', 'item')).type, 'application/pdf');
+  assert.equal(reads, 2);
+});
+
 async function withStorageCapacity<T>(work: () => Promise<T>) {
   const originalFetch = globalThis.fetch;
   const originalToken = process.env['STORAGE_MONITOR_TOKEN'];
@@ -26,7 +50,7 @@ async function withStorageCapacity<T>(work: () => Promise<T>) {
 }
 
 function serviceWithPrior() {
-  const prior = { id: 'batch-1', eventId, designId, items: [{ guestId: guestA }, { guestId: guestB }] };
+  const prior = { id: 'batch-1', eventId, designId, designVersion: 3, items: [{ guestId: guestA }, { guestId: guestB }] };
   const prisma = { invitationBatch: { findUnique: async () => prior } } as unknown as PrismaService;
   return { service: new InvitationService(prisma, {} as InvitationStorage), prior };
 }
@@ -51,6 +75,15 @@ test('generation idempotency treats an omitted guest list and an empty list as t
     const empty = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] });
     assert.equal(omitted, prior);
     assert.equal(empty, prior);
+  });
+});
+
+test('a replay cannot reuse a reservation for a different reviewed design version', async () => {
+  await withStorageCapacity(async () => {
+    const { service, prior } = serviceWithPrior();
+    assert.equal(await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 3 }), prior);
+    await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 4 }), /autre demande/);
+    await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 0 }), /Version/);
   });
 });
 

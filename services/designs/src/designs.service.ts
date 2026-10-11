@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { DesignStatus, Prisma, TemplateCategory, type Design } from '../generated/prisma/client.js';
-import { assertProfessionalPersonalization, editorialField, editorialTarget, protectedEditorialTerms, applyEditorialSelection, resolveDesignLayout, composeDesignProposals, professionalCompositionManifest, validateDesignDocumentV2, type ComposerEventType } from '@invitaflow/design-document';
+import { REFERENCE_TEMPLATES, createReferenceTemplate, invitationDisplayFields, assertProfessionalPersonalization, editorialField, editorialTarget, protectedEditorialTerms, applyEditorialSelection, resolveDesignLayout, composeDesignProposals, professionalCompositionManifest, validateDesignDocumentV2, type ComposerEventType } from '@invitaflow/design-document';
 import { EventsClient } from './events-client.js';
 import { PrismaService } from './prisma.service.js';
 import { normalizeDesignDocument, templateVariables, validateDesignDocument } from './design-document.js';
@@ -69,21 +69,14 @@ export class DesignsService {
   }
 
   private composerEventInput(event: Awaited<ReturnType<EventsClient['assertOwnerEvent']>>, photos: Awaited<ReturnType<DesignsService['composerPhotos']>>, seed: string, preferences: Record<string, unknown>, previouslyShown: string[] = []) {
-    const ceremonies = (event.ceremonies ?? []).map(ceremony => ({
-      name: typeof ceremony['name'] === 'string' ? ceremony['name'] : '',
-      date: typeof ceremony['date'] === 'string' ? ceremony['date'] : typeof ceremony['startAt'] === 'string' ? ceremony['startAt'] : '',
-      time: typeof ceremony['time'] === 'string' ? ceremony['time'] : typeof ceremony['startAt'] === 'string' ? ceremony['startAt'].slice(11, 16) : '',
-      venue: typeof ceremony['venue'] === 'string' ? ceremony['venue'] : typeof ceremony['location'] === 'string' ? ceremony['location'] : '',
-      address: typeof ceremony['address'] === 'string' ? ceremony['address'] : '',
-      reference: typeof ceremony['reference'] === 'string' ? ceremony['reference'] : '',
-      dressCode: typeof ceremony['dressCode'] === 'string' ? ceremony['dressCode'] : '',
-    }));
+    const display = invitationDisplayFields(event);
+    const ceremonies = display.ceremonies;
     const words = [event.name, event.invitationText, ...ceremonies.flatMap(ceremony => Object.values(ceremony))].filter(Boolean).join(' ').length;
     const rawType = event.eventType === 'OTHER' ? 'CUSTOM' : event.eventType ?? 'CUSTOM';
     const knownTypes: ComposerEventType[] = ['WEDDING', 'DOT', 'BIRTHDAY', 'ANNIVERSARY', 'GRADUATION', 'CORPORATE', 'RELIGIOUS', 'FUNERAL_OR_MEMORIAL', 'BABY_SHOWER', 'CONFERENCE', 'GALA', 'CUSTOM', 'BAPTISM', 'DINNER', 'CEREMONY', 'OTHER'];
     return {
       eventType: (knownTypes.includes(rawType as ComposerEventType) ? rawType : 'CUSTOM') as ComposerEventType,
-      eventTitle: event.name ?? '', coupleNames: event.coupleNames ?? '', invitationText: event.invitationText ?? '', eventDate: event.startAt ?? '', venue: event.venue ?? '',
+      eventTitle: event.name ?? '', coupleNames: event.coupleNames ?? '', invitationText: event.invitationText ?? '', eventDate: display.event.date ?? '', venue: display.event.venue ?? '',
       ceremonyTypes: [...new Set((event.ceremonies ?? []).map(item => typeof item.ceremonyType === 'string' ? item.ceremonyType.toUpperCase() : 'CUSTOM'))], ceremonies,
       textDensity: (words <= 300 ? 'LOW' : words <= 800 ? 'MEDIUM' : 'HIGH') as 'LOW' | 'MEDIUM' | 'HIGH',
       hasTable: false, hasQr: true, hasDressCode: ceremonies.some(ceremony => !!ceremony.dressCode), photos, seed, preferences: preferences as { style?: string; mood?: string; colors?: string[]; description?: string; media?: 'ANY' | 'WITH_PHOTO' | 'WITHOUT_PHOTO'; count?: number; photoIds?: string[] }, previouslyShown,
@@ -166,14 +159,14 @@ export class DesignsService {
     const design = await this.get(eventId, ownerSubject, authorization, designId);
     const event = await this.event(eventId, authorization);
     const document = normalizeDesignDocument(design.document);
-    const snapshot = { event: { title: event.name ?? '', invitationText: event.invitationText ?? '', coupleNames: event.coupleNames ?? '', date: event.startAt ?? '', venue: event.venue ?? '' }, ceremonies: (event.ceremonies ?? []).map(ceremony => Object.fromEntries(['name', 'date', 'time', 'venue', 'address', 'reference', 'dressCode'].map(key => [key, typeof ceremony[key] === 'string' ? ceremony[key] : '']))) };
+    const snapshot = invitationDisplayFields(event);
     const layout = resolveDesignLayout(document, snapshot, undefined, undefined, { mode: 'web' });
     const declarations = ((document['metadata'] as Record<string, unknown>)?.['editorialFields'] ?? []) as { elementId: string }[];
     return { sourceVersion: design.version, fields: declarations.map(({ elementId }) => {
       editorialField(document, elementId);
-      const layer = layout.elements.find(entry => entry['id'] === elementId);
+      const layer = layout.elements.find(entry => entry['id'] === elementId) ?? document['elements'].find(entry => entry['id'] === elementId);
       if (!layer) return null;
-      const sourceText = String(layer['resolvedText'] ?? '');
+      const sourceText = String(layer['resolvedText'] ?? event.invitationText ?? '');
       const structured = [event.coupleNames, ...(event.coupleNames?.split(/\s+(?:&|et|and)\s+/i) ?? []), event.venue, event.startAt, ...(event.ceremonies ?? []).flatMap(ceremony => ['name', 'date', 'time', 'venue', 'address', 'reference', 'dressCode'].map(key => ceremony[key]))].filter((term): term is string => typeof term === 'string' && !!term && sourceText.includes(term));
       const fragments = [...new Set(structured)];
       if (fragments.length > 50) throw new BadRequestException('Trop de fragments structurés dans le texte : utilisez une correction manuelle.');
@@ -256,15 +249,21 @@ export class DesignsService {
         versions: { select: { version: true, ceremonyTypes: true } },
       },
     });
-    return { items: items.flatMap(({ versions, ...template }) => {
+    const references = (!rawCategory || rawCategory === 'WEDDING') && ['WEDDING', 'DOT'].includes(event.eventType ?? 'WEDDING') ? REFERENCE_TEMPLATES : [];
+    return { items: [...references, ...items.flatMap(({ versions, ...template }) => {
       const current = versions.find((version) => version.version === template.version);
       if (!current || (!current.ceremonyTypes.includes('UNIVERSAL') && !current.ceremonyTypes.some((type) => ceremonyTypes.includes(type)))) return [];
       return [{ ...template, ceremonyTypes: current.ceremonyTypes }];
-    }) };
+    })] };
   }
 
   async getTemplate(eventId: string, authorization: string, templateId: string) {
     const event = await this.event(eventId, authorization);
+    const reference = REFERENCE_TEMPLATES.find(item => item.id === templateId);
+    if (reference) {
+      if (!['WEDDING', 'DOT'].includes(event.eventType ?? 'WEDDING')) throw new NotFoundException('Ce modèle de référence est prévu pour un mariage ou une dot.');
+      return { ...reference, document: createReferenceTemplate(reference.id) };
+    }
     if (!uuidPattern.test(templateId)) throw new NotFoundException('Template introuvable.');
     const template = await this.prisma.designTemplate.findFirst({
       where: { id: templateId, isActive: true },
@@ -314,7 +313,22 @@ export class DesignsService {
         updatedAt: true,
       },
     });
-    return { items };
+    const selection = await this.prisma.eventDesignSelection.findUnique({ where: { eventId_ownerSubject: { eventId, ownerSubject } } });
+    return { items, selection };
+  }
+
+  async continueJourney(eventId: string, ownerSubject: string, authorization: string, designId: string, body: unknown) {
+    const design = await this.get(eventId, ownerSubject, authorization, designId);
+    const input = object(body, 'La sélection');
+    if (Object.keys(input).some(key => key !== 'expectedVersion') || input['expectedVersion'] !== design.version) throw new BadRequestException('Le design a changé. Rechargez-le avant de continuer.');
+    const validation = await this.inspectDocument(design.document);
+    if (!validation.valid) throw new BadRequestException('Corrigez les problèmes du design avant de continuer.');
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw(Prisma.sql`SELECT id FROM designs WHERE id = ${designId}::uuid FOR UPDATE`);
+      const current = await tx.design.findFirst({ where: { id: designId, eventId, ownerSubject, status: DesignStatus.DRAFT, version: design.version } });
+      if (!current) throw new BadRequestException('Le design a changé. Rechargez-le avant de continuer.');
+      return tx.eventDesignSelection.upsert({ where: { eventId_ownerSubject: { eventId, ownerSubject } }, create: { eventId, ownerSubject, designId, version: design.version }, update: { designId, version: design.version } });
+    });
   }
 
   async get(
@@ -357,9 +371,11 @@ export class DesignsService {
       throw new BadRequestException('Champs non pris en charge.');
     const name = text(input['name'], 'Le nom du design', 120);
     const templateId = input['templateId'];
-    if (typeof templateId !== 'string' || !uuidPattern.test(templateId))
+    const reference = REFERENCE_TEMPLATES.find(item => item.id === templateId);
+    if (reference && !['WEDDING', 'DOT'].includes(event.eventType ?? 'WEDDING')) throw new NotFoundException('Ce modèle de référence est prévu pour un mariage ou une dot.');
+    if (typeof templateId !== 'string' || (!reference && !uuidPattern.test(templateId)))
       throw new BadRequestException('Choisissez un template enregistré.');
-    const template = await this.prisma.designTemplate.findFirst({
+    const template = reference ? { ...reference, id: null, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createReferenceTemplate(reference.id) }] } : await this.prisma.designTemplate.findFirst({
       where: { id: templateId, isActive: true },
       include: { versions: { select: { version: true, ceremonyTypes: true, document: true } } },
     });
@@ -629,7 +645,7 @@ export class DesignsService {
             layerId: element['id'] as string,
             message: `${element['name']} risque de dépasser son cadre avec ce texte.`,
           });
-        if (!['Georgia', 'Arial', 'Times New Roman'].includes(element['fontFamily'] as string))
+        if (!['Georgia', 'Arial', 'Times New Roman', 'Great Vibes'].includes(element['fontFamily'] as string))
           problems.push({
             code: 'FONT',
             layerId: element['id'] as string,

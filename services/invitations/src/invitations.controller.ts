@@ -12,6 +12,9 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 @Controller('/v1') @UseGuards(IdentityGuard)
 export class InvitationsController {
   constructor(private readonly invitations: InvitationService) {}
+  @Post('/events/:eventId/invitations/quote') quote(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Headers('authorization') authorization: string, @Body() body: unknown) { return this.invitations.quote(req.identity!.subject, eventId, authorization, body); }
+  @Post('/events/:eventId/invitations/batches/:batchId/retry') retryForEvent(@Req() req: AuthenticatedRequest, @Param('batchId') id: string, @Headers('authorization') authorization: string) { return this.invitations.retryFailed(req.identity!.subject, id, authorization); }
+  @Post('/invitations/batches/:batchId/retry') retry(@Req() req: AuthenticatedRequest, @Param('batchId') id: string, @Headers('authorization') authorization: string) { return this.invitations.retryFailed(req.identity!.subject, id, authorization); }
   @Post('/events/:eventId/invitations/batches') create(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Headers('authorization') authorization: string, @Headers('idempotency-key') key: string, @Body() body: unknown) { return this.invitations.createBatch(req.identity!.subject, eventId, authorization, key, body); }
   @Get('/events/:eventId/invitations/batches') list(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Query('limit') limit?: string, @Query('cursor') cursor?: string) { return this.invitations.list(req.identity!.subject, eventId, limit, cursor); }
   @Get('/events/:eventId/invitations/batches/:batchId') getForEvent(@Req() req: AuthenticatedRequest, @Param('batchId') id: string) { return this.invitations.getBatch(req.identity!.subject, id); }

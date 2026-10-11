@@ -397,6 +397,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 
 export const ModelName = {
+  EventDesignSelection: 'EventDesignSelection',
   DesignTemplate: 'DesignTemplate',
   DesignTemplateVersion: 'DesignTemplateVersion',
   Design: 'Design',
@@ -417,10 +418,84 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "designTemplate" | "designTemplateVersion" | "design" | "designVersion" | "outboxMessage"
+    modelProps: "eventDesignSelection" | "designTemplate" | "designTemplateVersion" | "design" | "designVersion" | "outboxMessage"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
+    EventDesignSelection: {
+      payload: Prisma.$EventDesignSelectionPayload<ExtArgs>
+      fields: Prisma.EventDesignSelectionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EventDesignSelectionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EventDesignSelectionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        findFirst: {
+          args: Prisma.EventDesignSelectionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EventDesignSelectionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        findMany: {
+          args: Prisma.EventDesignSelectionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>[]
+        }
+        create: {
+          args: Prisma.EventDesignSelectionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        createMany: {
+          args: Prisma.EventDesignSelectionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EventDesignSelectionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>[]
+        }
+        delete: {
+          args: Prisma.EventDesignSelectionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        update: {
+          args: Prisma.EventDesignSelectionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        deleteMany: {
+          args: Prisma.EventDesignSelectionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EventDesignSelectionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EventDesignSelectionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>[]
+        }
+        upsert: {
+          args: Prisma.EventDesignSelectionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EventDesignSelectionPayload>
+        }
+        aggregate: {
+          args: Prisma.EventDesignSelectionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEventDesignSelection>
+        }
+        groupBy: {
+          args: Prisma.EventDesignSelectionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EventDesignSelectionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EventDesignSelectionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EventDesignSelectionCountAggregateOutputType> | number
+        }
+      }
+    }
     DesignTemplate: {
       payload: Prisma.$DesignTemplatePayload<ExtArgs>
       fields: Prisma.DesignTemplateFieldRefs
@@ -830,6 +905,17 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const EventDesignSelectionScalarFieldEnum = {
+  eventId: 'eventId',
+  ownerSubject: 'ownerSubject',
+  designId: 'designId',
+  version: 'version',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EventDesignSelectionScalarFieldEnum = (typeof EventDesignSelectionScalarFieldEnum)[keyof typeof EventDesignSelectionScalarFieldEnum]
+
+
 export const DesignTemplateScalarFieldEnum = {
   id: 'id',
   slug: 'slug',
@@ -977,6 +1063,20 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'DateTime'
+ */
+export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
+
+
+
+/**
+ * Reference to a field of type 'DateTime[]'
+ */
+export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
+
+
+
+/**
  * Reference to a field of type 'TemplateCategory'
  */
 export type EnumTemplateCategoryFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TemplateCategory'>
@@ -1008,20 +1108,6 @@ export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$Prisma
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
-
-
-
-/**
- * Reference to a field of type 'DateTime'
- */
-export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
-
-
-
-/**
- * Reference to a field of type 'DateTime[]'
- */
-export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
 
 
 
@@ -1203,6 +1289,7 @@ export interface PrismaClientOptionsWithAdapter extends PrismaClientBaseOptions 
  */
 export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaClientOptionsWithAdapter
 export type GlobalOmitConfig = {
+  eventDesignSelection?: Prisma.EventDesignSelectionOmit
   designTemplate?: Prisma.DesignTemplateOmit
   designTemplateVersion?: Prisma.DesignTemplateVersionOmit
   design?: Prisma.DesignOmit

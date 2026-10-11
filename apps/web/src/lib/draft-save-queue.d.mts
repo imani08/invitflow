@@ -1,0 +1,2 @@
+export type DraftRecord = { revision: number; data: Record<string, unknown>; savedAt?: string | null };
+export function createDraftSaveQueue(options: { save: (revision: number, data: Record<string, unknown>) => Promise<DraftRecord>; onStatus: (status: string, message?: string) => void }): { initialize(record: DraftRecord): void; change(data: Record<string, unknown>): void; dirty(): boolean; flush(): Promise<void> };

@@ -1,4 +1,4 @@
-import { fitInvitationText, resolveDesignLayout } from '@invitaflow/design-document';
+import { fitInvitationText, resolveDesignLayout, invitationPrintFormat } from '@invitaflow/design-document';
 
 export { fitInvitationText };
 
@@ -8,7 +8,7 @@ function layoutSnapshot(values) {
   return {
     guest: { name: String(values.guest_name ?? values.guestname ?? values.guest_full_name ?? ''), email: String(values.guest_email ?? '') },
     table: { name: String(values.table_name ?? values.tablename ?? values.tableName ?? '') },
-    event: { title: String(values.event_name ?? values.eventname ?? ''), coupleNames: String(values.couple_names ?? ''), invitationText: String(values.invitation_text ?? ''), date: String(values.event_date ?? ''), venue: String(values.event_location ?? '') },
+    event: { weekday: String(values.event_weekday ?? ''), day: String(values.event_day ?? ''), month: String(values.event_month ?? ''), year: String(values.event_year ?? ''), title: String(values.event_name ?? values.eventname ?? ''), coupleNames: String(values.couple_names ?? ''), invitationText: String(values.invitation_text ?? ''), date: String(values.event_date ?? ''), venue: String(values.event_location ?? '') },
     ceremonies: Array.isArray(values.ceremonies) ? values.ceremonies : String(values.ceremony_name ?? '').split(' · ').filter(Boolean).map((name) => ({ name })),
     contact: { value: String(values.contact ?? '') },
     qr: { available: true, url: String(values.rsvp_link ?? values.qr_code ?? '') },
@@ -18,7 +18,7 @@ function layoutSnapshot(values) {
 
 export function validateInvitationLayout({ document, values = {}, safeMargin = 64 }) {
   const source = document?.schemaVersion === 1 || document?.schemaVersion === 2 ? document : { ...document, schemaVersion: 1 };
-  const resolvedLayout = resolveDesignLayout(source, layoutSnapshot(values));
+  const resolvedLayout = resolveDesignLayout(source, layoutSnapshot(values), undefined, undefined, { mode: 'print', ...invitationPrintFormat(source) });
   const errors = resolvedLayout.errors.map((issue) => ({ code: issue.code, layerId: issue.elementId, message: issue.message }));
   const warnings = resolvedLayout.warnings.map((issue) => ({ code: issue.code, layerId: issue.elementId }));
   for (const layer of Array.isArray(document.elements) ? document.elements : []) {

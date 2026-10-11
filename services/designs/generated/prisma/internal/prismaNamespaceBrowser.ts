@@ -51,6 +51,7 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  EventDesignSelection: 'EventDesignSelection',
   DesignTemplate: 'DesignTemplate',
   DesignTemplateVersion: 'DesignTemplateVersion',
   Design: 'Design',
@@ -72,6 +73,17 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 } as const)
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const EventDesignSelectionScalarFieldEnum = {
+  eventId: 'eventId',
+  ownerSubject: 'ownerSubject',
+  designId: 'designId',
+  version: 'version',
+  updatedAt: 'updatedAt'
+} as const
+
+export type EventDesignSelectionScalarFieldEnum = (typeof EventDesignSelectionScalarFieldEnum)[keyof typeof EventDesignSelectionScalarFieldEnum]
 
 
 export const DesignTemplateScalarFieldEnum = {

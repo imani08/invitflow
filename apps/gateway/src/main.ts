@@ -588,6 +588,9 @@ class DesignsProxyController {
   @All('/:designId') design(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
+  @All('/:designId/continue') continueJourney(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    return this.proxy(request, reply);
+  }
   @All('/:designId/validate') validate(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
@@ -958,6 +961,11 @@ class PaymentFinanceProxyController {
 
 @Controller('/v1')
 class InvitationsProxyController {
+  @All('/events/:eventId/invitations/quote') quote(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/events/:eventId/invitations/batches/:batchId/retry') eventRetry(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/invitations/batches/:batchId/retry') retry(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/events/:eventId/invitations/batches/:batchId/regenerate') eventRegenerate(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/invitations/batches/:batchId/regenerate') regenerate(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/invitations/batches') createOrList(
     @Req() request: FastifyRequest,
     @Res() reply: FastifyReply,

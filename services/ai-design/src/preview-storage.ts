@@ -52,7 +52,7 @@ export class PreviewStorage {
     };
     const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
     const canonicalHeaders = `host:${headers.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${date}\n`;
-    const canonicalRequest = `${method}\n${target.pathname}\n\n${canonicalHeaders}${signedHeaders}\n${payloadHash}`;
+    const canonicalRequest = `${method}\n${target.pathname}\n\n${canonicalHeaders}\n${signedHeaders}\n${payloadHash}`;
     const scope = `${shortDate}/${this.region}/s3/aws4_request`;
     const stringToSign = `AWS4-HMAC-SHA256\n${date}\n${scope}\n${sha256(canonicalRequest)}`;
     const dateKey = hmac(`AWS4${this.secretKey}`, shortDate);

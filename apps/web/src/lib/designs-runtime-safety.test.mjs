@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { parseDesignEvent } from './design-event-contract.mjs';
 
 const designPage = new URL('../app/events/[eventId]/designs/page.tsx', import.meta.url);
 const designWorkspace = new URL('../app/events/[eventId]/designs/workspace.tsx', import.meta.url);
 const composerPath = new URL('../components/AIComposer.tsx', import.meta.url);
 
-test('design route normalizes absent or malformed ceremony collections at the API boundary', async () => {
+test('design route rejects malformed ceremony contracts and preserves valid empty/simple events', async () => {
   const page = await readFile(designPage, 'utf8');
   const workspace = await readFile(designWorkspace, 'utf8');
-  assert.match(page, /ceremonies: Array\.isArray\(rawEvent\.ceremonies\)[\s\S]*: \[\]/);
-  assert.match(workspace, /ceremonies: Array\.isArray\(event\.ceremonies\) \? event\.ceremonies : \[\]/);
+  assert.match(page, /parseDesignEvent\(payload\)/);
+  const event = { id: 'event-1', name: 'Célébration', status: 'DRAFT', timezone: 'Africa/Kinshasa', ceremonies: [] };
+  assert.equal(parseDesignEvent(event), event);
+  for (const ceremonies of [undefined, null, {}, [null], [{ id: 'c' }]]) assert.throws(() => parseDesignEvent({ ...event, ceremonies }), /incomplètes/);
+  assert.doesNotMatch(workspace, /event = \{ \.\.\.event, ceremonies:/);
 });
 
 test('invalid design catalog responses show a recoverable error instead of reaching array rendering', async () => {

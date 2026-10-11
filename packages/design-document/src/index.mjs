@@ -1,17 +1,20 @@
+import { REFERENCE_ORNAMENTS, renderReferenceOrnament, renderReferenceScript } from './reference-art.mjs';
+export { REFERENCE_TEMPLATES, createReferenceTemplate, invitationPrintFormat } from './reference-templates.mjs';
 export { EDITORIAL_BINDINGS, editorialField, editorialTarget, protectedEditorialTerms, redactEditorial, restoreEditorial, validateEditorialProposal, applyEditorialSelection } from './editorial-assist.mjs';
 import { assessImageResolution, renderOverlaySvg, renderVisualImageSvg, validateVisualProperties, visualOcclusionIssues } from './visual.mjs';
 export { MASK_REGISTRY, IMAGE_ROLES, assessImageResolution, imageRenderBounds, renderOverlaySvg, renderVisualImageSvg } from './visual.mjs';
 export { readPrivateImageDimensions } from './image-dimensions.mjs';
-export { PROFESSIONAL_TEMPLATE_IDS, PROFESSIONAL_RECIPES, PROFESSIONAL_GRAMMAR_FIELDS, validateProfessionalComposition, professionalCompositionFingerprint, professionalCompositionManifest, compatibleProfessionalRecipes, createProfessionalTemplate, fillProfessionalPhotoSlot, assertProfessionalPersonalization } from './professional-templates.mjs';
+export { PROFESSIONAL_TEMPLATE_IDS, PROFESSIONAL_RECIPES, PROFESSIONAL_GRAMMAR_FIELDS, validateProfessionalComposition, professionalCompositionFingerprint, professionalCompositionManifest, compatibleProfessionalRecipes, createProfessionalTemplate, fillProfessionalPhotoSlot, fillInvitationDecor, assertProfessionalPersonalization } from './professional-templates.mjs';
 export { AI_COMPOSER_VERSION, interpretComposerPreferences, composeDesignProposals } from './ai-composer.mjs';
 
 export const ALLOWED_BINDINGS = new Set([
   'guest.name', 'guest.email', 'guest.table', 'event.title', 'event.coupleNames', 'event.invitationText',
   'event.date', 'event.venue', 'ceremonies', 'ceremony.name', 'ceremony.date', 'ceremony.time',
-  'ceremony.venue', 'ceremony.address', 'ceremony.reference', 'ceremony.dressCode', 'contact', 'qr', 'qr.url',
+  'event.weekday', 'event.day', 'event.month', 'event.year', 'ceremony.weekday', 'ceremony.day', 'ceremony.month', 'ceremony.year', 'ceremony.venue', 'ceremony.address', 'ceremony.reference', 'ceremony.dressCode', 'contact', 'qr', 'qr.url',
 ]);
 
 export const FONT_REGISTRY = Object.freeze({
+  'great-vibes': Object.freeze({ fontId: 'great-vibes', family: 'Great Vibes', fallback: 'cursive', weights: [400], styles: ['normal'] }),
   georgia: Object.freeze({ fontId: 'georgia', family: 'Georgia', fallback: 'serif', weights: [400, 700], styles: ['normal', 'italic'] }),
   arial: Object.freeze({ fontId: 'arial', family: 'Arial', fallback: 'sans-serif', weights: [400, 700], styles: ['normal', 'italic'] }),
   'times-new-roman': Object.freeze({ fontId: 'times-new-roman', family: 'Times New Roman', fallback: 'serif', weights: [400, 700], styles: ['normal', 'italic'] }),
@@ -65,6 +68,7 @@ function inferredBinding(text) {
 function fontIdForFamily(family) {
   const normalized = stringOrEmpty(family).toLocaleLowerCase('en-US');
   if (normalized === 'arial') return 'arial';
+  if (normalized === 'great vibes') return 'great-vibes';
   if (normalized === 'times new roman') return 'times-new-roman';
   return 'georgia';
 }
@@ -162,8 +166,9 @@ export function validateDesignDocumentV2(input) {
   const ids = new Set();
   for (const element of input.elements) {
     if (!isObject(element) || typeof element.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(element.id) || ids.has(element.id)) fail('Design element id is invalid or duplicated');
-    const elementKeys = ['id', 'type', 'name', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'editable', 'zIndex', 'fill', 'shape', 'stroke', 'strokeWidth', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'align', 'color', 'source', 'assetId', 'originalAssetId', 'derivedAssetId', 'sourceWidth', 'sourceHeight', 'fit', 'cropX', 'cropY', 'cropScale', 'opacity', 'role', 'minFontSize', 'maxFontSize', 'maxLines', 'lineHeight', 'overflowPolicy', 'hideWhenEmpty', 'collapseSpace', 'minSize', 'maxSize', 'quietZone', 'binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'paddingX', 'focalPoint', 'blur', 'overlay'];
+    const elementKeys = ['id', 'type', 'name', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'editable', 'zIndex', 'fill', 'shape', 'stroke', 'strokeWidth', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'align', 'color', 'source', 'assetId', 'originalAssetId', 'derivedAssetId', 'sourceWidth', 'sourceHeight', 'fit', 'cropX', 'cropY', 'cropScale', 'opacity', 'role', 'minFontSize', 'maxFontSize', 'maxLines', 'lineHeight', 'overflowPolicy', 'hideWhenEmpty', 'collapseSpace', 'minSize', 'maxSize', 'quietZone', 'binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'paddingX', 'focalPoint', 'blur', 'overlay', 'ornamentId'];
     if (Object.keys(element).some((key) => !elementKeys.includes(key))) fail(`Design element ${element.id} contains an unsupported field`);
+    if (element.ornamentId !== undefined && (element.type !== 'SHAPE' || !REFERENCE_ORNAMENTS.includes(element.ornamentId))) fail('Unknown reference ornament');
     ids.add(element.id);
     if (!['BACKGROUND', 'TEXT', 'SHAPE', 'IMAGE', 'QR'].includes(element.type)) fail('Design element type is not supported');
     for (const field of ['x', 'y', 'width', 'height']) if (!Number.isFinite(element[field])) fail(`Element ${field} must be finite`);
@@ -217,11 +222,11 @@ export function validateDesignDocumentV2(input) {
 function safeSnapshot(snapshot) {
   if (!isObject(snapshot)) fail('Authorized render snapshot is required');
   const project = (obj, keys) => Object.fromEntries(keys.map((key) => [key, stringOrEmpty(obj?.[key])]).filter(([, value]) => value !== ''));
-  const ceremonies = Array.isArray(snapshot.ceremonies) ? snapshot.ceremonies.map((ceremony) => project(ceremony, ['name', 'date', 'time', 'venue', 'address', 'reference', 'dressCode'])) : [];
+  const ceremonies = Array.isArray(snapshot.ceremonies) ? snapshot.ceremonies.map((ceremony) => project(ceremony, ['name', 'date', 'time', 'venue', 'address', 'reference', 'dressCode', 'weekday', 'day', 'month', 'year'])) : [];
   return {
     guest: project(snapshot.guest, ['name', 'email']),
     table: project(snapshot.table, ['name']),
-    event: project(snapshot.event, ['title', 'coupleNames', 'invitationText', 'date', 'venue']),
+    event: project(snapshot.event, ['title', 'coupleNames', 'invitationText', 'date', 'venue', 'weekday', 'day', 'month', 'year']),
     ceremonies,
     contact: project(snapshot.contact, ['value']),
     qr: { available: snapshot.qr?.available === true, url: safeHttpUrl(snapshot.qr?.url) },
@@ -241,6 +246,7 @@ function resolveBinding(binding, data, ceremony = null) {
   if (binding === 'guest.name') return data.guest.name ?? '';
   if (binding === 'guest.email') return data.guest.email ?? '';
   if (binding === 'guest.table') return data.table.name ?? '';
+  if (['event.weekday', 'event.day', 'event.month', 'event.year'].includes(binding)) return data.event[binding.slice(6)] ?? '';
   if (binding === 'event.title') return data.event.title ?? '';
   if (binding === 'event.coupleNames') return data.event.coupleNames ?? '';
   if (binding === 'event.invitationText') return data.event.invitationText ?? '';
@@ -451,6 +457,11 @@ export function logicalCanvasTransform(canvas, viewport) {
   return { scale, offsetX: (viewport.width - canvas.width * scale) / 2, offsetY: (viewport.height - canvas.height * scale) / 2 };
 }
 
+function referenceBodyLine(line) {
+  if (!line) return '&#160;'; // Preserve authored paragraph spacing in SVG text layout.
+  const match = /^(.*?\b(?:[Ff]amilles|enfants)\s+)(.+)$/.exec(line);
+  return match ? svgEscape(match[1]) + '<tspan font-weight="700">' + svgEscape(match[2]) + '</tspan>' : svgEscape(line);
+}
 const svgEscape = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 /** Serialize an already-resolved tree. Assets and QR hrefs are supplied by the caller; this function performs no I/O. */
 export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', fragment = false } = {}) {
@@ -466,15 +477,20 @@ export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', frag
       if (href) {
         parts.push(renderVisualImageSvg(layer, href));
       }
+    } else if (layer.ornamentId) {
+      parts.push(renderReferenceOrnament(layer));
     } else if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE') {
       parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${svgEscape(layer.fill === 'transparent' ? 'none' : layer.fill ?? 'none')}" stroke="${svgEscape(layer.stroke ?? 'none')}" stroke-width="${finite(layer.strokeWidth)}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}/>`);
       if (layer.overlay) parts.push(`<g${transform} opacity="${finite(layer.opacity, 1)}">${renderOverlaySvg(layer.overlay, layer, `visual-${layer.id}`)}</g>`);
     } else if (layer.type === 'TEXT') {
       const font = layer.resolvedFont ?? resolveFont(layer), size = finite(layer.resolvedFontSize, finite(layer.fontSize, 16)), lines = Array.isArray(layer.resolvedLines) ? layer.resolvedLines : [stringOrEmpty(layer.resolvedText)];
+      if (font.fontId === 'great-vibes') { const script = renderReferenceScript(layer, lines, size, finite(layer.resolvedLineHeight, finite(layer.lineHeight, 1.2))); if (script) { parts.push(`<g${transform}>${script}</g>`); continue; } }
       const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle', tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
       const lineHeight = finite(layer.resolvedLineHeight, finite(layer.lineHeight, 1.2)), firstY = y + h / 2 - (lines.length - 1) * size * lineHeight / 2;
-      parts.push(`<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${svgEscape(line)}</tspan>`).join('')}</text>`);
+      parts.push(`<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${layer.role === 'REFERENCE_BODY' ? referenceBodyLine(line) : svgEscape(line)}</tspan>`).join('')}</text>`);
     }
   }
   return fragment ? parts.join('') : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${parts.join('')}</svg>`;
 }
+
+export { invitationDisplayFields, guestCeremonySnapshots } from './invitation-display.mjs';

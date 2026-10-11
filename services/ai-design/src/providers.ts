@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { assertProfessionalPersonalization } from '@invitaflow/design-document';
 
 export type JsonObject = Record<string, unknown>;
 export type DesignChange = JsonObject & { op: string };
@@ -27,6 +28,8 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
   const width = canvas['width']; const height = canvas['height'];
   if (typeof width !== 'number' || typeof height !== 'number') fail('Les dimensions du design sont invalides.');
   const elements = document['elements'] as JsonObject[];
+  const policy = (document['metadata'] as JsonObject | undefined)?.['personalization'] as JsonObject | undefined;
+  const professional = policy?.['policy'] === 'professional-v1';
   const tokens = (document['theme'] as JsonObject)['tokens'] as JsonObject;
   const setToken = (key: string, value: unknown) => {
     if (!isHexColor(value)) fail('La couleur proposée est invalide.');
@@ -49,6 +52,7 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
     if (!allowed) fail('Le moteur a proposé une opération qui n’est pas prise en charge.');
     if (Object.keys(change).some((key) => !allowed.includes(key))) fail('La proposition contient des champs non autorisés.');
     if (operation === 'set_theme_color') {
+      if (professional) fail('La palette structurelle de ce modèle est protégée.');
       const key = change['token'];
       if (!['primary', 'secondary', 'background'].includes(String(key))) fail('Le token de couleur proposé est invalide.');
       setToken(key as string, change['value']);
@@ -56,7 +60,8 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
       continue;
     }
     const layer = elements.find((entry) => entry['id'] === targetId);
-    if (!layer || layer['locked'] === true || layer['editable'] !== true || layer['type'] === 'BACKGROUND') fail('La proposition cible un calque protégé ou inexistant.');
+    const permittedProfessionalText = professional && layer?.['type'] === 'TEXT' && ['set_element_color', 'set_element_font'].includes(String(operation));
+    if (!layer || !permittedProfessionalText && (layer['locked'] === true || layer['editable'] !== true || layer['type'] === 'BACKGROUND')) fail('La proposition cible un calque protégé ou inexistant.');
     if (operation === 'set_element_text') {
       if (layer['type'] !== 'TEXT') fail('Le texte proposé cible un calque incompatible.');
       const proposedText = safeText(change['value'], 'Le texte proposé', 500);
@@ -71,6 +76,7 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
     } else if (operation === 'set_element_font') {
       if (layer['type'] !== 'TEXT' || !['Georgia', 'Arial', 'Times New Roman'].includes(String(change['value']))) fail('La police proposée n’est pas prise en charge.');
       layer['fontFamily'] = change['value'];
+      if (professional) layer['fontId'] = change['value'] === 'Arial' ? 'arial' : 'georgia';
     } else if (operation === 'set_element_font_size') {
       if (layer['type'] !== 'TEXT' || typeof change['value'] !== 'number' || !Number.isFinite(change['value']) || change['value'] < 8 || change['value'] > 180) fail('La taille de texte proposée est invalide.');
       layer['fontSize'] = change['value'];
@@ -85,6 +91,10 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
       if (layer['type'] !== 'SHAPE' || !(change['fill'] === 'transparent' || isHexColor(change['fill'])) || !isHexColor(change['stroke'])) fail('Les couleurs de forme proposées sont invalides.');
       layer['fill'] = change['fill']; layer['stroke'] = change['stroke'];
     }
+  }
+  if (professional) {
+    try { assertProfessionalPersonalization(sourceValue, document); }
+    catch { fail('La proposition modifie un réglage protégé de ce modèle.'); }
   }
   return { summary, changes: rawChanges as DesignChange[], document };
 }
@@ -157,9 +167,9 @@ export class SelfHostedAIProvider implements DesignProposalProvider {
   }
 }
 
-export function selectedProvider(): 'mock' | 'self-hosted' {
-  const provider = process.env['AI_PROVIDER'] ?? 'mock';
-  if (provider !== 'mock' && provider !== 'self-hosted') throw new Error('AI_PROVIDER must be mock or self-hosted');
+export function selectedProvider(): 'mock' | 'self-hosted' | 'openai' {
+  const provider = process.env['AI_PROVIDER'] ?? 'openai';
+  if (provider !== 'mock' && provider !== 'self-hosted' && provider !== 'openai') throw new Error('AI_PROVIDER must be mock, self-hosted or openai');
   if (provider === 'mock' && process.env['NODE_ENV'] === 'production') throw new Error('MockAIProvider cannot be enabled in production');
   return provider;
 }

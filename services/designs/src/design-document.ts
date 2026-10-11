@@ -223,7 +223,7 @@ function validateLegacyDesignDocument(input: unknown): DesignDocument {
       scalar(element['fontFamily'], 'element.fontFamily', 80); number(element['fontSize'], 'element.fontSize', 8, 180);
       number(element['fontWeight'], 'element.fontWeight', 100, 900);
       if (![100, 200, 300, 400, 500, 600, 700, 800, 900].includes(element['fontWeight'] as number) || !['left', 'center', 'right'].includes(String(element['align']))) fail('La typographie du calque est invalide.');
-      if (!['COUPLE_NAMES', 'GUEST_NAME', 'EVENT_TITLE', 'CEREMONY_INFO', 'TABLE_INFO', 'BODY', 'SMALL_DETAIL'].includes(String(element['role']))) fail('Le rôle du texte est invalide.');
+      if (!['COUPLE_NAMES', 'GUEST_NAME', 'EVENT_TITLE', 'CEREMONY_INFO', 'TABLE_INFO', 'BODY', 'REFERENCE_BODY', 'SMALL_DETAIL'].includes(String(element['role']))) fail('Le rôle du texte est invalide.');
       number(element['minFontSize'], 'text.minFontSize', 8, 180); number(element['maxFontSize'], 'text.maxFontSize', 8, 180); number(element['maxLines'], 'text.maxLines', 1, 20); number(element['lineHeight'], 'text.lineHeight', 0.85, 2);
       if ((element['minFontSize'] as number) > (element['maxFontSize'] as number) || typeof element['hideWhenEmpty'] !== 'boolean' || typeof element['collapseSpace'] !== 'boolean' || !['ERROR', 'WARN'].includes(String(element['overflowPolicy']))) fail('Les règles de mise en page du texte sont invalides.');
       color(element['color'], 'text.color');
@@ -247,7 +247,7 @@ function legacyProjection(input: DesignDocument): Record<string, unknown> {
     const next = { ...element };
     const semanticBinding = next['binding'];
     const preferredFontSize = next['preferredFontSize'];
-    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'focalPoint', 'blur', 'overlay']) delete next[key];
+    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'focalPoint', 'blur', 'overlay', 'ornamentId']) delete next[key];
     if (next['type'] === 'TEXT') {
       if (semanticBinding) next['text'] = '';
       next['maxFontSize'] = preferredFontSize ?? next['maxFontSize'] ?? next['fontSize'];

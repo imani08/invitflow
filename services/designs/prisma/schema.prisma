@@ -7,6 +7,19 @@ datasource db {
   provider = "postgresql"
 }
 
+model EventDesignSelection {
+  eventId String @map("event_id") @db.Uuid
+  ownerSubject String @map("owner_subject") @db.VarChar(255)
+  designId String @map("design_id") @db.Uuid
+  version Int
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  design Design @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, ownerSubject])
+  @@map("event_design_selections")
+}
+
 enum TemplateCategory {
   WEDDING
   BIRTHDAY
@@ -70,6 +83,7 @@ model Design {
   updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
   template      DesignTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   versions      DesignVersion[]
+  selections    EventDesignSelection[]
 
   @@index([ownerSubject, eventId, updatedAt(sort: Desc)], map: "designs_owner_event_updated_idx")
   @@map("designs")

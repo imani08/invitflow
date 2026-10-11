@@ -1,9 +1,9 @@
 export type OverflowPolicy = 'ERROR' | 'SHRINK_WITH_LIMIT' | 'USE_VARIANT' | 'AI_ASSIST_ALLOWED';
-export type Ceremony = { name?: string | null; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null };
+export type Ceremony = { weekday?: string; day?: string; month?: string; year?: string; name?: string | null; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null };
 export type RenderSnapshot = {
   guest?: { name?: string | null; email?: string | null };
   table?: { name?: string | null };
-  event?: { title?: string | null; coupleNames?: string | null; invitationText?: string | null; date?: string | null; venue?: string | null };
+  event?: { weekday?: string; day?: string; month?: string; year?: string; title?: string | null; coupleNames?: string | null; invitationText?: string | null; date?: string | null; venue?: string | null };
   ceremonies?: Ceremony[];
   contact?: { value?: string | null };
   qr?: { available?: boolean; url?: string | null };
@@ -78,3 +78,14 @@ export function redactEditorial(text: string, terms: string[]): { text: string; 
 export function restoreEditorial(text: string, fragments: { token: string; term: string; count: number }[], expectedOrder: string[]): string;
 export function validateEditorialProposal(source: string, proposal: string, terms: string[], target: { maxCharacters: number }): string;
 export function applyEditorialSelection(document: any, elementId: string, text: string, provenance: Record<string, unknown>): DesignDocument;
+
+export function fillInvitationDecor(document: unknown, image: { assetId: string; width: number; height: number }): DesignDocument;
+
+export function invitationDisplayFields(event: unknown): { event: NonNullable<RenderSnapshot['event']>; ceremonies: Ceremony[] };
+
+export function guestCeremonySnapshots<T>(snapshots: T[], access: unknown): T[];
+
+export const REFERENCE_TEMPLATES: readonly { id: string; slug: string; name: string; description: string; category: string; style: string; version: number; tags: string[]; ceremonyTypes: string[]; preview: { background: string; accent: string; style: string } }[];
+export function createReferenceTemplate(id: string, photos?: Record<string, { assetId: string; width: number; height: number }>): DesignDocument;
+
+export function invitationPrintFormat(document: unknown): { widthMm: number; heightMm: number };

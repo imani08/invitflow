@@ -1,8 +1,18 @@
-import { createProfessionalTemplate, PROFESSIONAL_TEMPLATE_IDS, applyEditorialSelection } from '@invitaflow/design-document';
+import { createProfessionalTemplate, PROFESSIONAL_TEMPLATE_IDS, applyEditorialSelection, createReferenceTemplate } from '@invitaflow/design-document';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fitInvitationText, validateInvitationLayout } from './invitation-layout.mjs';
 import { visualFixture } from '../../../packages/design-document/test/fixtures/visual-v2.mjs';
+
+test('reference layouts preserve the final QR area for zero to four ceremonies', () => {
+  for (const id of ['reference-01-ivory', 'reference-02-gold']) {
+    for (let count = 0; count <= 4; count++) {
+      const document = createReferenceTemplate(id);
+      const result = validateInvitationLayout({ document, values: { guest_name: 'Couple de test', table_name: 'Rose', invitation_text: 'Invitation personnalisée.', event_day: '10', event_month: 'OCTOBRE', event_weekday: 'SAMEDI', event_year: '2026', ceremonies: Array.from({ length: count }, () => ({ name: 'Cérémonie', day: '10', month: 'OCTOBRE', weekday: 'SAMEDI', year: '2026', time: '10:00', venue: 'Lieu', address: 'Adresse' })), rsvp_link: 'https://example.invalid/rsvp/test' } });
+      assert.deepEqual(result.errors, [], `${id}, ${count}: ${JSON.stringify(result.errors)}`);
+    }
+  }
+});
 
 test('v2 photo backgrounds behind text are valid, occluding photos and poor print definition are rejected', () => {
   const document = visualFixture('D');

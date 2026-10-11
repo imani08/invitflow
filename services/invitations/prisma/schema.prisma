@@ -19,6 +19,7 @@ enum BatchStatus {
   RESERVING
   QUEUED
   GENERATING
+  FINALIZING
   COMPLETED
   PARTIAL
   FAILED
@@ -73,6 +74,10 @@ model InvitationBatch {
   designVersion Int @map("design_version")
   status BatchStatus @default(RESERVING)
   idempotencyKey String @map("idempotency_key") @db.VarChar(255)
+  requestHash String? @map("request_hash") @db.VarChar(64)
+  retryOfBatchId String? @unique @map("retry_of_batch_id") @db.Uuid
+  settlementCredits Int? @map("settlement_credits")
+  settledAt DateTime? @map("settled_at") @db.Timestamptz(3)
   reservationReference String @unique @map("reservation_reference") @db.VarChar(255)
   agencyReservationReference String? @unique @map("agency_reservation_reference") @db.VarChar(255)
   agencyWorkspaceId String? @map("agency_workspace_id") @db.Uuid
@@ -100,6 +105,7 @@ model BatchItem {
   batchId String @map("batch_id") @db.Uuid
   invitationId String @map("invitation_id") @db.Uuid
   guestId String @map("guest_id") @db.Uuid
+  invitationVersionId String? @map("invitation_version_id") @db.Uuid
   snapshot Json
   status BatchItemStatus @default(QUEUED)
   objectKey String? @map("object_key") @db.VarChar(512)

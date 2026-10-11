@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { loadPrivateMediaPreview } from '@/lib/private-media-preview.mjs';
-import { PROFESSIONAL_RECIPES, renderResolvedLayoutSvg, resolveDesignLayout, type DesignDocument } from '@invitaflow/design-document';
+import { PROFESSIONAL_RECIPES, invitationDisplayFields, renderResolvedLayoutSvg, resolveDesignLayout, type DesignDocument } from '@invitaflow/design-document';
 
 type ComposerEvent = { id: string; name: string; eventType?: string; startAt?: string | null; venue?: string | null; coupleNames?: string | null; invitationText?: string | null; ceremonies?: { name: string; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null }[] };
 type Proposal = { document: DesignDocument; recipeId: string; reason: string; fingerprint: string; score: Record<string, number> };
@@ -34,7 +34,7 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
   const [mood, setMood] = useState('');
   const [colors, setColors] = useState<string[]>([]);
   const [media, setMedia] = useState<'ANY' | 'WITH_PHOTO' | 'WITHOUT_PHOTO'>('ANY');
-  const [count, setCount] = useState('4');
+  const [count, setCount] = useState('3');
   const [description, setDescription] = useState('');
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [seen, setSeen] = useState<string[]>([]);
@@ -61,12 +61,13 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
         const response = await fetch(`/api/assets?${query}`, { cache: 'no-store', signal: controller.signal });
         if (!response.ok) throw new Error('Inventaire indisponible');
         const payload = await response.json() as { items?: PrivatePhoto[]; nextCursor?: string | null };
-        items.push(...(payload.items ?? []));
+        if (!Array.isArray(payload.items)) throw new Error('La réponse de l’inventaire photos est invalide. Réessayez avant de sélectionner une photo.');
+        items.push(...payload.items);
         if (!payload.nextCursor) break;
         cursor = payload.nextCursor;
       }
       if (!controller.signal.aborted) setPhotoInventory(items.filter(photo => photo.purpose === 'PHOTO' && photo.status === 'READY' && photo.width > 0 && photo.height > 0));
-    })().catch(() => { if (!controller.signal.aborted) setPhotoInventory([]); }).finally(() => { if (!controller.signal.aborted) setPhotoLoading(false); });
+    })().catch(reason => { if (!controller.signal.aborted) setPhotoError(errorMessage(reason, 'Les photos ne peuvent pas être chargées. Les modèles sans photo restent disponibles.')); }).finally(() => { if (!controller.signal.aborted) setPhotoLoading(false); });
     return () => { controller.abort(); requestController.current?.abort(); };
   }, []);
 
@@ -106,8 +107,7 @@ export default function AIComposer({ event, busy, onChoose }: { event: ComposerE
   function layoutFor(proposal: Proposal) {
     return resolveDesignLayout(proposal.document, {
       guest: { name: '' }, table: { name: '' },
-      event: { title: event.name, coupleNames: event.coupleNames ?? '', invitationText: event.invitationText ?? '', date: event.startAt ?? '', venue: event.venue ?? '' },
-      ceremonies: ceremonies.map(ceremony => ({ name: ceremony.name, date: ceremony.date ?? '', time: ceremony.time ?? '', venue: ceremony.venue ?? '', address: ceremony.address ?? '', reference: ceremony.reference ?? '', dressCode: ceremony.dressCode ?? '' })),
+      ...invitationDisplayFields(event),
       qr: { available: false },
     }, undefined, assets, { mode: 'web' });
   }

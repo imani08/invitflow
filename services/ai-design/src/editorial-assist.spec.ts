@@ -41,6 +41,24 @@ function fixture(overflow = true, text = sourceText, proposals = 0) {
   return { service, events, current: () => job as unknown as { status: string; sourceDocument: { workflow: string; sourceText: string }; proposal: { fits: boolean; usage: { total_tokens: number } } } | null, stale: () => { version++; } };
 }
 
+test('GPT can propose neutral prose for an empty eligible field without inventing event facts', async () => {
+  const prior = { provider: process.env['AI_PROVIDER'], key: process.env['OPENAI_API_KEY'], fetch: globalThis.fetch };
+  process.env['AI_PROVIDER'] = 'openai'; process.env['OPENAI_API_KEY'] = 'test-only';
+  let calls = 0;
+  globalThis.fetch = async (_url, init) => {
+    calls++; const body = JSON.parse(String(init?.body)); const sent = JSON.parse(body.input);
+    assert.equal(sent.action, 'GENERATE'); assert.equal(sent.text, ''); assert.equal('guests' in sent, false);
+    return Response.json({ status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({ text: 'Nous vous invitons à partager notre célébration.', language: 'fr' }) }] }], usage: { total_tokens: 40 } });
+  };
+  try {
+    const value = fixture(false, '');
+    await value.service.create(eventId, designId, 'owner-a', 'Bearer test', { workflow: 'EDITORIAL_REWRITE', action: 'GENERATE', elementId: 'invitation', sourceVersion: 1, language: 'fr', compressionLevel: 'BALANCED' });
+    await value.service.process(jobId);
+    assert.equal(calls, 1); assert.equal(value.current()?.status, 'PROPOSED'); assert.equal(value.current()?.sourceDocument.sourceText, '');
+    assert.equal(value.current()?.proposal.fits, true);
+  } finally { globalThis.fetch = prior.fetch; if (prior.provider === undefined) delete process.env['AI_PROVIDER']; else process.env['AI_PROVIDER'] = prior.provider; if (prior.key === undefined) delete process.env['OPENAI_API_KEY']; else process.env['OPENAI_API_KEY'] = prior.key; }
+});
+
 test('editorial job is isolated, asynchronous, not applied automatically, and becomes stale', async () => {
   const prior = process.env['AI_PROVIDER']; process.env['AI_PROVIDER'] = 'mock';
   try {

@@ -126,7 +126,7 @@ export class WalletService {
       if (!sameConflict(error)) throw error;
       const wallet = await this.getWallet(ownerSubject);
       const prior = await this.prisma.walletReservation.findUnique({ where: { walletId_referenceId: { walletId: wallet.id, referenceId } } });
-      if (!prior || prior.credits !== credits) throw new ConflictException('La clé ou référence de réservation existe déjà.');
+      if (!prior || prior.credits !== credits || prior.status !== ReservationStatus.RESERVED) throw new ConflictException('La clé ou référence de réservation existe déjà ou a été finalisée.');
     }
     const wallet = await this.getWallet(ownerSubject);
     const reservation = await this.prisma.walletReservation.findUniqueOrThrow({ where: { walletId_referenceId: { walletId: wallet.id, referenceId } } });

@@ -1,4 +1,6 @@
 'use client';
+import { useJourneyDraft } from '@/components/journey-drafts';
+import { JourneyNavigationSafety } from '@/components/journey-navigation-safety';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
@@ -46,6 +48,12 @@ export function GuestsWorkspace({ event }: { event: Event }) {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importDone, setImportDone] = useState<{ importedCount: number; skippedCount: number } | null>(null);
 
+  const guestsDraft = useJourneyDraft('guests-view', { selectedId: selected?.id ?? null, groupName, analysis, mapping, ceremonyIds, preview, importDone }, saved => {
+    setSelected(guests.find(guest => guest.id === saved.selectedId) ?? null);
+    setGroupName(typeof saved.groupName === 'string' ? saved.groupName : '');
+    setAnalysis(saved.analysis ?? null); setMapping(saved.mapping ?? null); setCeremonyIds(Array.isArray(saved.ceremonyIds) ? saved.ceremonyIds : []);
+    setPreview(saved.preview ?? null); setImportDone(saved.importDone ?? null);
+  }, loaded);
   const refresh = useCallback(async () => {
     const params = new URLSearchParams({ limit: '100' });
     if (query.trim()) params.set('q', query.trim());
@@ -54,7 +62,7 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     const [groupResult, firstPage] = await Promise.all([
       api<Group[]>(`${event.id}/guests/groups`), api<{ items: Guest[]; nextCursor: string | null; total: number }>(`${event.id}/guests?${params}`),
     ]);
-    setGuests(firstPage.items); setTotalGuests(firstPage.total); setNextCursor(firstPage.nextCursor); setGroups(groupResult); setLoaded(true);
+    setGuests(firstPage.items); setTotalGuests(firstPage.total); setNextCursor(firstPage.nextCursor); setGroups(groupResult); setLoaded(true); window.dispatchEvent(new CustomEvent('invitaflow:journey-updated', { detail: event.id }));
   }, [event.id, query, groupFilter, ceremonyFilter]);
 
   useEffect(() => { const timer = window.setTimeout(() => setQuery(filter), 250); return () => window.clearTimeout(timer); }, [filter]);
@@ -79,9 +87,11 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     const access = event.ceremonies.filter((ceremony) => checked.has(ceremony.id)).map((ceremony) => ({ ceremonyId: ceremony.id, isInvited: true, allowedCompanions: Math.max(0, Math.min(20, Number(form.get(`companions-${ceremony.id}`)) || 0)) }));
     const companions = String(form.get('companions') ?? '').split('\n').map((name) => name.trim()).filter(Boolean).map((fullName) => ({ fullName }));
     try {
+      await guestsDraft.flush();
       const input = { fullName: form.get('fullName'), email: form.get('email') || null, phone: form.get('phone') || null, groupName: form.get('groupName') || null, notes: form.get('notes') || null, companions, access };
       if (selected) await api(`${event.id}/guests/${selected.id}`, 'PATCH', input);
       else await api(`${event.id}/guests`, 'POST', input);
+      await guestsDraft.clearForm('guest:' + (selected?.id ?? 'new'));
       await refresh(); setSelected(null); setMessage(selected ? 'Invité mis à jour.' : 'Invité ajouté.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Enregistrement impossible.'); }
     finally { setBusy(false); }
@@ -148,13 +158,13 @@ export function GuestsWorkspace({ event }: { event: Event }) {
     finally { setBusy(false); }
   }
 
-  return <section className="guests-layout">
+  return <section className="guests-layout"><JourneyNavigationSafety watchForms />
     <div>
       <section className="guest-panel" id="guest-workspace"><div className="events-list-head"><div><p className="eyebrow">LISTE DE PRÉSENCE</p><h2>Invités <span>{totalGuests.toString().padStart(2, '0')}</span></h2></div><button className="small-action" onClick={() => setSelected(null)}>+ Ajouter</button></div>
         <p className="guests-status" role="status" aria-live="polite">{message}</p>
         <div className="guest-toolbar"><input aria-label="Rechercher un invité" placeholder="Rechercher un nom, e-mail ou téléphone" value={filter} onChange={(e) => setFilter(e.target.value)} /><select aria-label="Filtrer par groupe" value={groupFilter} onChange={(e) => setGroupFilter(e.target.value)}><option value="">Tous les groupes</option>{groups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select><select aria-label="Filtrer par cérémonie" value={ceremonyFilter} onChange={(e) => setCeremonyFilter(e.target.value)}><option value="">Toutes les cérémonies</option>{event.ceremonies.map((ceremony) => <option value={ceremony.id} key={ceremony.id}>{ceremony.name}</option>)}</select></div>
         {!loaded ? <p className="guest-empty">Chargement des invités…</p> : guests.length === 0 ? <p className="guest-empty">{totalGuests ? 'Aucun invité ne correspond à cette recherche.' : 'Votre liste commence ici. Ajoutez un invité ou importez un fichier.'}</p> : <><div className="guest-list">{guests.map((guest) => { const invitedTo = guest.access.filter((access) => access.isInvited).map((access) => event.ceremonies.find((ceremony) => ceremony.id === access.ceremonyId)?.name).filter((name): name is string => Boolean(name)); return <div className="guest-row" key={guest.id}><button onClick={() => setSelected(guest)}><strong>{guest.fullName}</strong><span>{guest.email || guest.phone || 'Aucun contact'}{guest.group ? ` · ${guest.group.name}` : ''}</span><span>{invitedTo.length ? `Cérémonies : ${invitedTo.join(', ')}` : 'Aucun accès à une cérémonie'}</span><span className={`guest-record-status ${guest.status.toLowerCase()}`}>{guest.status === 'ACTIVE' ? 'Fiche active' : guest.status}</span></button><div className="guest-row-actions"><button onClick={() => setSelected(guest)} disabled={busy}>Modifier</button><button onClick={() => void archive(guest)} disabled={busy}>Archiver</button></div></div>; })}</div>{nextCursor && <button className="small-action" onClick={() => void loadMore()} disabled={busy}>Charger les invités suivants</button>}</>}
-        <form className="group-row" onSubmit={addGroup}><input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Créer un groupe (ex. Famille)" maxLength={100} required /><button className="small-action" disabled={busy}>Créer</button></form>
+        <form data-draft-key="group-new" className="group-row" onSubmit={addGroup}><input name="groupName" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Créer un groupe (ex. Famille)" maxLength={100} required /><button className="small-action" disabled={busy}>Créer</button></form>
         {groups.length > 0 && <div className="guest-list">{groups.map((group) => <div className="guest-row" key={group.id}><button onClick={() => setGroupFilter(group.id)}><strong>{group.name}</strong><span>{group._count.guests} invité(s)</span></button><div className="guest-row-actions"><button onClick={() => void renameGroup(group)} disabled={busy}>Renommer</button><button onClick={() => void deleteGroup(group)} disabled={busy}>Supprimer</button></div></div>)}</div>}
       </section>
       <section className="import-panel"><p className="eyebrow">IMPORTER UNE LISTE</p><h2>Ajouter depuis un fichier</h2><p>Préparez votre fichier, vérifiez les colonnes, puis confirmez après avoir contrôlé l’aperçu.</p>
@@ -171,12 +181,12 @@ export function GuestsWorkspace({ event }: { event: Event }) {
       </section>
     </div>
     <aside className="guest-panel"><p className="eyebrow">FICHE INVITÉ</p><h2>{selected ? 'Modifier un invité' : 'Nouvel invité'}</h2>
-      <form key={selected?.id ?? 'new'} className="guest-form" onSubmit={(e) => { e.preventDefault(); void submitGuest(new FormData(e.currentTarget)); }}>
-        <input name="fullName" placeholder="Nom complet *" defaultValue={selected?.fullName ?? ''} minLength={2} maxLength={160} required />
-        <input name="email" type="email" placeholder="Adresse e-mail" defaultValue={selected?.email ?? ''} maxLength={320} />
-        <input name="phone" type="tel" placeholder="Téléphone" defaultValue={selected?.phone ?? ''} maxLength={40} />
-        <select name="groupName" defaultValue={selected?.group?.name ?? ''}><option value="">Sans groupe</option>{groups.map((group) => <option value={group.name} key={group.id}>{group.name}</option>)}</select>
-        <textarea name="notes" placeholder="Notes" defaultValue={selected?.notes ?? ''} maxLength={2000} />
+      <form data-draft-ready={loaded ? 'true' : 'false'} data-draft-key={`guest:${selected?.id ?? 'new'}`} key={selected?.id ?? 'new'} className="guest-form" onSubmit={(e) => { e.preventDefault(); void submitGuest(new FormData(e.currentTarget)); }}>
+        <input name="fullName" aria-label="Nom complet" placeholder="Nom complet *" defaultValue={selected?.fullName ?? ''} minLength={2} maxLength={160} required />
+        <input name="email" aria-label="Adresse e-mail" type="email" placeholder="Adresse e-mail" defaultValue={selected?.email ?? ''} maxLength={320} />
+        <input name="phone" aria-label="Téléphone" type="tel" placeholder="Téléphone" defaultValue={selected?.phone ?? ''} maxLength={40} />
+        <select name="groupName" aria-label="Groupe de l’invité" defaultValue={selected?.group?.name ?? ''}><option value="">Sans groupe</option>{groups.map((group) => <option value={group.name} key={group.id}>{group.name}</option>)}</select>
+        <textarea name="notes" aria-label="Notes" placeholder="Notes" defaultValue={selected?.notes ?? ''} maxLength={2000} />
         <label>Accompagnants (un nom par ligne)<textarea name="companions" defaultValue={selected?.companions.map((companion) => companion.fullName).join('\n') ?? ''} placeholder="Nom de l’accompagnant" /></label>
         <h3>Accès aux cérémonies</h3>
         {event.ceremonies.length === 0 ? <p className="import-hint">Ajoutez d’abord une cérémonie au programme de l’événement.</p> : <div className="ceremony-access">{event.ceremonies.map((ceremony) => { const access = selected?.access.find((item) => item.ceremonyId === ceremony.id); return <label key={ceremony.id}><input type="checkbox" name="ceremonyId" value={ceremony.id} defaultChecked={access?.isInvited ?? false} /><span>{ceremony.name}</span><input type="number" name={`companions-${ceremony.id}`} aria-label={`Accompagnants autorisés pour ${ceremony.name}`} min="0" max="20" defaultValue={access?.allowedCompanions ?? 0} /></label>; })}</div>}

@@ -1,4 +1,4 @@
-import { validateDesignDocumentV2 } from './index.mjs';
+import { FONT_REGISTRY, validateDesignDocumentV2 } from './index.mjs';
 
 const families = {
   'botanical-elegance': { name: 'Botanical Elegance', palette: ['#F7F4EB', '#263F34', '#879580', '#A88650'], mask: 'watercolor-soft-01' },
@@ -154,6 +154,24 @@ export function assertProfessionalPersonalization(previous, candidate) {
   const normalized = structuredClone(candidate);
   normalized.version = previous.version;
   normalized.assets = previous.assets;
+  if (previous.metadata.referenceId && Array.isArray(policy.variableFields)) {
+    if (normalized.variables.length !== previous.variables.length) throw new TypeError('Reference variables are locked');
+    for (let i = 0; i < normalized.variables.length; i++) {
+      const entry = normalized.variables[i], prior = previous.variables[i];
+      if (policy.variableFields.includes(prior.key)) {
+        if (typeof entry.defaultValue !== 'string' || entry.defaultValue.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(entry.defaultValue)) throw new TypeError('Invalid reference text');
+        entry.defaultValue = prior.defaultValue;
+      }
+    }
+  }
+  const decor = normalized.elements.find(layer => layer.id === 'ai-background');
+  if (decor) {
+    const expected = fillInvitationDecor(previous, { assetId: decor.assetId, width: decor.sourceWidth, height: decor.sourceHeight }).elements.find(layer => layer.id === 'ai-background');
+    if (canonical(decor) !== canonical(expected)) throw new TypeError('Decor geometry is locked');
+    normalized.elements = normalized.elements.filter(layer => layer.id !== 'ai-background');
+    const priorDecor = previous.elements.find(layer => layer.id === 'ai-background');
+    if (priorDecor) normalized.elements.push(structuredClone(priorDecor));
+  }
   for (const layer of normalized.elements) {
     const prior = previous.elements.find((entry) => entry.id === layer.id);
     const slot = previous.metadata.photoSlots.find((entry) => entry.elementId === layer.id);
@@ -164,7 +182,7 @@ export function assertProfessionalPersonalization(previous, candidate) {
       if (prior) normalized.elements[normalized.elements.indexOf(layer)] = structuredClone(prior);
       else normalized.elements = normalized.elements.filter((entry) => entry !== layer);
     } else if (prior?.type === 'TEXT') {
-      if (!policy.colors.includes(layer.color) || !policy.fonts.includes(layer.fontId) || layer.fontFamily !== (layer.fontId === 'arial' ? 'Arial' : 'Georgia')) throw new TypeError('Palette or font not authorized');
+      if (!policy.colors.includes(layer.color) || !policy.fonts.includes(layer.fontId) || layer.fontFamily !== FONT_REGISTRY[layer.fontId]?.family) throw new TypeError('Palette or font not authorized');
       for (const key of policy.textFields) layer[key] = prior[key];
     }
   }
@@ -208,4 +226,14 @@ export function professionalCompositionManifest(document, seed) {
   const composition = validateProfessionalComposition(grammarValues(validated.metadata));
   return { grammarVersion: 1, recipeRelease: validated.metadata.release, designVersion: validated.version,
     seed, composition, fingerprint: professionalCompositionFingerprint(composition) };
+}
+
+/** Fixed, translucent private decor slot: preserves text, photos and QR geometry. */
+export function fillInvitationDecor(document, image) {
+  if (!image || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(image.assetId) || !Number.isInteger(image.width) || !Number.isInteger(image.height) || image.width < 1 || image.height < 1 || image.width > 8192 || image.height > 8192) throw new TypeError('Invalid private decor');
+  const next = structuredClone(document);
+  const layer = { id: 'ai-background', name: 'Décor IA', type: 'IMAGE', role: 'BACKGROUND', assetId: image.assetId, sourceWidth: image.width, sourceHeight: image.height, x: 0, y: 0, width: next.canvas.width, height: next.canvas.height, rotation: 0, locked: true, editable: false, zIndex: 1, fit: 'cover', cropX: 50, cropY: 50, cropScale: 1, opacity: 0.24 };
+  next.elements = [...next.elements.filter(item => item.id !== layer.id), layer];
+  next.assets = [...next.assets.filter(item => item.role !== 'AI_DECOR'), { id: image.assetId, assetId: image.assetId, role: 'AI_DECOR', width: image.width, height: image.height, mimeType: 'image/webp' }];
+  return next;
 }

@@ -147,7 +147,7 @@ export class EventsService {
     await this.prisma.agencySubscription.updateMany({ where: { workspaceId, status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
     const prior = await this.prisma.agencyQuotaReservation.findUnique({ where: { referenceKey } });
       if (prior) {
-        if (prior.workspaceId !== workspaceId || prior.eventId !== eventId || prior.credits !== credits || prior.status === 'RELEASED') throw new ConflictException('Quota reservation reference was already used');
+        if (prior.workspaceId !== workspaceId || prior.eventId !== eventId || (allowPartial ? prior.credits > credits : prior.credits !== credits) || prior.status !== 'RESERVED') throw new ConflictException('Quota reservation reference was already used');
         return { ...prior, remaining: await this.agencyQuotaRemaining(workspaceId, prior.subscriptionId), reservedCredits: prior.credits };
     }
     try {
@@ -195,9 +195,18 @@ export class EventsService {
     return { subscriptionId: subscription.id, includedQuota: subscription.quotaCredits, consumed: consumedCredits, reserved: reservedCredits, remaining: Math.max(0, subscription.quotaCredits - consumedCredits - reservedCredits) };
   }
 
-  async finalizeAgencyQuotaReservation(subject: string, workspaceId: string, referenceKey: string, finalStatus: 'CONSUMED' | 'RELEASED', consumedCredits?: number, internal = false) {
+  async finalizeAgencyQuotaReservation(subject: string, workspaceId: string, referenceKey: string, finalStatus: 'CONSUMED' | 'RELEASED', consumedCredits?: number, internal = false, releaseEventId?: string) {
     if (!internal) await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
-    const current = await this.prisma.agencyQuotaReservation.findUnique({ where: { referenceKey } });
+    let current = await this.prisma.agencyQuotaReservation.findUnique({ where: { referenceKey } });
+    if (!current && internal && finalStatus === 'RELEASED' && releaseEventId) {
+      this.assertUuid(releaseEventId);
+      if (!/^[A-Za-z0-9._:@/-]{1,200}$/.test(referenceKey)) throw new BadRequestException('Invalid quota reference');
+      const event = await this.prisma.event.findFirst({ where: { id: releaseEventId, agencyWorkspaceId: workspaceId }, select: { id: true } });
+      if (!event) throw new NotFoundException('Agency event not found');
+      // A release received before an ambiguous reserve closes the reference.
+      // Unique upsert also handles a reservation committing concurrently.
+      current = await this.prisma.agencyQuotaReservation.upsert({ where: { referenceKey }, create: { workspaceId, eventId: releaseEventId, referenceKey, credits: 0, status: 'RELEASED' }, update: {} });
+    }
     if (!current || current.workspaceId !== workspaceId) throw new NotFoundException('Agency quota reservation not found');
     const finalCredits = finalStatus === 'CONSUMED' ? (consumedCredits ?? current.credits) : 0;
     if (!Number.isSafeInteger(finalCredits) || finalCredits < 0 || finalCredits > current.credits) throw new BadRequestException('Consumed quota amount is invalid');
