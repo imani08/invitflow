@@ -11,7 +11,7 @@ function fixture(counts = { activeOwner: 0, activeGlobal: 0, recent: 0 }) {
   let persisted: Record<string, unknown> | null = null;
   let outboxCount = 0;
   const tx = {
-    $queryRaw: async (query: unknown) => { locks.push(query); return []; },
+    $executeRaw: async (query: unknown) => { locks.push(query); return 1; },
     aiDesignJob: {
       findFirst: async () => persisted,
       count: async ({ where }: { where: Record<string, unknown> }) => {

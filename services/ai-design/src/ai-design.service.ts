@@ -147,8 +147,8 @@ export class AiDesignService {
   }
 
   private async lockQuotaRows(tx: Prisma.TransactionClient, ownerSubject: string) {
-    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, 0)`);
-    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, hashtext(${ownerSubject}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, 0)`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(73648201, hashtext(${ownerSubject}))`);
   }
 
   private rejectQuota(reason: ReturnType<typeof aiQuotaRejection>) {

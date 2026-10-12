@@ -345,7 +345,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     try {
     for (const asset of snapshot.photoAssets) await this.storage.put(renderAssets[asset.assetId]!.key, asset.bytes, asset.mimeType!);
     await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${eventId}))`);
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${eventId}))`);
       const created = await tx.invitationBatch.create({
         data: {
           id: batchId,
@@ -466,6 +466,14 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     if (!failed.length) throw new ConflictException('Aucune invitation en échec à reprendre.');
     // Recheck current event access; stale ownership must not grant a retry.
     await this.upstream(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/events/' + source.eventId, authorization);
+    if (source.status === BatchStatus.FAILED && !source.settledAt && failed.some(item => item.errorCode !== 'CREDIT_RESERVATION_FAILED')) {
+      if (source.completedItems !== 0 || source.items.some(item => item.status !== BatchItemStatus.FAILED)) throw new ConflictException('Le règlement de cette émission doit être vérifié avant sa reprise.');
+      // Legacy failed batches may lack the local marker despite a committed
+      // zero-consumption settlement. Replay the original settlement key before
+      // reserving a retry; a conflicting/unknown outcome blocks the retry.
+      await this.settle(source, 0);
+      await this.prisma.invitationBatch.updateMany({ where: { id, status: BatchStatus.FAILED, settledAt: null }, data: { settledAt: new Date(), settlementCredits: 0 } });
+    }
     const batchId = randomUUID();
     try {
       await this.prisma.$transaction(async tx => {
@@ -1065,13 +1073,17 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         await Promise.all(batch.items.map(async item => {
           const attempt = item.attempts + 1;
           const owned = { id: item.id, status: BatchItemStatus.GENERATING, attempts: attempt };
+          let stage = 'claim';
           try {
             const claim = await this.prisma.batchItem.updateMany({ where: { id: item.id, status: BatchItemStatus.QUEUED, attempts: item.attempts, batch: { is: { cancelledAt: null, settlementCredits: null, status: { in: [BatchStatus.QUEUED, BatchStatus.GENERATING] } } } }, data: { status: BatchItemStatus.GENERATING, attempts: { increment: 1 }, errorCode: null } });
             if (!claim.count) return;
+            stage = 'render';
             const pdf = await this.render(object(item.snapshot));
             // Immutable attempt keys: a stale worker cannot overwrite a funded file.
             const key = 'pdf/' + batch.id + '/' + randomUUID() + '.pdf';
+            stage = 'storage';
             await this.storage.put(key, pdf, 'application/pdf');
+            stage = 'commit';
             const committed = await this.prisma.$transaction(async tx => {
               await tx.$queryRaw(Prisma.sql`SELECT id FROM invitation_batches WHERE id = ${batch.id}::uuid FOR UPDATE`);
               const current = await tx.invitationBatch.findUniqueOrThrow({ where: { id: batch.id } });
@@ -1084,10 +1096,14 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
               return changed.count === 1;
             });
             if (!committed) await this.storage.delete(key);
-          } catch {
+          } catch (error) {
             // If commit succeeded but its acknowledgement was lost, GENERATED no
             // longer matches this lease. Never roll it back or refund on timeout.
-            await this.prisma.batchItem.updateMany({ where: owned, data: { status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED, errorCode: attempt >= 3 ? 'RENDER_FAILED' : 'RETRYING' } });
+            const missingTool = error instanceof Error && 'code' in error && error.code === 'ENOENT' && 'syscall' in error && typeof error.syscall === 'string' && error.syscall.startsWith('spawn ');
+            const errorCode = missingTool ? 'RENDER_DEPENDENCY_MISSING' : 'RENDER_FAILED';
+            console.warn(JSON.stringify({ event: 'invitation_render_failed', batchId: batch.id, invitationId: item.invitationId, itemId: item.id, attempt, stage, errorCode,
+              reason: missingTool ? 'EXECUTABLE_NOT_FOUND' : error instanceof Error && ['Render timeout', 'Chromium render failed', 'QR generation failed', 'Invitation object storage is unavailable'].includes(error.message) ? error.message : 'UNCLASSIFIED_FAILURE' }));
+            await this.prisma.batchItem.updateMany({ where: owned, data: { status: attempt >= 3 ? BatchItemStatus.FAILED : BatchItemStatus.QUEUED, errorCode: attempt >= 3 ? errorCode : 'RETRYING' } });
           }
         }));
         await this.finishIfDone(batch.id);
@@ -1182,7 +1198,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       // Retain immutable image snapshots when failures remain, for technical retry.
       if (generated.length === batch.totalItems) await this.cleanupRenderAssets(batch.items[0]?.snapshot);
     } catch {
-      console.warn('[INVITATION FINALIZATION] pending; retry uses the same reservation and count');
+      console.warn(JSON.stringify({ event: 'invitation_finalization_pending', batchId: id, reason: 'RETRY_SAME_RESERVATION_AND_COUNT' }));
       // No release/refund here: the outcome of a timed-out settlement is unknown.
     }
   }
@@ -1313,7 +1329,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
     const hasDesignQr = renderElements.some((item: unknown) => object(item).type === 'QR');
     const { widthMm, heightMm } = invitationPrintFormat(doc);
-    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:${widthMm}mm ${heightMm}mm;margin:0}html,body{margin:0;width:${widthMm}mm;height:${heightMm}mm;background:${designBackground};overflow:hidden}svg{display:block;width:${widthMm}mm;height:${heightMm}mm}.fallback{box-sizing:border-box;width:${widthMm}mm;height:${heightMm}mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg{width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
+    const html = `<!doctype html><meta charset="utf-8"><style>@page{size:${widthMm}mm ${heightMm}mm;margin:0}html,body{margin:0;width:${widthMm}mm;height:${heightMm}mm;background:${designBackground};overflow:hidden}svg{display:block;width:${widthMm}mm;height:${heightMm}mm}.fallback{box-sizing:border-box;width:${widthMm}mm;height:${heightMm}mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg,.qr img{display:block;width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');
     const output = join(dir, 'invitation.pdf');

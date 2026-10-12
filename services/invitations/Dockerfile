@@ -37,7 +37,8 @@ RUN pnpm --filter @invitaflow/invitations --prod deploy --legacy /prod
 FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/* && install -d -o node -g node /app
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends openssl qrencode chromium fonts-dejavu-core fonts-liberation && rm -rf /var/lib/apt/lists/* && install -d -o node -g node /app
+ENV CHROMIUM_PATH=/usr/bin/chromium QR_ENCODE_PATH=/usr/bin/qrencode
 COPY --from=builder --chown=node:node /prod ./
 USER node
 EXPOSE 3013

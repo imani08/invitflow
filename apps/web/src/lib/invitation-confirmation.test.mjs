@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { confirmationState } from './invitation-confirmation.mjs';
+import { confirmationState, generationMessage } from './invitation-confirmation.mjs';
+
+test('generation messages follow state and never announce unfunded downloads', () => {
+  const batch = { status: 'QUEUED', completedItems: 0, failedItems: 0 };
+  assert.equal(generationMessage(batch), 'Votre demande est enregistrée. La préparation de vos invitations va commencer.');
+  assert.equal(generationMessage({ ...batch, status: 'GENERATING' }), 'Vos invitations sont en cours de préparation.');
+  assert.match(generationMessage({ ...batch, status: 'FAILED' }), /a échoué.*réessayez/);
+  assert.doesNotMatch(generationMessage({ ...batch, status: 'COMPLETED', completedItems: 1 }), /sont prêtes|gratuitement/);
+  const funded = { ...batch, status: 'COMPLETED', completedItems: 1, settledAt: '2026-10-12', settlementCredits: 1 };
+  assert.equal(generationMessage(funded), 'Vos invitations sont prêtes. Vous pouvez les télécharger à nouveau gratuitement.');
+  assert.match(generationMessage({ ...funded, status: 'PARTIAL', failedItems: 2 }), /1 invitation\(s\) disponible\(s\), 2 invitation\(s\) à reprendre/);
+  assert.doesNotMatch(generationMessage({ ...funded, zipDeletedAt: '2026-10-12' }), /sont prêtes|gratuitement/);
+});
 
 test('confirmation requires a real completed unexpired batch, not a download click', () => {
   assert.equal(confirmationState(null), 'unavailable');

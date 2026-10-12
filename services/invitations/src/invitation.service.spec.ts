@@ -158,3 +158,40 @@ test('settlement consumes agency quota first and only charges Wallet for the rem
     if (originalToken === undefined) delete process.env['WALLET_INTERNAL_TOKEN']; else process.env['WALLET_INTERNAL_TOKEN'] = originalToken;
   }
 });
+
+test('legacy failed retry cannot reserve again before original zero settlement is confirmed', async () => {
+  let created = false, settled = false;
+  const source = { id: 'failed-batch', ownerSubject: 'owner', eventId, status: 'FAILED', settledAt: null, completedItems: 0, reservationReleasePending: false, items: [{ status: 'FAILED', errorCode: 'RENDER_FAILED' }] };
+  const prisma = { invitationBatch: { findFirst: async () => source, findUnique: async () => null }, $transaction: async () => { created = true; } };
+  const service = new InvitationService(prisma as unknown as PrismaService, {} as InvitationStorage);
+  const internal = service as unknown as { upstream(): Promise<unknown>; settle(batch: unknown, count: number): Promise<void> };
+  internal.upstream = async () => ({});
+  internal.settle = async (batch, count) => { assert.equal(batch, source); assert.equal(count, 0); settled = true; throw new Error('Settlement outcome not confirmed'); };
+  const previous = process.env['EVENTS_SERVICE_URL']; process.env['EVENTS_SERVICE_URL'] = 'http://events.invalid';
+  try { await assert.rejects(service.retryFailed('owner', 'failed-batch', 'Bearer test'), /not confirmed/); assert.equal(settled, true); assert.equal(created, false); }
+  finally { if (previous === undefined) delete process.env['EVENTS_SERVICE_URL']; else process.env['EVENTS_SERVICE_URL'] = previous; }
+});
+
+test('technical retry replay returns its existing child without another reservation or emission', async () => {
+  const source = { id: 'failed-batch', ownerSubject: 'owner' }, child = { id: 'retry-batch' };
+  const prisma = { invitationBatch: { findFirst: async () => source, findUnique: async () => child }, $transaction: async () => { throw new Error('Unexpected new emission'); } };
+  const service = new InvitationService(prisma as unknown as PrismaService, {} as InvitationStorage);
+  service.getBatch = async (_owner, id) => { assert.equal(id, child.id); return child as never; };
+  assert.deepEqual(await service.retryFailed('owner', source.id, 'Bearer test'), child);
+});
+
+test('production runtime keeps the external QR and PDF rendering tools', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const dockerfile = await readFile(new URL('../Dockerfile', import.meta.url), 'utf8');
+  const runtime = dockerfile.slice(dockerfile.lastIndexOf('FROM '));
+  assert.match(runtime, /apt-get install[^\n]*qrencode[^\n]*chromium/);
+  assert.match(runtime, /CHROMIUM_PATH=\/usr\/bin\/chromium/);
+  assert.match(runtime, /QR_ENCODE_PATH=\/usr\/bin\/qrencode/);
+  assert.match(runtime, /USER node/);
+});
+
+test('fallback QR image uses the same bounded size as an inline SVG', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('./invitation.service.ts', import.meta.url), 'utf8');
+  assert.match(source, /\.qr svg,\.qr img\{display:block;width:100%;height:100%\}/);
+});

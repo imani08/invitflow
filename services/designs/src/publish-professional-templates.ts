@@ -32,7 +32,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }) });
   try {
     for (const { slug, document } of documents) await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`professional-template:${slug}`}))`);
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`professional-template:${slug}`}))`);
       const existing = await tx.designTemplate.findUnique({ where: { slug }, include: { versions: true } });
       const current = existing?.versions.find((item) => item.version === existing.version);
       if (existing && !current) throw new Error(`Missing immutable version for ${slug}`);
