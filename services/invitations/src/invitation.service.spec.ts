@@ -195,3 +195,15 @@ test('fallback QR image uses the same bounded size as an inline SVG', async () =
   const source = await readFile(new URL('./invitation.service.ts', import.meta.url), 'utf8');
   assert.match(source, /\.qr svg,\.qr img\{display:block;width:100%;height:100%\}/);
 });
+
+test('batch list, pagination and detail serialize PostgreSQL bigint sizes losslessly', async () => {
+  const row = { id: eventId, ownerSubject: 'owner', zipSizeBytes: 9007199254740993n, settledAt: new Date(), status: 'COMPLETED' };
+  const prisma = { invitationBatch: { findMany: async () => [row], findFirst: async () => row } };
+  const service = new InvitationService(prisma as unknown as PrismaService, {} as InvitationStorage);
+  for (const result of [await service.list('owner', eventId), await service.list('owner', eventId, '10'), await service.getBatch('owner', row.id)]) {
+    assert.doesNotThrow(() => JSON.stringify(result));
+    assert.match(JSON.stringify(result), /"zipSizeBytes":"9007199254740993"/);
+  }
+  row.zipSizeBytes = null as never;
+  assert.equal((await service.getBatch('owner', row.id)).zipSizeBytes, null);
+});

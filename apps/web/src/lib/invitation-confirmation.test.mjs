@@ -3,6 +3,15 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { confirmationState, generationMessage } from './invitation-confirmation.mjs';
 
+test('batch refresh preserves the last response and backs off without overlapping requests', async () => {
+  const source = await readFile(new URL('../app/events/[eventId]/invitations/workspace.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Actualisation impossible/);
+  assert.match(source, /Math\.min\(60000, 5000 \* 2 \*\*/);
+  assert.match(source, /controller\.abort\(\)/);
+  assert.doesNotMatch(source, /window\.setInterval/);
+  assert.doesNotMatch(source, /setBatches\(Array\.isArray\(items\) \? items : \[\]\)/);
+});
+
 test('generation messages follow state and never announce unfunded downloads', () => {
   const batch = { status: 'QUEUED', completedItems: 0, failedItems: 0 };
   assert.equal(generationMessage(batch), 'Votre demande est enregistrée. La préparation de vos invitations va commencer.');

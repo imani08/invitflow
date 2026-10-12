@@ -8,6 +8,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { InvitationService } from './dist/src/invitation.service.js';
 import { InvitationStorage } from './dist/src/invitation-storage.js';
 import { InvitationsController } from './dist/src/invitations.controller.js';
+import { invitationToken } from './dist/src/invitation-token.mjs';
 import { PrismaClient as WalletClient } from './test-wallet/generated/prisma/client.js';
 import { WalletService } from './test-wallet/src/wallet.service.js';
 
@@ -55,10 +56,27 @@ try {
   };
   const eventId = randomUUID(), guestId = randomUUID(), designId = randomUUID();
   const invitation = await db.invitation.create({ data: { ownerSubject: owner, eventId, guestId } });
-  const snapshot = { invitationId: invitation.id, jobId: batchId,
+  let snapshot = { invitationId: invitation.id, jobId: batchId,
     eventSnapshot: { name: 'Validation InvitaFlow', startAt: '2026-10-12T10:00:00+01:00', location: 'Lieu de test' },
     guestSnapshot: { id: guestId, fullName: 'Invité de test isolé' },
     designSnapshot: { document: { canvas: { width: 1080, height: 1530 }, elements: [], theme: {} } }, renderAssets: {} };
+  if (process.env.TEST_SOURCE_BATCH) {
+    const source = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+    try {
+      const original = await source.batchItem.findFirstOrThrow({ where: { batchId: process.env.TEST_SOURCE_BATCH } });
+      snapshot = structuredClone(original.snapshot);
+      snapshot.invitationId = invitation.id; snapshot.jobId = batchId;
+      // Copy immutable images into the diagnostic namespace: finalization must
+      // never clean up the customer's original snapshots.
+      for (const [assetId, entry] of Object.entries(snapshot.renderAssets ?? {})) {
+        const oldKey = typeof entry === 'string' ? entry : entry.key;
+        const key = 'batches/' + batchId + '/' + randomUUID() + (oldKey.endsWith('.png') ? '.png' : '.webp');
+        await storage.put(key, await storage.get(oldKey), typeof entry === 'string' ? 'image/webp' : entry.mimeType);
+        storedKeys.add(key);
+        snapshot.renderAssets[assetId] = typeof entry === 'string' ? key : { ...entry, key };
+      }
+    } finally { await source.$disconnect(); }
+  }
   const version = await db.invitationVersion.create({ data: { invitationId: invitation.id, version: 1, designId, designVersion: 1, snapshot } });
   await db.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId, designId, designVersion: 1, idempotencyKey: randomUUID(), reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: 1, totalItems: 1 } });
   const item = await db.batchItem.create({ data: { batchId, invitationId: invitation.id, invitationVersionId: version.id, guestId, snapshot } });
@@ -83,9 +101,13 @@ try {
   assert.match(response.headers.get('content-disposition'), /attachment/); assert.match(response.headers.get('cache-control'), /no-store/);
   const pdf = Buffer.from(await response.arrayBuffer()); assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   await writeFile('/test-output/invitation.pdf', pdf);
+  const qrTarget = process.env.PUBLIC_WEB_URL.replace(/\/$/, '') + '/invite/' + invitationToken(invitation.id);
+  await writeFile('/test-output/qr-expected-sha256.txt', createHash('sha256').update(qrTarget).digest('hex'));
   const again = Buffer.from(await (await realFetch(address + '/invitation.pdf')).arrayBuffer()); assert.ok(again.equals(pdf));
   const zip = Buffer.from(await (await realFetch(address + '/invitations.zip')).arrayBuffer()); assert.equal(zip.subarray(0, 2).toString(), 'PK');
   await writeFile('/test-output/invitations.zip', zip);
+  await service.settle(batch, 1); // Lost-ack replay uses the same durable key.
+  await service.work();
   assert.equal(await walletDb.walletEntry.count({ where: { type: 'SETTLEMENT' } }), 1);
   assert.equal((await wallet.balance(owner)).reservedCredits, 0);
   console.log(JSON.stringify({ batchStatus: batch.status, reserved: 1, consumed: 1, released: 0, httpDownload: 200, repeatedDownloadIdentical: true, settlements: 1, pdfBytes: pdf.length, pdfSha256: createHash('sha256').update(pdf).digest('hex'), realCustomerBalancesModified: false }));
@@ -101,7 +123,7 @@ try {
     storedKeys.add('batches/' + batchId + '.zip');
   }
   for (const key of storedKeys) {
-    assert.ok(key.startsWith('pdf/' + batchId + '/') || key === 'batches/' + batchId + '.zip');
+    assert.ok(key.startsWith('pdf/' + batchId + '/') || key.startsWith('batches/' + batchId + '/') || key === 'batches/' + batchId + '.zip');
     await storage.delete(key);
   }
   globalThis.fetch = realFetch;

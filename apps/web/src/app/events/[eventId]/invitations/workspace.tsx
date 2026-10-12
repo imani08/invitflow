@@ -13,8 +13,8 @@ type Batch = { settledAt?: string | null; settlementCredits?: number | null; id:
 type Quote = { invitationCount: number; creditsRequired: number; availableCredits: number; walletAvailableCredits: number; agencyAvailableCredits: number; missingCredits: number; guestIds: string[]; designVersion: number };
 type EmissionIntent = { signature: string; key: string; payload: { designId: string; expectedDesignVersion: number; guestIds: string[] } };
 type WalletBalance = { availableCredits: number; reservedCredits: number; currency: 'CREDITS' };
-async function api<T>(eventId: string, path: string, method = 'GET', data?: unknown, key?: string): Promise<T> {
-  const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/${path}`, { method, headers: { ...(data !== undefined ? { 'content-type': 'application/json' } : {}), ...(key ? { 'idempotency-key': key } : {}) }, ...(data !== undefined ? { body: JSON.stringify(data) } : {}), cache: 'no-store' });
+async function api<T>(eventId: string, path: string, method = 'GET', data?: unknown, key?: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/${path}`, { method, signal: signal ?? null, headers: { ...(data !== undefined ? { 'content-type': 'application/json' } : {}), ...(key ? { 'idempotency-key': key } : {}) }, ...(data !== undefined ? { body: JSON.stringify(data) } : {}), cache: 'no-store' });
   const value = await response.json().catch(() => ({})); if (!response.ok) throw new Error(value?.message ?? 'La demande a échoué.'); return value as T;
 }
 function formatFileSize(value: Batch['zipSizeBytes']) {
@@ -27,6 +27,8 @@ function formatFileSize(value: Batch['zipSizeBytes']) {
 }
 export function InvitationsWorkspace({ eventId, eventName }: { eventId: string; eventName: string }) {
   const [designs, setDesigns] = useState<Design[]>([]); const [previewDesign, setPreviewDesign] = useState<Design | null>(null); const [guests, setGuests] = useState<Guest[]>([]); const [guestTotal, setGuestTotal] = useState(0); const [guestSearch, setGuestSearch] = useState(''); const [selectedGuests, setSelectedGuests] = useState<string[]>([]); const [allGuestsSelected, setAllGuestsSelected] = useState(true); const [designId, setDesignId] = useState(''); const [batches, setBatches] = useState<Batch[]>([]); const [batchDetails, setBatchDetails] = useState<Record<string, Batch>>({}); const [wallet, setWallet] = useState<WalletBalance | null>(null); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
+  const [batchRefreshError, setBatchRefreshError] = useState('');
+  const [batchRefreshRevision, setBatchRefreshRevision] = useState(0);
   const submitting = useRef(false);
   const retryRequest = useRef<EmissionIntent | null>(null);
   const [emissionIntent, setEmissionIntent] = useState<EmissionIntent | null>(null);
@@ -55,7 +57,26 @@ export function InvitationsWorkspace({ eventId, eventName }: { eventId: string; 
   }, [eventId]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { let active = true; setPreviewDesign(null); if (designId) void api<Design>(eventId, `designs/${encodeURIComponent(designId)}`).then(design => { if (active) setPreviewDesign(design); }).catch(error => { if (active) setMessage(error.message); }); return () => { active = false; }; }, [eventId, designId]);
-  useEffect(() => { const timer = window.setInterval(() => { void api<Batch[]>(eventId, 'invitations/batches').then(items => setBatches(Array.isArray(items) ? items : [])).catch(() => undefined); }, 5000); return () => window.clearInterval(timer); }, [eventId]);
+  useEffect(() => {
+    let active = true, failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const poll = async () => {
+      try {
+        const items = await api<Batch[]>(eventId, 'invitations/batches', 'GET', undefined, undefined, controller.signal);
+        if (!Array.isArray(items)) throw new Error('Réponse des invitations incomplète.');
+        if (!active) return;
+        setBatches(items); setBatchRefreshError(''); failures = 0;
+      } catch {
+        if (!active) return;
+        failures += 1;
+        setBatchRefreshError('Actualisation impossible. Le dernier état reçu est conservé. Nouvelle tentative automatique dans quelques instants.');
+      }
+      if (active) timer = setTimeout(() => void poll(), failures ? Math.min(60000, 5000 * 2 ** Math.min(failures, 4)) : 5000);
+    };
+    timer = setTimeout(() => void poll(), batchRefreshRevision ? 0 : 5000);
+    return () => { active = false; controller.abort(); clearTimeout(timer); };
+  }, [eventId, batchRefreshRevision]);
   const previewGuest = guests.find(guest => guest.id === selectedGuests[0]) ?? guests[0];
   const requestedCount = allGuestsSelected ? guestTotal : selectedGuests.length;
   const reviewSignature = JSON.stringify({ designId, version: previewDesign?.version, guests: allGuestsSelected ? 'ALL' : [...selectedGuests].sort() });
@@ -121,7 +142,8 @@ export function InvitationsWorkspace({ eventId, eventName }: { eventId: string; 
       {message && <p className="invitation-message" role="status">{message}</p>}
     </div>
     {downloadRequested && <section className="invitation-panel" role="status"><h2>Votre téléchargement a été demandé</h2><p>Le navigateur prend en charge l’enregistrement du ZIP. Les fichiers restent accessibles dans les lots ci-dessous.</p><a className="invitation-download" href={`/events/${encodeURIComponent(eventId)}/invitations/merci`}>Continuer → Merci</a> · <a href={`/events/${encodeURIComponent(eventId)}`}>Revenir à mon événement</a></section>}
-    <div className="invitation-panel"><div className="invitation-panel-title"><div><span className="eyebrow">Préparation de vos invitations</span><h2>Générations récentes</h2></div><button className="invitation-link-button" onClick={() => void load()}>Actualiser</button></div>
+    <div className="invitation-panel"><div className="invitation-panel-title"><div><span className="eyebrow">Préparation de vos invitations</span><h2>Générations récentes</h2></div><button className="invitation-link-button" onClick={() => setBatchRefreshRevision(value => value + 1)}>Actualiser</button></div>
+      {batchRefreshError && <p className="invitation-message" role="status">{batchRefreshError}</p>}
       {batches.length ? <div className="invitation-batches">{batches.map(batch => { const detail = batchDetails[batch.id]; const active = ['QUEUED','GENERATING','RESERVING','FINALIZING'].includes(batch.status); const cancellable = ['QUEUED','GENERATING'].includes(batch.status); const expired = Boolean(batch.zipDeletedAt) || Boolean(batch.zipExpiresAt && Date.parse(batch.zipExpiresAt) <= Date.now()); const funded = !!batch.settledAt && ['COMPLETED', 'PARTIAL', 'CANCELLED'].includes(batch.status); const zipReady = confirmationState(batch) === 'ready' && batch.completedItems > 0; const percent = batch.totalItems ? Math.min(100, Math.round((batch.completedItems + batch.failedItems) / batch.totalItems * 100)) : 0; const zipSize = formatFileSize(batch.zipSizeBytes); return <article key={batch.id}><div><strong>{formatDateTime(batch.createdAt)}</strong><span className={`invitation-status ${batch.status.toLowerCase()}`} aria-label={`Statut: ${statusLabel[batch.status] ?? batch.status}`}>{statusLabel[batch.status] ?? batch.status}</span></div><p>{generationMessage(batch)}</p><p>{batch.completedItems}/{batch.totalItems} invitations traitées{batch.failedItems ? ` · ${batch.failedItems} en échec` : ''}</p>{active && <div className="invitation-progress" role="progressbar" aria-valuemin={0} aria-valuemax={batch.totalItems} aria-valuenow={Math.min(batch.totalItems, batch.completedItems + batch.failedItems)} aria-label="Invitations traitées"><span style={{ width: `${percent}%` }} /></div>}{batch.status === 'RESERVING' && <p>Réservation de crédits en cours.</p>}<div className="invitation-actions">{zipReady && <><a className="invitation-download" href={`/api/events/${eventId}/invitations/batches/${batch.id}/download`} onClick={() => setDownloadRequested(true)}>Télécharger le ZIP</a><a href={`/events/${encodeURIComponent(eventId)}/invitations/merci?batch=${encodeURIComponent(batch.id)}`}>Terminer → Merci</a>{zipSize && <small>{zipSize}</small>}{batch.zipExpiresAt && <small>Expire le {formatDateTime(batch.zipExpiresAt)}</small>}</>}{expired && funded && batch.completedItems > 0 && <><span>ZIP expiré ou supprimé</span><button className="invitation-link-button" onClick={() => void api<Batch>(eventId, `invitations/batches/${batch.id}/regenerate`, 'POST', {}).then(load).catch(error => setMessage(error.message))}>Régénérer le ZIP</button></>}{<button className="invitation-link-button" onClick={() => detail ? setBatchDetails(current => { const next = { ...current }; delete next[batch.id]; return next; }) : void api<Batch>(eventId, `invitations/batches/${batch.id}`).then(value => setBatchDetails(current => ({ ...current, [batch.id]: value }))).catch(error => setMessage(error.message))}>{detail ? 'Masquer le détail' : 'Consulter le détail'}</button>}{detail?.items?.filter(item => item.status === 'FAILED').map(item => <p key={item.id} role="status">Invitation en échec : {item.errorCode === 'RENDER_DEPENDENCY_MISSING' ? 'Un outil de préparation est indisponible sur le serveur.' : 'Le fichier n’a pas pu être préparé.'} Référence : {item.errorCode ?? 'RENDER_FAILED'}.</p>)}{(funded ? detail?.items ?? [] : []).filter(item => item.status === 'GENERATED' && item.objectKey).map(item => <a key={item.id} className="invitation-download" href={`/api/events/${eventId}/invitations/batches/${batch.id}/items/${item.id}/download`}>PDF · {guests.find(guest => guest.id === item.guestId)?.fullName ?? 'Invité'}</a>)}{['PARTIAL', 'FAILED'].includes(batch.status) && batch.failedItems > 0 && <button className="invitation-link-button" onClick={() => void api<Batch>(eventId, 'invitations/batches/' + batch.id + '/retry', 'POST', {}).then(load).catch(error => setMessage(error.message))}>Reprendre uniquement les invitations en échec</button>}{cancellable && <button className="invitation-link-button" onClick={() => void api<Batch>(eventId, `invitations/batches/${batch.id}/cancel`, 'POST', {}).then(value => setBatchDetails(current => ({ ...current, [batch.id]: value }))).then(load).catch(error => setMessage(error.message))}>Annuler</button>}</div></article>; })}</div> : <p className="invitation-empty">Aucun lot créé pour cet événement.</p>}
     </div></>}
   </section>;

@@ -509,12 +509,12 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const where = { ownerSubject: owner, ...(eventId ? { eventId } : {}) };
     const include = { _count: { select: { items: true } } } as const;
     if (rawLimit === undefined && cursor === undefined)
-      return this.prisma.invitationBatch.findMany({
+      return (await this.prisma.invitationBatch.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: 100,
         include,
-      });
+      })).map(batch => ({ ...batch, zipSizeBytes: batch.zipSizeBytes?.toString() ?? null }));
     const limit = rawLimit === undefined ? 50 : Number(rawLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new BadRequestException('La limite doit être comprise entre 1 et 100.');
@@ -536,7 +536,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       include,
     });
     const hasMore = rows.length > limit;
-    const items = rows.slice(0, limit);
+    const items = rows.slice(0, limit).map(batch => ({ ...batch, zipSizeBytes: batch.zipSizeBytes?.toString() ?? null }));
     return { items, nextCursor: hasMore ? (items.at(-1)?.id ?? null) : null };
   }
   async getBatch(owner: string, id: string) {
@@ -557,7 +557,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       },
     });
     if (!batch) throw new NotFoundException('Lot introuvable.');
-    return batch;
+    return { ...batch, zipSizeBytes: batch.zipSizeBytes?.toString() ?? null };
   }
   async cancel(owner: string, id: string) {
     const batch = await this.prisma.invitationBatch.findFirst({ where: { id, ownerSubject: owner } });
