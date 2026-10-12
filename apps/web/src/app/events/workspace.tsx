@@ -1,9 +1,10 @@
 'use client';
+import MomentFields from '@/components/moment-fields';
 import EventJourney from '@/components/event-journey';
 import { useJourneyDraft } from '@/components/journey-drafts';
 import { JourneyNavigationSafety } from '@/components/journey-navigation-safety';
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Ceremony, CeremonyProgramItem, Event } from './types';
@@ -14,8 +15,8 @@ import { CEREMONY_TIME_RANGE_ERROR, ceremonyTimeRangeError } from '@/lib/ceremon
 const typeLabels: Record<string, string> = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', GRADUATION: 'Graduation', BAPTISM: 'Baptême', BABY_SHOWER: 'Baby shower', CONFERENCE: 'Conférence', GALA: 'Gala', DINNER: 'Dîner', CORPORATE: 'Événement professionnel', CEREMONY: 'Cérémonie', RELIGIOUS: 'Cérémonie religieuse', ANNIVERSARY: 'Anniversaire de mariage', OTHER: 'Autre' };
 const statusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'Publié', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
 
-async function api(path: string, method = 'GET', data?: Record<string, unknown>) {
-  const response = await fetch(`/api/events/${path}`, { method, ...(data !== undefined ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) } : {}) });
+async function api(path: string, method = 'GET', data?: Record<string, unknown>, key?: string) {
+  const response = await fetch(`/api/events/${path}`, { method, ...(data !== undefined ? { headers: { 'content-type': 'application/json', ...(key ? { 'idempotency-key': key } : {}) }, body: JSON.stringify(data) } : {}) });
   const result: unknown = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = result && typeof result === 'object' && 'message' in result ? result.message : null;
@@ -83,6 +84,7 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
   const [expanded, setExpanded] = useState<string | null>(expandedEventId ?? null);
   const [editingEvent, setEditingEvent] = useState<string | null>(null);
   const [editingCeremony, setEditingCeremony] = useState<string | null>(null);
+  const momentSubmitting = useRef(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -147,17 +149,20 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
   }
 
   async function addCeremony(eventId: string, form: FormData) {
+    if (momentSubmitting.current) return false;
+    momentSubmitting.current = true;
     setBusy(true); setMessage('');
     try {
+      await eventDraft.flush();
       const localStart = String(form.get('startAt'));
       const localEnd = String(form.get('endAt') ?? '');
       const timeRangeError = ceremonyTimeRangeError(localStart, localEnd);
-      if (timeRangeError) { setMessage(timeRangeError); return; }
+      if (timeRangeError) { setMessage(timeRangeError); return false; }
       const timezone = String(form.get('timezone'));
-      await api(`${eventId}/ceremonies`, 'POST', { name: form.get('name'), ceremonyType: form.get('ceremonyType'), description: form.get('description') || null, location: form.get('location') || null, address: form.get('address') || null, instructions: form.get('instructions') || null, dressCode: form.get('dressCode') || null, notes: form.get('notes') || null, capacity: form.get('capacity') ? Number(form.get('capacity')) : null, latitude: form.get('latitude') ? Number(form.get('latitude')) : null, longitude: form.get('longitude') ? Number(form.get('longitude')) : null, startAt: localTimeInZone(localStart, timezone), ...(localEnd ? { endAt: localTimeInZone(localEnd, timezone) } : {}), timezone });
-      await refresh(); setMessage('Cérémonie ajoutée.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Ajout impossible.'); }
-    finally { setBusy(false); }
+      await api(`${eventId}/ceremonies`, 'POST', { name: form.get('name'), ceremonyType: form.get('ceremonyType'), description: form.get('description') || null, location: form.get('location') || null, address: form.get('address') || null, instructions: form.get('instructions') || null, dressCode: form.get('dressCode') || null, notes: form.get('notes') || null, capacity: form.get('capacity') ? Number(form.get('capacity')) : null, latitude: form.get('latitude') ? Number(form.get('latitude')) : null, longitude: form.get('longitude') ? Number(form.get('longitude')) : null, startAt: localTimeInZone(localStart, timezone), ...(localEnd ? { endAt: localTimeInZone(localEnd, timezone) } : {}), timezone }, String(form.get('operationId') ?? ''));
+      await eventDraft.clearForm('ceremony-new:' + eventId); await refresh(); const currentForm = document.querySelector<HTMLFormElement>(`form[data-draft-key="ceremony-new:${eventId}"]`); currentForm?.reset(); setMessage('Moment enregistré.'); return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Ajout impossible.'); return false; }
+    finally { momentSubmitting.current = false; setBusy(false); }
   }
 
   async function updateEvent(eventId: string, form: FormData) {
@@ -179,10 +184,10 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
       const localStart = String(form.get('startAt') ?? '');
       const end = String(form.get('endAt') ?? '');
       const timeRangeError = ceremonyTimeRangeError(localStart, end);
-      if (timeRangeError) { setMessage(timeRangeError); return; }
+      if (timeRangeError) { setMessage(timeRangeError); return false; }
       await api(`${eventId}/ceremonies/${ceremonyId}`, 'PATCH', { name: form.get('name'), ceremonyType: form.get('ceremonyType'), description: form.get('description') || null, location: form.get('location') || null, address: form.get('address') || null, instructions: form.get('instructions') || null, dressCode: form.get('dressCode') || null, notes: form.get('notes') || null, capacity: form.get('capacity') ? Number(form.get('capacity')) : null, latitude: form.get('latitude') ? Number(form.get('latitude')) : null, longitude: form.get('longitude') ? Number(form.get('longitude')) : null, startAt: localTimeInZone(localStart, timezone), ...(end ? { endAt: localTimeInZone(end, timezone) } : { endAt: null }), timezone });
-      await eventDraft.clearForm('ceremony-edit:' + ceremonyId); await refresh(); setEditingCeremony(null); setMessage('Cérémonie mise à jour.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Modification impossible.'); }
+      await eventDraft.clearForm('ceremony-edit:' + ceremonyId); await refresh(); setEditingCeremony(null); setMessage('Moment mis à jour.'); return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Modification impossible.'); return false; }
     finally { setBusy(false); }
   }
 
@@ -194,14 +199,31 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
   }
 
   async function removeCeremony(eventId: string, ceremonyId: string) {
+    if (!window.confirm('Supprimer ce moment ? Son détail de programme sera supprimé. Les affectations d’invités ou de tables ne pourront plus être utilisées pour ce moment. Les autres moments et les invitations déjà émises sont conservés.')) return;
     setBusy(true); setMessage('');
     try { await api(`${eventId}/ceremonies/${ceremonyId}`, 'DELETE'); await refresh(); setMessage('Cérémonie supprimée.'); }
     catch (error) { setMessage(error instanceof Error ? error.message : 'Suppression impossible.'); }
     finally { setBusy(false); }
   }
 
+  async function continueFromProgramme(eventId: string) {
+    try {
+      const editing = document.querySelector<HTMLFormElement>('form[data-draft-key^="ceremony-edit:"]');
+      if (editing) { if (!editing.reportValidity()) return; if (!await updateCeremony(eventId, editingCeremony!, new FormData(editing))) return; }
+      const form = document.querySelector<HTMLFormElement>(`form[data-draft-key="ceremony-new:${eventId}"]`);
+      if (form && (form.elements.namedItem('name') as HTMLInputElement).value.trim()) {
+        if (!form.reportValidity()) return;
+        const field = form.elements.namedItem('operationId') as HTMLInputElement;
+        if (!field.value) { field.value=crypto.randomUUID(); field.dispatchEvent(new window.Event('input',{bubbles:true})); }
+        await eventDraft.flush();
+        if (!await addCeremony(eventId,new FormData(form))) return;
+      }
+      await eventDraft.flush(); router.push(`/events/${encodeURIComponent(eventId)}/designs`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Enregistrement impossible. Vos saisies sont conservées.'); }
+  }
+
   function submitCreate(event: FormEvent<HTMLFormElement>) { event.preventDefault(); void createEvent(new FormData(event.currentTarget)); }
-  function submitCeremony(event: FormEvent<HTMLFormElement>, id: string) { event.preventDefault(); void addCeremony(id, new FormData(event.currentTarget)); }
+  function submitCeremony(event: FormEvent<HTMLFormElement>, id: string) { event.preventDefault(); const field = event.currentTarget.elements.namedItem('operationId') as HTMLInputElement; if (!field.value) { field.value = crypto.randomUUID(); field.dispatchEvent(new window.Event('input', { bubbles: true })); } void addCeremony(id, new FormData(event.currentTarget)); }
   function updateCeremonyStartMinimum(event: ChangeEvent<HTMLInputElement>) {
     const endAtInput = event.currentTarget.form?.elements.namedItem('endAt');
     if (!(endAtInput instanceof HTMLInputElement)) return;
@@ -232,9 +254,10 @@ export function EventsWorkspace({ initialEvents, expandedEventId }: { initialEve
       {editingEvent === event.id && <form data-draft-key={`event-edit:${event.id}`} className="ceremony-form" onSubmit={(e) => { e.preventDefault(); void updateEvent(event.id, new FormData(e.currentTarget)); }}><strong>Modifier l’événement</strong><input name="name" defaultValue={event.name} minLength={2} maxLength={120} required /><div className="form-pair"><select name="eventType" defaultValue={event.eventType}>{Object.entries(typeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select><select name="timezone" defaultValue={event.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></div><div className="form-pair"><input name="startAt" type="datetime-local" defaultValue={dateTimeInput(event.startAt, event.timezone)} /><input name="endAt" type="datetime-local" defaultValue={dateTimeInput(event.endAt, event.timezone)} /></div><textarea name="description" defaultValue={event.description ?? ''} maxLength={4000} /><button className="small-action" disabled={busy}>Enregistrer</button></form>}
       <button className="event-expand" onClick={() => setExpanded(expanded === event.id ? null : event.id)}>{expanded === event.id ? 'Masquer le programme' : `Programme · ${event.ceremonies.length} cérémonie${event.ceremonies.length > 1 ? 's' : ''}`} <span>↗</span></button>
       {expanded === event.id && <div className="ceremony-panel" id={`ceremony-${event.id}`}>
-        <EventJourney eventId={event.id} activeStep="ceremonies" ceremonyCount={event.ceremonies.length} eventStatus={event.status} loadFacts={false} /><p>Enregistrez les horaires et lieux, puis choisissez votre design. Vous pourrez revenir modifier le programme.</p><div className="ceremony-list">{event.ceremonies.length === 0 ? <p>Aucune cérémonie pour le moment.</p> : event.ceremonies.map((ceremony) => <div className="ceremony-row" key={ceremony.id}><div><strong>{ceremony.name} <small>{ceremony.ceremonyType}</small></strong><span>{localDate(ceremony.startAt, ceremony.timezone)}{ceremony.location ? ` · ${ceremony.location}` : ''}{ceremony.address ? ` · ${ceremony.address}` : ''}</span>{ceremony.dressCode && <span>Tenue : {ceremony.dressCode}</span>}{ceremony.instructions && <span>{ceremony.instructions}</span>}<CeremonyProgramEditor eventId={event.id} ceremony={ceremony} editable={event.status === 'DRAFT'} onRefresh={refresh} onMessage={setMessage} /></div>{event.status === 'DRAFT' && <><button aria-label={`Modifier ${ceremony.name}`} onClick={() => setEditingCeremony(editingCeremony === ceremony.id ? null : ceremony.id)} disabled={busy}>Modifier</button><button aria-label={`Supprimer ${ceremony.name}`} onClick={() => void removeCeremony(event.id, ceremony.id)} disabled={busy}>×</button></>}</div>)}</div>
-        {editingCeremony && event.ceremonies.find((item) => item.id === editingCeremony) && (() => { const item = event.ceremonies.find((entry) => entry.id === editingCeremony)!; const localStart = dateTimeInput(item.startAt, item.timezone); return <form data-draft-key={`ceremony-edit:${item.id}`} className="ceremony-form" onSubmit={(e) => { e.preventDefault(); void updateCeremony(event.id, item.id, new FormData(e.currentTarget)); }}><strong>Modifier {item.name}</strong><input name="name" defaultValue={item.name} minLength={2} maxLength={120} required /><select name="ceremonyType" defaultValue={item.ceremonyType}><option value="CIVIL">Civile</option><option value="RELIGIOUS">Religieuse</option><option value="RECEPTION">Soirée / réception</option><option value="DOT">Dot</option><option value="TRADITIONAL">Traditionnelle</option><option value="OTHER">Autre</option></select><div className="form-pair"><input name="startAt" type="datetime-local" defaultValue={localStart} onChange={updateCeremonyStartMinimum} required /><input name="endAt" type="datetime-local" defaultValue={dateTimeInput(item.endAt, item.timezone)} min={localStart || undefined} onChange={validateCeremonyEndAt} onInvalid={showCeremonyEndAtError} /></div><div className="form-pair"><input name="location" placeholder="Lieu" defaultValue={item.location ?? ''} /><input name="address" placeholder="Adresse" defaultValue={item.address ?? ''} /></div><div className="form-pair"><input name="dressCode" placeholder="Dress code" defaultValue={item.dressCode ?? ''} /><input name="capacity" type="number" min="1" max="100000" placeholder="Capacité" defaultValue={item.capacity ?? ''} /></div><div className="form-pair"><input name="latitude" type="number" step="any" placeholder="Latitude GPS" defaultValue={item.latitude ?? ''} /><input name="longitude" type="number" step="any" placeholder="Longitude GPS" defaultValue={item.longitude ?? ''} /></div><textarea name="description" placeholder="Description" defaultValue={item.description ?? ''} /><textarea name="instructions" placeholder="Instructions" defaultValue={item.instructions ?? ''} /><textarea name="notes" placeholder="Notes" defaultValue={item.notes ?? ''} /><select name="timezone" defaultValue={item.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select><button className="small-action" disabled={busy}>Enregistrer la cérémonie</button></form>; })()}
-        {event.status === 'DRAFT' && <form data-draft-key={`ceremony-new:${event.id}`} className="ceremony-form" onSubmit={(e) => submitCeremony(e, event.id)}><strong>Ajouter une cérémonie</strong><div className="form-pair"><input name="name" placeholder="Nom (ex. cérémonie civile)" minLength={2} maxLength={120} required /><select name="ceremonyType" defaultValue="CIVIL"><option value="CIVIL">Civile</option><option value="RELIGIOUS">Religieuse</option><option value="RECEPTION">Soirée / réception</option><option value="DOT">Dot</option><option value="TRADITIONAL">Traditionnelle</option><option value="OTHER">Autre</option></select></div><div className="form-pair"><input name="startAt" type="datetime-local" onChange={updateCeremonyStartMinimum} required /><input name="endAt" type="datetime-local" onChange={validateCeremonyEndAt} onInvalid={showCeremonyEndAtError} /><input name="location" placeholder="Lieu (optionnel)" maxLength={300} /></div><div className="form-pair"><input name="address" placeholder="Adresse (optionnel)" maxLength={500} /><input name="dressCode" placeholder="Dress code (facultatif)" maxLength={200} /></div><div className="form-pair"><input name="capacity" type="number" min="1" max="100000" placeholder="Capacité (optionnelle)" /><select name="timezone" defaultValue={event.timezone}><option value="Africa/Kinshasa">Kinshasa · CAT</option><option value="Europe/Paris">Paris · CET/CEST</option><option value="UTC">UTC</option></select></div><div className="form-pair"><input name="latitude" type="number" step="any" placeholder="Latitude GPS" /><input name="longitude" type="number" step="any" placeholder="Longitude GPS" /></div><textarea name="description" placeholder="Description (facultatif)" maxLength={2000} /><textarea name="instructions" placeholder="Instructions (facultatif)" maxLength={4000} /><textarea name="notes" placeholder="Notes (facultatif)" maxLength={2000} /><button className="small-action" disabled={busy}>Ajouter au programme</button></form>}
+        <EventJourney eventId={event.id} activeStep="ceremonies" ceremonyCount={event.ceremonies.length} eventStatus={event.status} loadFacts={false} /><h2>Quel est le programme de votre événement ?</h2><p>Ajoutez les différents moments de votre événement. Vous choisirez ensuite quels invités participent à chacun.</p><p>Un seul moment suffit. À l’étape Invités, vous pourrez choisir qui participe à chaque moment.</p><div className="ceremony-list">{event.ceremonies.length === 0 ? <p>Aucune cérémonie pour le moment.</p> : event.ceremonies.map((ceremony) => <div className="ceremony-row" key={ceremony.id}><div><strong>{ceremony.name} <small>{ceremony.ceremonyType}</small></strong><span>{localDate(ceremony.startAt, ceremony.timezone)}{ceremony.location ? ` · ${ceremony.location}` : ''}{ceremony.address ? ` · ${ceremony.address}` : ''}</span>{ceremony.dressCode && <span>Tenue : {ceremony.dressCode}</span>}{ceremony.instructions && <span>{ceremony.instructions}</span>}<details><summary>Détail du programme (facultatif)</summary><CeremonyProgramEditor eventId={event.id} ceremony={ceremony} editable={event.status === 'DRAFT'} onRefresh={refresh} onMessage={setMessage} /></details></div>{event.status === 'DRAFT' && <><button aria-label={`Modifier ${ceremony.name}`} onClick={() => setEditingCeremony(editingCeremony === ceremony.id ? null : ceremony.id)} disabled={busy}>Modifier</button><button aria-label={`Supprimer ${ceremony.name}`} onClick={() => void removeCeremony(event.id, ceremony.id)} disabled={busy}>×</button></>}</div>)}</div>
+        {editingCeremony && event.ceremonies.find(item => item.id === editingCeremony) && (() => { const item = event.ceremonies.find(entry => entry.id === editingCeremony)!; return <form data-draft-key={`ceremony-edit:${item.id}`} className="ceremony-form" onSubmit={e => { e.preventDefault(); void updateCeremony(event.id, item.id, new FormData(e.currentTarget)); }}><strong>Modifier {item.name}</strong><MomentFields initial={item} timezone={item.timezone} start={dateTimeInput(item.startAt,item.timezone)} end={dateTimeInput(item.endAt,item.timezone)} onStart={updateCeremonyStartMinimum} onEnd={validateCeremonyEndAt} onInvalidEnd={showCeremonyEndAtError} /><button className="small-action" disabled={busy}>Enregistrer ce moment</button></form>; })()}
+        {event.status === 'DRAFT' && <form data-draft-key={`ceremony-new:${event.id}`} className="ceremony-form" onSubmit={e => submitCeremony(e,event.id)}><strong>Ajouter un moment</strong><div className="moment-suggestions">{(event.eventType === 'WEDDING' ? [['Mariage civil','CIVIL'],['Cérémonie religieuse','RELIGIOUS'],['Réception / soirée','RECEPTION']] : event.eventType === 'CONFERENCE' || event.eventType === 'CORPORATE' ? [['Accueil','OTHER'],['Conférence','OTHER'],['Cocktail','RECEPTION']] : [['Accueil','OTHER'],['Célébration','OTHER'],['Réception','RECEPTION']]).map(([name,type]) => <button key={name} type="button" onClick={e => { const form = e.currentTarget.form!; const nameInput = form.elements.namedItem('name') as HTMLInputElement; const typeInput = form.elements.namedItem('ceremonyType') as HTMLSelectElement; if (!nameInput.value) { nameInput.value=name!; typeInput.value=type!; nameInput.dispatchEvent(new window.Event('input',{bubbles:true})); } nameInput.focus(); }}>＋ {name}</button>)}</div><p>Choisissez une suggestion ou saisissez votre propre nom. Le moment est créé uniquement après enregistrement.</p><MomentFields timezone={event.timezone} start={dateTimeInput(event.startAt,event.timezone)} onStart={updateCeremonyStartMinimum} onEnd={validateCeremonyEndAt} onInvalidEnd={showCeremonyEndAtError} /><button className="small-action" disabled={busy}>Ajouter ce moment au programme</button></form>}
+        <button type="button" className="small-action" disabled={busy} onClick={() => void continueFromProgramme(event.id)}>Enregistrer et choisir mon design</button>
         <div className="event-actions">{event.status === 'DRAFT' && <button className="publish-action" onClick={() => void eventAction(event.id, 'publish')} disabled={busy || event.ceremonies.length === 0}>Publier l’événement</button>}{event.status !== 'CANCELLED' && event.status !== 'COMPLETED' && <button className="cancel-action" onClick={() => void eventAction(event.id, 'cancel')} disabled={busy}>Annuler</button>}</div>
       </div>}
     </article>)}</div>}

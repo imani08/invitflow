@@ -7,7 +7,9 @@ import { applyDesignChanges } from './providers.js';
 test('GPT uses server-only Responses structured outputs and honors registered professional font changes', async () => {
   const previousFetch = globalThis.fetch; const previousKey = process.env['OPENAI_API_KEY'];
   process.env['OPENAI_API_KEY'] = 'test-only-not-a-real-key';
-  const document = createProfessionalTemplate('typographic-luxury');
+    const document = createProfessionalTemplate('typographic-luxury');
+    const editable = document.elements.find(layer => layer['id'] === 'invitation')!;
+    editable['locked'] = false; editable['editable'] = true;
   try {
     globalThis.fetch = async (url, init) => {
       assert.equal(String(url), 'https://api.openai.com/v1/responses');

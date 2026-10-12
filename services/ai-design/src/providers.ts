@@ -29,13 +29,14 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
   if (typeof width !== 'number' || typeof height !== 'number') fail('Les dimensions du design sont invalides.');
   const elements = document['elements'] as JsonObject[];
   const policy = (document['metadata'] as JsonObject | undefined)?.['personalization'] as JsonObject | undefined;
-  const professional = policy?.['policy'] === 'professional-v1';
+  const professional = policy?.['policy'] === 'professional-v1' && (document['metadata'] as JsonObject | undefined)?.['editorMode'] !== 'FULL';
+  const scope = (document['metadata'] as JsonObject | undefined)?.['aiEditScope'];
   const tokens = (document['theme'] as JsonObject)['tokens'] as JsonObject;
   const setToken = (key: string, value: unknown) => {
     if (!isHexColor(value)) fail('La couleur proposée est invalide.');
     tokens[key] = value;
     const background = document['elements'] as JsonObject[];
-    for (const layer of background) if (key === 'background' && layer['type'] === 'BACKGROUND' && layer['locked'] === true && layer['editable'] === false) layer['fill'] = value;
+    for (const layer of background) if (key === 'background' && layer['type'] === 'BACKGROUND' && layer['locked'] !== true && layer['editable'] === true) layer['fill'] = value;
   };
   for (const changeValue of rawChanges) {
     const change = changeValue as JsonObject;
@@ -51,19 +52,19 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
                   : operation === 'set_shape_color' ? ['op', 'elementId', 'fill', 'stroke'] : null;
     if (!allowed) fail('Le moteur a proposé une opération qui n’est pas prise en charge.');
     if (Object.keys(change).some((key) => !allowed.includes(key))) fail('La proposition contient des champs non autorisés.');
+    if (Array.isArray(scope) && (operation === 'set_theme_color' || !scope.includes(targetId))) fail('La proposition dépasse la sélection demandée.');
     if (operation === 'set_theme_color') {
       if (professional) fail('La palette structurelle de ce modèle est protégée.');
       const key = change['token'];
       if (!['primary', 'secondary', 'background'].includes(String(key))) fail('Le token de couleur proposé est invalide.');
       setToken(key as string, change['value']);
-      if (key === 'primary') for (const layer of elements) if (layer['type'] === 'SHAPE' && !layer['locked'] && !layer['editable'] && layer['stroke'] === tokens['primary']) layer['stroke'] = change['value'];
+      if (key === 'primary') for (const layer of elements) if (layer['type'] === 'SHAPE' && !layer['locked'] && layer['editable'] && layer['stroke'] === tokens['primary']) layer['stroke'] = change['value'];
       continue;
     }
     const layer = elements.find((entry) => entry['id'] === targetId);
-    const permittedProfessionalText = professional && layer?.['type'] === 'TEXT' && ['set_element_color', 'set_element_font'].includes(String(operation));
-    if (!layer || !permittedProfessionalText && (layer['locked'] === true || layer['editable'] !== true || layer['type'] === 'BACKGROUND')) fail('La proposition cible un calque protégé ou inexistant.');
+    if (!layer || (layer['locked'] === true || layer['editable'] !== true || layer['type'] === 'BACKGROUND')) fail('La proposition cible un calque protégé ou inexistant.');
     if (operation === 'set_element_text') {
-      if (layer['type'] !== 'TEXT') fail('Le texte proposé cible un calque incompatible.');
+      if (layer['type'] !== 'TEXT' || layer['binding']) fail('Le texte proposé cible un champ automatique ou incompatible.');
       const proposedText = safeText(change['value'], 'Le texte proposé', 500);
       const variables = Array.isArray(document['variables']) ? document['variables'] as JsonObject[] : [];
       const allowedVariables = new Set(variables.map((variable) => variable['key']).filter((key): key is string => typeof key === 'string'));
@@ -76,10 +77,10 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
     } else if (operation === 'set_element_font') {
       if (layer['type'] !== 'TEXT' || !['Georgia', 'Arial', 'Times New Roman'].includes(String(change['value']))) fail('La police proposée n’est pas prise en charge.');
       layer['fontFamily'] = change['value'];
-      if (professional) layer['fontId'] = change['value'] === 'Arial' ? 'arial' : 'georgia';
+      layer['fontId'] = change['value'] === 'Arial' ? 'arial' : change['value'] === 'Times New Roman' ? 'times-new-roman' : 'georgia';
     } else if (operation === 'set_element_font_size') {
       if (layer['type'] !== 'TEXT' || typeof change['value'] !== 'number' || !Number.isFinite(change['value']) || change['value'] < 8 || change['value'] > 180) fail('La taille de texte proposée est invalide.');
-      layer['fontSize'] = change['value'];
+      layer['fontSize'] = change['value']; layer['preferredFontSize'] = change['value']; layer['maxFontSize'] = change['value']; layer['minFontSize'] = Math.min(Number(layer['minFontSize'] ?? 8), change['value']);
     } else if (operation === 'set_element_position') {
       const x = change['x']; const y = change['y'];
       if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x + Number(layer['width']) > width || y + Number(layer['height']) > height) fail('La position proposée sort du canevas.');

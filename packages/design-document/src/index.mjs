@@ -1,5 +1,6 @@
 import { REFERENCE_ORNAMENTS, renderReferenceOrnament, renderReferenceScript } from './reference-art.mjs';
 export { REFERENCE_TEMPLATES, createReferenceTemplate, invitationPrintFormat } from './reference-templates.mjs';
+export { createBlankDesign, editableDocument } from './editable-document.mjs';
 export { EDITORIAL_BINDINGS, editorialField, editorialTarget, protectedEditorialTerms, redactEditorial, restoreEditorial, validateEditorialProposal, applyEditorialSelection } from './editorial-assist.mjs';
 import { assessImageResolution, renderOverlaySvg, renderVisualImageSvg, validateVisualProperties, visualOcclusionIssues } from './visual.mjs';
 export { MASK_REGISTRY, IMAGE_ROLES, assessImageResolution, imageRenderBounds, renderOverlaySvg, renderVisualImageSvg } from './visual.mjs';
@@ -167,7 +168,9 @@ export function validateDesignDocumentV2(input) {
   for (const element of input.elements) {
     if (!isObject(element) || typeof element.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(element.id) || ids.has(element.id)) fail('Design element id is invalid or duplicated');
     const elementKeys = ['id', 'type', 'name', 'x', 'y', 'width', 'height', 'rotation', 'locked', 'editable', 'zIndex', 'fill', 'shape', 'stroke', 'strokeWidth', 'text', 'fontFamily', 'fontSize', 'fontWeight', 'align', 'color', 'source', 'assetId', 'originalAssetId', 'derivedAssetId', 'sourceWidth', 'sourceHeight', 'fit', 'cropX', 'cropY', 'cropScale', 'opacity', 'role', 'minFontSize', 'maxFontSize', 'maxLines', 'lineHeight', 'overflowPolicy', 'hideWhenEmpty', 'collapseSpace', 'minSize', 'maxSize', 'quietZone', 'binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'paddingX', 'focalPoint', 'blur', 'overlay', 'ornamentId'];
-    if (Object.keys(element).some((key) => !elementKeys.includes(key))) fail(`Design element ${element.id} contains an unsupported field`);
+    if (Object.keys(element).some((key) => ![...elementKeys, 'hidden', 'letterSpacing'].includes(key))) fail(`Design element ${element.id} contains an unsupported field`);
+    if (element.hidden !== undefined && typeof element.hidden !== 'boolean') fail('Layer hidden flag must be boolean');
+    if (element.letterSpacing !== undefined && (!Number.isFinite(element.letterSpacing) || Math.abs(element.letterSpacing) > 30)) fail('Letter spacing is invalid');
     if (element.ornamentId !== undefined && (element.type !== 'SHAPE' || !REFERENCE_ORNAMENTS.includes(element.ornamentId))) fail('Unknown reference ornament');
     ids.add(element.id);
     if (!['BACKGROUND', 'TEXT', 'SHAPE', 'IMAGE', 'QR'].includes(element.type)) fail('Design element type is not supported');
@@ -388,6 +391,7 @@ export function resolveDesignLayout(input, rawSnapshot, selectedVariantId, asset
   const groupByElement = new Map();
   for (const group of document.groups ?? []) for (const elementId of group.elementIds) groupByElement.set(elementId, group);
   const appendElement = (sourceElement, ceremony, repetitionIndex) => {
+    if (sourceElement.hidden === true) return;
     const layer = { ...sourceElement, sourceSchemaVersion };
     const override = overrides.get(layer.id);
     if (override?.bounds) Object.assign(layer, override.bounds);

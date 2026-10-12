@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { IdentityGuard, type VerifiedIdentity } from './identity.guard.js';
 import { EventsService } from './events.service.js';
@@ -166,8 +166,8 @@ export class EventsController {
   @Post('/:eventId/publish') publish(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.publish(request.identity.subject, eventId); }
   @Post('/:eventId/cancel') cancel(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.cancel(request.identity.subject, eventId); }
 
-  @Post('/:eventId/ceremonies') addCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Body() body: CeremonyInput) {
-    return this.events.addCeremony(request.identity.subject, eventId, mapCeremony(body ?? {}));
+  @Post('/:eventId/ceremonies') addCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Body() body: CeremonyInput, @Headers('idempotency-key') key?: string) {
+    return this.events.addCeremony(request.identity.subject, eventId, mapCeremony(body ?? {}), key);
   }
 
   @Patch('/:eventId/ceremonies/:ceremonyId') updateCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Param('ceremonyId') ceremonyId: string, @Body() body: CeremonyInput) {

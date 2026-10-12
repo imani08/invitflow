@@ -42,12 +42,22 @@ export class AiDesignService {
     if (!uuidPattern.test(eventId) || !uuidPattern.test(designId)) throw new NotFoundException('Design introuvable.');
     const input = inputObject(body);
     if (['EDITORIAL_COMPRESSION', 'EDITORIAL_REWRITE'].includes(String(input['workflow']))) return this.createEditorial(eventId, designId, ownerSubject, authorization, input);
-    if (Object.keys(input).some((key) => !['prompt', 'generateImage'].includes(key)) || input['generateImage'] !== undefined && typeof input['generateImage'] !== 'boolean') throw new BadRequestException('Champs de proposition invalides.');
+    if (Object.keys(input).some((key) => !['prompt', 'generateImage', 'elementIds'].includes(key)) || input['generateImage'] !== undefined && typeof input['generateImage'] !== 'boolean') throw new BadRequestException('Champs de proposition invalides.');
     if (input['generateImage'] && (selectedProvider() !== 'openai' || process.env['AI_IMAGE_PROVIDER'] !== 'flux' || !process.env['BFL_API_KEY'])) throw new ServiceUnavailableException('FLUX non configuré. Choisissez un modèle existant ou une proposition sans nouveau décor.');
     if (selectedProvider() === 'openai' && !process.env['OPENAI_API_KEY']) throw new ServiceUnavailableException('GPT non configuré. La saisie manuelle et les modèles existants restent disponibles.');
-    const prompt = (input['generateImage'] ? 'VISUAL_VARIATION\n' : '') + promptText(input['prompt']);
+    let prompt = (input['generateImage'] ? 'VISUAL_VARIATION\n' : '') + promptText(input['prompt']);
     const design = await this.designs.get(eventId, designId, authorization);
     if (!Number.isInteger(design.version) || design.version < 1) throw new BadRequestException('La version du design est invalide.');
+    const source = structuredClone(design.document) as JsonObject;
+    const ids = input['elementIds'];
+    if (ids !== undefined) {
+      const elements = source['elements'] as JsonObject[];
+      if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string' || !elements.some(layer => layer['id'] === id && layer['locked'] !== true && layer['editable'] === true))) throw new BadRequestException('Sélectionnez des calques existants et déverrouillés.');
+      const scope = [...new Set(ids)].sort();
+      source['metadata'] = { ...(source['metadata'] as JsonObject), aiEditScope: scope };
+      prompt += '\nPortée sélectionnée : ' + scope.join(', ');
+    }
+
     const job = await this.prisma.$transaction(async (tx) => {
       await this.lockQuotaRows(tx, ownerSubject);
       const previous = await tx.aiDesignJob.findFirst({ where: { ownerSubject, eventId, designId, baseVersion: design.version, prompt, status: { in: [AiDesignJobStatus.QUEUED, AiDesignJobStatus.PROCESSING, AiDesignJobStatus.PROPOSED, AiDesignJobStatus.FAILED] } }, orderBy: { createdAt: 'desc' } });
@@ -64,7 +74,7 @@ export class AiDesignService {
       this.rejectQuota(aiQuotaRejection({ activeOwner: ownerActive, activeGlobal: globalActive, requestsLastHour: recentRequests }, limits));
       const created = await tx.aiDesignJob.create({ data: {
         ownerSubject, eventId, designId, baseVersion: design.version, prompt,
-        sourceDocument: design.document as Prisma.InputJsonValue,
+        sourceDocument: source as Prisma.InputJsonValue,
         deliveryAfter: new Date(Date.now() + 30_000),
       } });
       await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId } } });

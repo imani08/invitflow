@@ -47,7 +47,9 @@ export function scaleLogicalBounds(bounds: Bounds, canvas: { width: number; heig
 export const PROFESSIONAL_TEMPLATE_IDS: readonly string[];
 export function createProfessionalTemplate(id: string, photos?: Record<string, { assetId: string; width: number; height: number }>, privateAssets?: Record<string, { assetId: string; width: number; height: number }>): DesignDocument;
 export function fillProfessionalPhotoSlot(document: unknown, slotId: string, photo: { assetId: string; width: number; height: number }): DesignDocument;
-export function assertProfessionalPersonalization(previous: unknown, candidate: unknown): void;
+export function assertProfessionalPersonalization(previous: unknown, candidate: unknown, options?: { fullEditing?: boolean }): void;
+export function createBlankDesign(): DesignDocument;
+export function editableDocument(input: unknown): DesignDocument;
 
 export const PROFESSIONAL_RECIPES: readonly { id: string; family: string; mediaStrategy: string; supportedMediaStrategies: readonly string[]; photoRequired: boolean; photoOrientation?: string; supportedEventTypes: readonly string[]; supportedCeremonyCounts: readonly string[]; supportedTextDensity: readonly string[]; supportsTable: boolean; supportsQr: boolean; supportsDressCode: boolean; styleTags: readonly string[]; moodTags: readonly string[]; paletteTags: readonly string[]; paletteIds: readonly string[] }[];
 export function compatibleProfessionalRecipes(media?: { hasPhotos?: boolean; photoCount?: number; photoOrientation?: string }): typeof PROFESSIONAL_RECIPES;

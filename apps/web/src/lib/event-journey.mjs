@@ -1,6 +1,6 @@
 export const EVENT_JOURNEY_STEPS = [
   { id: 'event', label: 'Événement' },
-  { id: 'ceremonies', label: 'Cérémonies' },
+  { id: 'ceremonies', label: 'Programme' },
   { id: 'designs', label: 'Design et textes' },
   { id: 'guests', label: 'Invités' },
   { id: 'invitations', label: 'Invitations' },

@@ -147,7 +147,10 @@ export function fillProfessionalPhotoSlot(document, slotId, photo) {
 }
 
 /** Use the persisted document as authority, so deleting policy metadata cannot bypass the lock. */
-export function assertProfessionalPersonalization(previous, candidate) {
+export function assertProfessionalPersonalization(previous, candidate, { fullEditing = false } = {}) {
+  // This is a template composition policy, not an authorization boundary.
+  // Owned design updates still pass document validation and optimistic locking.
+  if (fullEditing) return;
   if (previous?.metadata?.personalization?.policy !== 'professional-v1') return;
   const policy = previous.metadata.personalization;
   const allowedSlotIds = new Set(previous.metadata.photoSlots.map((slot) => slot.elementId));

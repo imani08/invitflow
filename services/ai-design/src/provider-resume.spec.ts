@@ -24,6 +24,7 @@ async function runCheckpoint(proposal: Record<string, unknown>, image: boolean, 
   process.env['AI_PROVIDER'] = 'openai';
   process.env['AI_IMAGE_PROVIDER'] = 'flux';
   const job = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', eventId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', designId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', baseVersion: 1, sourceDocument: createProfessionalTemplate('typographic-luxury'), prompt: image ? 'VISUAL_VARIATION\nUne ambiance sobre' : 'Une ambiance sobre', proposal, status: 'QUEUED', errorCode: null as string | null };
+  const guest = job.sourceDocument.elements.find(layer => layer['id'] === 'guest')!; guest['locked'] = false; guest['editable'] = true;
   const delegate = {
     updateMany: async ({ data }: { data: Record<string, unknown> }) => { Object.assign(job, data); return { count: 1 }; },
     findUnique: async () => job,

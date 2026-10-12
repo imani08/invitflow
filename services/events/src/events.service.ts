@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { AgencyMemberStatus, AgencyWorkspaceStatus, CeremonyStatus, EventStatus, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from './prisma.service.js';
 import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFields } from './events.types.js';
+import { createHash } from 'node:crypto';
 
 const eventSelect = {
   id: true, name: true, description: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
@@ -371,14 +372,30 @@ export class EventsService {
     return this.get(ownerSubject, id);
   }
 
-  async addCeremony(ownerSubject: string, eventId: string, data: CreateCeremonyFields) {
+  async addCeremony(ownerSubject: string, eventId: string, data: CreateCeremonyFields, requestKey?: string) {
     this.assertUuid(eventId);
+    if (requestKey !== undefined && !/^[a-zA-Z0-9_-]{8,128}$/.test(requestKey)) throw new BadRequestException('Clé de reprise du moment invalide.');
+    let id: string | undefined;
+    if (requestKey) {
+      const digest = createHash('sha256').update(JSON.stringify([ownerSubject, eventId, requestKey])).digest();
+      digest[6] = (digest[6]! & 15) | 80; digest[8] = (digest[8]! & 63) | 128;
+      const hex = digest.subarray(0, 16).toString('hex');
+      id = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+    }
     return this.prisma.$transaction(async (tx) => {
       const event = await this.lockEvent(tx, ownerSubject, eventId);
       if (!event) throw new NotFoundException('Event not found');
+      if (id) {
+        const prior = await tx.ceremony.findUnique({ where: { id } });
+        if (prior) {
+          const same = Object.entries(data).every(([key, value]) => { const saved = prior[key as keyof typeof prior]; return value instanceof Date ? saved instanceof Date && saved.getTime() === value.getTime() : saved === value || (value === undefined && saved === null); });
+          if (!same) throw new ConflictException('Cette demande a déjà enregistré un moment différent. Actualisez le programme avant de continuer.');
+          return prior;
+        }
+      }
       if (event.status !== EventStatus.DRAFT) throw new BadRequestException('Ceremonies can only be added to draft events');
       this.checkEventWindow(event, data.startAt as Date, data.endAt instanceof Date ? data.endAt : null);
-      const ceremony = await tx.ceremony.create({ data: { ...data, eventId } });
+      const ceremony = await tx.ceremony.create({ data: { ...data, eventId, ...(id ? { id } : {}) } });
       await tx.outboxMessage.create({ data: {
         eventType: 'events.ceremony.created.v1', aggregateId: eventId,
         payload: { eventId, ceremonyId: ceremony.id, ownerSubject, ceremonyType: ceremony.ceremonyType, occurredAt: ceremony.createdAt.toISOString(), schemaVersion: 1 },
