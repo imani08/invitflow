@@ -119,3 +119,44 @@ reprise existant exige la confirmation idempotente avant une nouvelle réservati
   une extension ; son exécution dans le navigateur n'a pas été inspectée ici.
   Aucune permission applicative changée pour la masquer.
 - Aucun appel IA payant, reset, purge, suppression de volume, commit ou push.
+
+
+## Incident supplémentaire : GET batches HTTP 500
+
+Lot du 12/10 à 16:15:11 Kinshasa : `4c6105b9-e22f-42df-8146-7e8ac541faef`.
+La base confirme COMPLETED, 1/1, settledAt `2026-10-12T15:15:32.793Z`.
+Wallet : une réservation de 1, une seule consommation confirmée de 1, libération 0.
+Aucune écriture financière ou nouvelle émission effectuée pour cette réparation.
+
+Exception Invitations observée dans les logs du GET :
+`TypeError: Do not know how to serialize a BigInt`, dans Fastify reply.js/JSON.stringify.
+Gateway propageait le 500 ; l'interface conservait implicitement son ancien état
+« Confirmation financière ». Ce n'était pas un règlement bloqué.
+
+Correction ciblée de list (avec et sans pagination) et getBatch : convertir
+uniquement zipSizeBytes en chaîne décimale, ou null. Aucun Number(BigInt), aucune
+modification globale du sérialiseur et aucune liste vide de remplacement.
+
+Polling Web : conserver la dernière réponse valide, afficher
+« Actualisation impossible », attendre 10/20/40/60 secondes après les erreurs,
+revenir à 5 secondes après succès, annuler les requêtes au démontage et empêcher
+le chevauchement des tentatives automatiques. Actualiser déclenche seulement la
+lecture des lots, sans remettre à zéro le formulaire ni ses sélections.
+
+Images invitations/rendering/web reconstruites et conteneurs recréés de façon
+ciblée. Tests : 12 Invitations et 4 Web réussis ; typechecks Web/Invitations et
+lint ciblé réussis ; build Docker réussi ; git diff --check réussi. Windows a
+nécessité une exécution hors sandbox pour esbuild spawn EPERM.
+
+Contrôle réel en lecture seule, dans le conteneur Invitations : vrai Prisma,
+vraie base, vrai service/contrôleur et sérialisation HTTP Fastify, avec identité de
+fixture explicitement injectée dans le test (pas de simulation des données).
+GET liste 200 avec 4 vrais lots ; détail 200 ; lot COMPLETED financé. ZIP lu :
+24 047 575 octets ; PDF lu : 24 047 401 octets, signatures PK/%PDF- vérifiées.
+Autre propriétaire refusé. Le test n'a créé ni lot, ni session, ni débit.
+
+Limite : le GET public Web via la session navigateur et l'affichage authentifié
+n'ont pas encore été validés dans cette passe. L'onglet intégré est arrivé sur
+la connexion Keycloak et attend une connexion normale. La revue automatique a
+refusé un diagnostic proposant d'extraire les tokens depuis Redis ; il n'a pas
+été exécuté. Aucune protection d'authentification n'a été modifiée.
