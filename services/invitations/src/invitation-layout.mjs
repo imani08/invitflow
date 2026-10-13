@@ -19,7 +19,7 @@ function layoutSnapshot(values) {
 export function validateInvitationLayout({ document, values = {}, safeMargin = 64 }) {
   const source = document?.schemaVersion === 1 || document?.schemaVersion === 2 ? document : { ...document, schemaVersion: 1 };
   const resolvedLayout = resolveDesignLayout(source, layoutSnapshot(values), undefined, undefined, { mode: 'print', ...invitationPrintFormat(source) });
-  const errors = resolvedLayout.errors.map((issue) => ({ code: issue.code, layerId: issue.elementId, message: issue.message }));
+  const errors = resolvedLayout.errors.map((issue) => ({ code: issue.code, layerId: issue.elementId, otherLayerId: issue.otherElementId, message: issue.message }));
   const warnings = resolvedLayout.warnings.map((issue) => ({ code: issue.code, layerId: issue.elementId }));
   for (const layer of Array.isArray(document.elements) ? document.elements : []) {
     if (layer.type !== 'TEXT' || !(layer.hideWhenEmpty || layer.binding === 'guest.table' || /\{\{\s*table_name\s*\}\}/i.test(String(layer.text ?? '')))) continue;
