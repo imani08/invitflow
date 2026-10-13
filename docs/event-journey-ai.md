@@ -327,3 +327,104 @@ Avant validation produit : tester un mariage multi-cérémonies avec invités di
 - `services/designs/src/journey-selection.spec.ts`
 - `services/invitations/src/invitation.service.spec.ts`
 - `services/invitations/src/invitation.service.ts`
+
+## Passe de personnalisation — 13 octobre 2026
+
+### Implémentation conservée et raccordements
+
+- Programme : formulaire court (nom, date/heure, lieu), détails facultatifs, suggestions adaptées, un seul moment accepté. Suppression confirmée et création protégée par une clé d’idempotence serveur dans la transaction de l’événement.
+- Design : choix guidé ou création manuelle depuis un modèle/page blanche. La continuation directe vers les invités reste possible sans ouvrir l’éditeur.
+- Composition : inspecteur pour textes libres, typographie, photos/cadrage, couleurs, dimensions, rotation, opacité, ordre, masquage, verrouillage, duplication et suppression selon le type. Décors de référence séparés en plusieurs ornements ; champs liés et QR conservés.
+- IA : portée globale ou sélection ; calques verrouillés préservés. Un décor raster ciblé exige exactement un calque image/forme. Aucun appel payant réalisé pendant cette passe.
+- Sauvegarde : document structuré/version attendue, brouillon serveur et continuation après enregistrement ; annuler/rétablir restent disponibles après sauvegarde.
+
+### Vérifications effectivement réalisées
+
+| Vérification | Résultat et environnement |
+| --- | --- |
+| Documents structurés et rendu partagé | 67 tests réussis, Node local |
+| IA / portée / reprise | 10 tests réussis, fournisseurs simulés ; nouveau test supplémentaire de refus du décor ciblé sur texte réussi avant toute transaction/appel fournisseur (2/2 dans le fichier ciblé) |
+| Programme / dates / idempotence | 4 tests unitaires réussis ; test PostgreSQL réel supplémentaire : deux requêtes concurrentes, un moment/un outbox, second moment distinct et refus des accès/contenus incompatibles. Code compilé local monté dans un conteneur de test, schéma isolé supprimé après test |
+| Typecheck | Web, Designs, AI Design, Events : réussi |
+| Lint ciblé | Web et fichier AI Design modifié : réussi |
+| Interface éditeur | Banc isolé avec vrais composants et API fictives : page blanche, ajout/édition texte, taille, sauvegarde, réouverture, annuler/rétablir et verrouillage observés |
+| Programme navigateur | Ajout d’un moment, conservation après actualisation ; affichage à 390 px sans débordement horizontal |
+| Continuation Programme | Bouton essayé ; destination non confirmée, donc non validée |
+| PDF réel avec la composition modifiée | Premier essai non terminal (GENERATING) ; second essai réussi avec reprises bornées prévues par le worker. PostgreSQL/MinIO réels isolés, PDF 1 page ouvert, texte ajouté extrait, QR décodé conforme, ZIP valide (1 fichier), HTTP 200, retéléchargement identique, 1 règlement/1 crédit de test. Aucune donnée financière utilisateur modifiée |
+
+Capture locale du programme : `coverage/journey-qa/programme-mobile.png` (données fictives, répertoire ignoré par Git).
+
+### Limites explicites
+
+- Les textures et photos raster ne sont pas décomposées en objets internes. Les ornements séparés sont éditables, pas chaque feuille ou grain de texture.
+- Le déplacement groupé via coordonnées est implémenté ; le glisser-déposer d’un groupe complet n’est pas validé.
+- Les textes liés sont alimentés par les données événement/invité ; ils ne sont pas remplacés arbitrairement par du texte fixe.
+- La composition guidée locale reste distincte d’un appel réel GPT/FLUX.
+- Non validés dans le navigateur authentifié : parcours complet, ajout/remplacement Media, fond/ornement, ordre/déverrouillage, Wallet aller-retour, rendu PDF avec photo réelle, paiement réel et génération des lots utilisateurs. Aucun lot utilisateur réémis.
+
+### Fichiers des raccordements de cette passe
+
+- `apps/web/src/app/events/[eventId]/designs/workspace.tsx` : sélecteur de portée IA effectivement visible, retrait du gestionnaire de verrouillage inutilisé.
+- `packages/design-document/src/reference-art.mjs` : normalisation sûre des attributs SVG des ornements.
+- `services/ai-design/src/ai-design.service.ts` : refus des portées incompatibles avec un décor raster ciblé avant soumission fournisseur.
+- `scripts/invitation-pdf-runtime-fixture.mjs` : fixture PDF isolée fondée sur le modèle éditable et un texte ajouté.
+- `docs/event-journey-ai.md` : résultats et limites de cette passe.
+- Test ajouté : `services/ai-design/src/scoped-editing.spec.ts` (portée raster incompatible refusée avant toute transaction).
+
+### Clôture des vérifications Docker
+
+- Images `web`, `designs`, `ai-design`, `events`, `invitations`, `rendering` construites avec succès puis conteneurs recréés par `docker compose up -d --no-deps web designs ai-design events invitations rendering`.
+- Dernier correctif Web : un brouillon inchangé ne reste plus visuellement « Enregistrement… ». Sept tests brouillons réussis, y compris versions concurrentes, erreur conservant les saisies et destinations internes ; lint ciblé réussi. Reconstruction Web seule réussie et conteneur Web recréé (installation pnpm CACHED). Les avertissements Autoprefixer start/end du CSS existant restent non bloquants.
+- Fichiers supplémentaires : `apps/web/src/lib/draft-save-queue.mjs`, `apps/web/src/lib/journey-drafts.test.mjs`.
+- Aperçu PDF réel : `coverage/runtime-pdf/editable-preview.png` ; la fixture n’inclut pas de photo réelle. Le rendu des photos reste donc non validé par ce test.
+- L’essai non terminal initial ne suffit pas à diagnostiquer une erreur de production : aucune conclusion RabbitMQ/rendu n’en est déduite.
+## Complément — photos et textures éditables (13 octobre 2026)
+
+### Causes et corrections
+
+- L’éditeur refusait encore l’ajout d’une photo sur les compositions portant `mediaStrategy=NO_PHOTO`, malgré une commande visible. Cette restriction de catalogue n’interdit plus la personnalisation de la copie utilisateur.
+- Le fond solide ne proposait pas de texture indépendante. Une texture est désormais un calque IMAGE séparé au-dessus du fond ; son remplacement réutilise ce calque, sans doublon ni aplatissement des autres éléments.
+- Un ornement peut être remplacé par une image dans ses dimensions existantes. Les commandes de contour/sans remplissage inapplicables aux ornements sont masquées.
+- Le remplacement conserve les propriétés de disposition, remet le recadrage à zéro et retire l’ancienne référence d’ornement/focal point. Les éléments verrouillés, les textes et le QR ne peuvent pas être convertis en image.
+- Si le design change pendant le téléversement, l’image n’écrase pas les modifications récentes ; la ressource fraîche est nettoyée et une erreur explicite invite à réessayer.
+- Le pipeline Media de production, l’authentification et les finances n’ont pas été modifiés.
+
+### Preuves de cette passe
+
+| Point | Vérification réellement effectuée |
+| --- | --- |
+| Un et plusieurs moments | Navigateur avec API de test : suggestion, création, puis deux moments retrouvés après actualisation |
+| Programme → Design | Le bouton appelle la destination attendue après sauvegarde. Routeur de test instrumenté ; aucun parcours Next/OIDC authentifié affirmé |
+| Photo | Navigateur avec Media simulé : ajout à une page vierge, rotation 15°, opacité 0,6, sauvegarde version 2 |
+| Fond | Déverrouillage puis ajout de texture ; 3 calques conservés, sauvegarde version 3 et réouverture avec les valeurs de photo restaurées |
+| Mobile | Panneaux Calques/Réglages, sélection, masquage/réaffichage, verrouillage/déverrouillage essayés à 390 px ; aucun débordement horizontal (contenu 375 px) |
+| Ordre | Action Derrière déclenchée ; effet visuel complet non confirmé |
+| Modèle → Invités sans éditeur | Essai supplémentaire bloqué par un refus de sécurité du navigateur ; non validé, aucune tentative de contournement |
+| Documents | 68 tests du package réussis, dont insertion/remplacement photo, texture sans doublon, conservation de la source, verrouillage et conversion d’ornement |
+| Code Web | Typecheck et lint ciblé réussis ; build production réussi avec les avertissements CSS Autoprefixer existants |
+| PDF réel | PostgreSQL/MinIO et worker existants, schémas/objets isolés : COMPLETED, 1 crédit synthétique réservé/consommé, une seule consommation après reprise, retéléchargement identique, HTTP 200 et ZIP valide |
+| Contenu PDF | Fichier ouvert, texte ajouté trouvé, image privée de test présente dans un XObject imbriqué, QR décodé conforme ; aperçu dans coverage/runtime-pdf/ |
+| Déploiement local | Seul Web reconstruit/recréé dans cette passe. Le rendu et les APIs utilisent les formats déjà pris en charge ; aucune migration nécessaire |
+
+Le premier essai PDF avec image utilisait un nom de fichier de fixture non UUID et a été refusé avant génération. Seule la fixture a été corrigée. Un contrôle initial du PDF cherchait les images seulement au premier niveau ; la vérification récursive des XObjects confirme leur présence. Aucun contrôle de production n’a été assoupli.
+
+Captures : `coverage/journey-qa/programme-two-moments.png`, `coverage/journey-qa/editor-photo-mobile.png`. Aperçu PDF : `coverage/runtime-pdf/editable-photo-preview.png`.
+
+### Limites encore ouvertes
+
+À la demande de l’utilisateur, terminer avec les validations isolées. Le parcours authentifié, le véritable upload navigateur → MinIO → ClamAV et les paiements réels restent non validés dans cette passe. Aucun appel GPT/FLUX payant, aucune réémission sur un lot utilisateur.
+
+L’option de composition initiale reste actuellement fondée sur le compositeur structuré local ; l’assistance GPT/FLUX intervient après sélection. Cela ne constitue pas encore une génération initiale GPT/FLUX complète. Les détails internes des photos/textures raster restent non éditables. Le déplacement de groupe par glisser-déposer et l’affichage de toutes les erreurs serveur au voisinage de chaque champ restent ouverts.
+
+### Fichiers modifiés dans ce complément
+
+- apps/web/src/app/events/[eventId]/designs/workspace.tsx
+- apps/web/src/components/design-layer-inspector.tsx
+- packages/design-document/src/editable-document.mjs
+- packages/design-document/src/index.mjs
+- packages/design-document/src/index.d.mts
+- packages/design-document/test/editable-document.spec.mjs
+- scripts/design/qa-next-shim.tsx
+- scripts/design/serve-workspace-qa.mjs
+- scripts/invitation-pdf-runtime-fixture.mjs
+- docs/event-journey-ai.md

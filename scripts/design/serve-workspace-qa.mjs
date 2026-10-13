@@ -11,11 +11,13 @@ const bundle = await build({ entryPoints: ['scripts/design/qa-workspace-entry.ts
 const css = (await Promise.all(['apps/web/src/app/globals.css','apps/web/src/app/events/events.css','apps/web/src/app/events/journey.css','apps/web/src/app/events/[eventId]/designs/designs.css','apps/web/src/app/events/[eventId]/designs/designs-step1.css','apps/web/src/app/events/[eventId]/designs/designs-journey.css'].map(file=>readFile(file,'utf8')))).join('\n').replace(/@import[^;]+;/g,'');
 const eventId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',designId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const event={id:eventId,name:'Événement de test isolé',eventType:'WEDDING',status:'DRAFT',timezone:'Africa/Kinshasa',startAt:'2026-10-12T10:00:00+01:00',invitationText:'Nous vous invitons à partager cette journée.',ceremonies:[]};
-let design=null,selection=null;const drafts=new Map(),operations=new Map();
+let design=null,selection=null;const drafts=new Map(),operations=new Map(),media=new Map();
 const server=createServer(async(req,res)=>{
-  const url=new URL(req.url,'http://localhost'),path=url.pathname;
+  const url=new URL(req.url,'http://'+req.headers.host),path=url.pathname;
   const json=(data,status=200)=>{res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(data));};
   try {
+    if(path.startsWith('/qa-upload/')) { for await(const _part of req) { /* Explicit simulated upload: no MinIO/ClamAV validation claimed. */ } res.writeHead(204); return res.end(); }
+    if(path.startsWith('/qa-image/')) { res.writeHead(200,{'content-type':'image/png'}); return res.end(await readFile('coverage/journey-qa/photo-test.png')); }
     if(path==='/bundle.js'){res.writeHead(200,{'content-type':'application/javascript'});return res.end(bundle.outputFiles[0].text);}
     if(path.startsWith('/brand/')){try{res.writeHead(200,{'content-type':'image/png'});return res.end(await readFile(join('apps/web/public',path)));}catch{return res.writeHead(404).end();}}
     if(path.startsWith('/api/')){
@@ -36,7 +38,16 @@ const server=createServer(async(req,res)=>{
       if(path.includes('/ceremonies/')&&req.method==='PATCH'){const item=event.ceremonies.find(item=>item.id===path.split('/').at(-1));Object.assign(item,input);return json(item);}
       if(path.endsWith('/invitations/batches'))return json([]);
       if(path.endsWith('/guests'))return json({items:[],total:0,nextCursor:null});
-      if(path==='/api/assets')return json({items:[],nextCursor:null});
+      if(path==='/api/assets'&&req.method==='POST'){const id=randomUUID();media.set(id,{id,...input,status:'CREATED',width:640,height:480});return json({id},201);}
+      if(path.startsWith('/api/assets/')){
+        const parts=path.split('/'),id=parts[3],asset=media.get(id);
+        if(!asset)return json({message:'Ressource de test absente'},404);
+        if(parts[4]==='upload-url')return json({upload:{method:'POST',url:url.origin+'/qa-upload/'+id,fields:{}}});
+        if(parts[4]==='complete'){asset.status='READY';return json(asset);}
+        if(parts[4]==='download-url')return json({download:{url:url.origin+'/qa-image/'+id}});
+        if(req.method==='DELETE'){media.delete(id);return json({deleted:true});}
+      }
+      if(path==='/api/assets')return json({items:[...media.values()].filter(asset=>asset.status==='READY'),nextCursor:null});
       if(path==='/api/events/'||path==='/api/events')return json({items:[event]});
       if(path==='/api/events/'+eventId)return json(event);
       return json({message:'Endpoint non simulé dans ce test explicite'},404);
@@ -44,4 +55,5 @@ const server=createServer(async(req,res)=>{
     res.writeHead(200,{'content-type':'text/html'});res.end(`<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><p role="note">TEST ISOLÉ — données fictives, aucun appel IA ni paiement</p><div id="root"></div><script>window.__qaEvent=${JSON.stringify(event)}</script><script src="/bundle.js"></script></html>`);
   }catch{json({message:'Erreur du banc de test'},500);}
 });
-server.listen(4319,'127.0.0.1',()=>console.log('Offline component QA: http://127.0.0.1:4319 — fixture APIs, no production data'));
+const port = Number(process.env.QA_PORT ?? 4319);
+server.listen(port,'127.0.0.1',()=>console.log(`Offline component QA: http://127.0.0.1:${port} — fixture APIs, no production data`));

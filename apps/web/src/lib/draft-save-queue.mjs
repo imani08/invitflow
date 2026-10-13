@@ -3,7 +3,7 @@ export function createDraftSaveQueue({ save, onStatus }) {
   let revision = 0, current = {}, saved = '{}', pending = null, loaded = false;
   return {
     initialize(record) { revision = record.revision; current = record.data; saved = JSON.stringify(current); loaded = true; },
-    change(data) { current = data; onStatus('pending'); },
+    change(data) { current = data; onStatus(JSON.stringify(current) === saved ? 'saved' : 'pending'); },
     dirty() { return JSON.stringify(current) !== saved; },
     async flush() {
       if (!loaded) throw new Error('Le brouillon doit être chargé avant son enregistrement.');

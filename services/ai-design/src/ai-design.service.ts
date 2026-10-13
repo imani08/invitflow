@@ -53,6 +53,7 @@ export class AiDesignService {
     if (ids !== undefined) {
       const elements = source['elements'] as JsonObject[];
       if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string' || !elements.some(layer => layer['id'] === id && layer['locked'] !== true && layer['editable'] === true))) throw new BadRequestException('Sélectionnez des calques existants et déverrouillés.');
+      if (input['generateImage'] && (ids.length !== 1 || !elements.some(layer => layer['id'] === ids[0] && ['IMAGE','SHAPE'].includes(String(layer['type']))))) throw new BadRequestException('Choisissez une seule image ou décoration pour générer une ressource.');
       const scope = [...new Set(ids)].sort();
       source['metadata'] = { ...(source['metadata'] as JsonObject), aiEditScope: scope };
       prompt += '\nPortée sélectionnée : ' + scope.join(', ');

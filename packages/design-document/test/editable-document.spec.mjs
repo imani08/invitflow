@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createBlankDesign, editableDocument, createReferenceTemplate, validateDesignDocumentV2, resolveDesignLayout, renderResolvedLayoutSvg, assertProfessionalPersonalization } from '../src/index.mjs';
+import { createBlankDesign, editableDocument, insertEditableImage, createReferenceTemplate, validateDesignDocumentV2, resolveDesignLayout, renderResolvedLayoutSvg, assertProfessionalPersonalization } from '../src/index.mjs';
 
 test('blank and reference editing preserve separate editable artwork and the original document', () => {
   const blank = createBlankDesign();
@@ -16,6 +16,37 @@ test('blank and reference editing preserve separate editable artwork and the ori
     assert.doesNotThrow(() => assertProfessionalPersonalization(original, doc, { fullEditing: true }));
     assert.throws(() => assertProfessionalPersonalization(original, doc));
   }
+});
+
+test('private photos and background textures stay independent, replaceable and rendered', () => {
+  const asset = { assetId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', width: 640, height: 480 };
+  const blank = createBlankDesign(), initial = JSON.stringify(blank);
+  blank.metadata.mediaStrategy = 'NO_PHOTO';
+  let result = insertEditableImage(blank, asset);
+  assert.equal(blank.elements.length, 1);
+  assert.equal(JSON.stringify(createBlankDesign()), initial);
+  const photo = result.document.elements.find(layer => layer.id === result.layerId);
+  assert.equal(photo.type, 'IMAGE'); assert.equal(photo.assetId, asset.assetId);
+  const background = result.document.elements.find(layer => layer.type === 'BACKGROUND');
+  background.locked = false; background.editable = true;
+  result = insertEditableImage(result.document, asset, background.id);
+  assert.equal(result.document.elements.filter(layer => layer.type === 'BACKGROUND').length, 1);
+  assert.equal(result.document.elements.find(layer => layer.id === result.layerId).width, blank.canvas.width);
+  const count = result.document.elements.length;
+  result = insertEditableImage(result.document, { ...asset, assetId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' }, background.id);
+  assert.equal(result.document.elements.length, count);
+  const snapshot = JSON.parse(JSON.stringify(result.document));
+  const layout = resolveDesignLayout(snapshot, {}, undefined, { [asset.assetId]: 'data:image/png;base64,test', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb': 'data:image/png;base64,test' }, { mode: 'web' });
+  assert.match(renderResolvedLayoutSvg(layout), /<image/);
+  snapshot.elements.find(layer => layer.id === result.layerId).locked = true;
+  assert.throws(() => insertEditableImage(snapshot, asset, background.id), /Déverrouillez/);
+  assert.throws(() => insertEditableImage(snapshot, asset, 'missing'));
+  const reference = editableDocument(createReferenceTemplate('reference-01-ivory'));
+  const ornament = reference.elements.find(layer => layer.ornamentId === 'flower');
+  const converted = insertEditableImage(reference, asset, ornament.id);
+  const replacement = converted.document.elements.find(layer => layer.id === ornament.id);
+  assert.equal(replacement.role, 'DECORATION'); assert.equal(replacement.ornamentId, undefined);
+  assert.equal(replacement.width, ornament.width); assert.equal(reference.elements.find(layer => layer.id === ornament.id).type, 'SHAPE');
 });
 
 test('added text, styling, hidden flags and complete composition survive JSON and shared rendering', () => {

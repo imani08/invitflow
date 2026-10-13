@@ -25,6 +25,14 @@ test('save queue serializes/coalesces edits and never acknowledges an unsaved ne
   assert.deepEqual(calls, [{ revision: 2, data: { text: 'ancien' } }, { revision: 3, data: { text: 'récent', design: { id, version: 3 } } }]);
   assert.equal(queue.dirty(), false); assert.equal(statuses.at(-1), 'saved');
 });
+test('unchanged restored draft does not remain stuck on saving', async () => {
+  const statuses = []; let saves = 0;
+  const queue = createDraftSaveQueue({ onStatus: value => statuses.push(value), save: async () => { saves++; } });
+  queue.initialize({ revision: 3, data: { progress: '/events' } });
+  queue.change({ progress: '/events' }); await queue.flush();
+  assert.equal(saves, 0); assert.equal(statuses.at(-1), 'saved');
+});
+
 test('failed save retains local edits and blocks navigation until retry succeeds', async () => {
   let fail = true, navigated = false;
   const queue = createDraftSaveQueue({ onStatus() {}, save: async (revision, data) => { if (fail) throw new Error('indisponible'); return { revision: revision + 1, data }; } });

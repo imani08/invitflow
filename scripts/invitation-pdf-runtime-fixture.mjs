@@ -11,7 +11,7 @@ import { InvitationsController } from './dist/src/invitations.controller.js';
 import { invitationToken } from './dist/src/invitation-token.mjs';
 import { PrismaClient as WalletClient } from './test-wallet/generated/prisma/client.js';
 import { WalletService } from './test-wallet/src/wallet.service.js';
-
+import { createReferenceTemplate, editableDocument, resolveDesignLayout } from '@invitaflow/design-document';
 const realFetch = globalThis.fetch;
 const resources = [], storage = new InvitationStorage(), storedKeys = new Set();
 const batchId = randomUUID(), owner = 'pdf-integration-' + randomUUID();
@@ -77,6 +77,19 @@ try {
       }
     } finally { await source.$disconnect(); }
   }
+  if (!process.env.TEST_SOURCE_BATCH) {
+    const document = editableDocument(createReferenceTemplate('reference-01-ivory'));
+    const photoId = randomUUID(), photoKey = 'batches/' + batchId + '/' + photoId + '.png';
+    // Tiny generated test image. No customer photo or source batch is modified.
+    const photo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    await storage.put(photoKey, photo, 'image/png'); storedKeys.add(photoKey);
+    document.elements.push({ id: 'test-private-photo', name: 'Photo test isolée', type: 'IMAGE', role: 'PHOTO', assetId: photoId, sourceWidth: 1, sourceHeight: 1, x: 200, y: 400, width: 800, height: 600, rotation: 8, opacity: .7, locked: false, editable: true, zIndex: 30, fit: 'cover', cropX: 50, cropY: 50, cropScale: 1 });
+    document.assets.push({ id: photoId, assetId: photoId, width: 1, height: 1, mimeType: 'image/png', role: 'COUPLE_PHOTO' });
+    snapshot.renderAssets[photoId] = { key: photoKey, mimeType: 'image/png' };
+    document.elements.push({ id:'test-editable-text',name:'Texte ajouté',type:'TEXT',x:340,y:1230,width:800,height:100,rotation:0,locked:false,editable:true,zIndex:80,text:'Texte ajouté et enregistré',fontId:'arial',fontFamily:'Arial',fontSize:34,preferredFontSize:34,minFontSize:20,maxFontSize:34,lineHeight:1.2,overflowPolicy:'SHRINK_WITH_LIMIT',color:'#32163a',opacity:1 });
+    snapshot.designSnapshot.document = document;
+    snapshot.resolvedLayout = resolveDesignLayout(document, { guest:{name:'Invité de test isolé'},event:{title:'Validation InvitaFlow'},ceremonies:[{name:'Accueil',date:'13/10/2026',time:'10:00',venue:'Lieu de test'}],qr:{available:true} },undefined,{}, {mode:'web'});
+  }
   const version = await db.invitationVersion.create({ data: { invitationId: invitation.id, version: 1, designId, designVersion: 1, snapshot } });
   await db.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId, designId, designVersion: 1, idempotencyKey: randomUUID(), reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: 1, totalItems: 1 } });
   const item = await db.batchItem.create({ data: { batchId, invitationId: invitation.id, invitationVersionId: version.id, guestId, snapshot } });
@@ -84,8 +97,21 @@ try {
   await assert.rejects(service.download(owner, batchId, item.id));
   await service.reserveAndQueue(owner, batchId, 'isolated-test');
   assert.equal((await wallet.balance(owner)).availableCredits, 0);
-  await service.work();
-  const batch = await db.invitationBatch.findUniqueOrThrow({ where: { id: batchId }, include: { items: true } });
+  const originalWarn = console.warn;
+  console.warn = message => {
+    try {
+      const entry = JSON.parse(message);
+      if (entry.event === 'invitation_render_failed') console.log(JSON.stringify({ event: entry.event, stage: entry.stage, attempt: entry.attempt, errorCode: entry.errorCode, reason: entry.reason }));
+    } catch { /* Raw errors can include credentials: keep them out of test output. */ }
+  };
+  let batch;
+  try {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await service.work();
+      batch = await db.invitationBatch.findUniqueOrThrow({ where: { id: batchId }, include: { items: true } });
+      if (batch.status === 'COMPLETED' || !batch.items.some(row => row.status === 'QUEUED')) break;
+    }
+  } finally { console.warn = originalWarn; }
   for (const row of batch.items) if (row.objectKey) storedKeys.add(row.objectKey);
   storedKeys.add('batches/' + batchId + '.zip');
   assert.equal(batch.status, 'COMPLETED'); assert.equal(batch.settlementCredits, 1); assert.ok(batch.settledAt);
