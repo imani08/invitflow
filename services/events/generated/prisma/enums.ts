@@ -13,7 +13,8 @@ export const EventStatus = {
   DRAFT: 'DRAFT',
   PUBLISHED: 'PUBLISHED',
   CANCELLED: 'CANCELLED',
-  COMPLETED: 'COMPLETED'
+  COMPLETED: 'COMPLETED',
+  ARCHIVED: 'ARCHIVED'
 } as const
 
 export type EventStatus = (typeof EventStatus)[keyof typeof EventStatus]

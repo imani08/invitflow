@@ -12,6 +12,7 @@ enum EventStatus {
   PUBLISHED
   CANCELLED
   COMPLETED
+  ARCHIVED
 }
 
 enum CeremonyStatus {
@@ -56,6 +57,8 @@ model Event {
   ownerSubject String      @map("owner_subject") @db.VarChar(255)
   name        String       @db.VarChar(120)
   description String?      @db.VarChar(4000)
+  coupleNames String?      @map("couple_names") @db.VarChar(300)
+  invitationText String?   @map("invitation_text") @db.VarChar(12000)
   eventType   String       @map("event_type") @db.VarChar(40)
   status      EventStatus  @default(DRAFT)
   startAt     DateTime?    @map("start_at") @db.Timestamptz(3)

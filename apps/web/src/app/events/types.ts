@@ -10,7 +10,7 @@ export type Ceremony = {
 export type CeremonyProgramItem = { id: string; position: number; title: string; description: string | null; startsAt: string | null; durationMinutes: number | null; location: string | null };
 
 export type Event = {
-  id: string; name: string; description: string | null; eventType: string;
+  id: string; name: string; description: string | null; coupleNames: string | null; invitationText: string | null; eventType: string;
   status: string; startAt: string | null; endAt: string | null;
   timezone: string; ceremonies: Ceremony[];
 };

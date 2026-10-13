@@ -1285,6 +1285,8 @@ export const EventScalarFieldEnum = {
   ownerSubject: 'ownerSubject',
   name: 'name',
   description: 'description',
+  coupleNames: 'coupleNames',
+  invitationText: 'invitationText',
   eventType: 'eventType',
   status: 'status',
   startAt: 'startAt',

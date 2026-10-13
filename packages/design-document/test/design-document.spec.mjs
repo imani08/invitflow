@@ -126,3 +126,25 @@ test('text fitting is deterministic for accents, upper case, punctuation and lon
   assert.equal(fitInvitationText(layer, 'Ada').overflow, false);
   assert.ok(fitInvitationText(layer, copy).lines.every((line) => line.length > 0));
 });
+
+test('preserves paragraphs and reports an overlong word instead of splitting its letters', () => {
+  const layer = { width: 120, height: 70, preferredFontSize: 22, minFontSize: 16, maxLines: 2, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT' };
+  const copy = 'Bonjour à tous.\n\nAnticonstitutionnellement';
+  const fit = fitInvitationText(layer, copy);
+  assert.ok(fit.lines.includes(''));
+  assert.ok(fit.lines.includes('Anticonstitutionnellement'));
+  assert.equal(fit.lines.some(line => /^[A-Za-z]$/u.test(line)), false);
+  assert.equal(fit.overflow, true);
+});
+
+test('upgrades the historical main-copy placeholder to a real binding', () => {
+  const legacy = {
+    schemaVersion: 1,
+    canvas: { width: 600, height: 800, unit: 'px' },
+    elements: [{ id: 'invitation-message', name: 'Message invitation', type: 'TEXT', role: 'BODY', text: 'Votre texte', x: 50, y: 200, width: 500, height: 160, fontSize: 30 }],
+  };
+  const layout = resolveDesignLayout(legacy, { event: { invitationText: 'Texte réel avec accents : Éléonore.' } });
+  const message = layout.elements.find(element => element.id === 'invitation-message');
+  assert.equal(message.binding, 'event.invitationText');
+  assert.equal(message.resolvedText, 'Texte réel avec accents : Éléonore.');
+});

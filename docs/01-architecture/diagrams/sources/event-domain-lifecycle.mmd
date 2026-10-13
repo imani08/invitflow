@@ -7,4 +7,5 @@ stateDiagram-v2
     PUBLISHED --> CANCELLED
     PUBLISHED --> COMPLETED
     CANCELLED --> [*]
-    COMPLETED --> [*]
+    COMPLETED --> ARCHIVED: archival explicite
+    ARCHIVED --> COMPLETED: restauration explicite

@@ -1,6 +1,8 @@
 export type EventFields = {
   name?: string;
   description?: string | null;
+  coupleNames?: string | null;
+  invitationText?: string | null;
   eventType?: string;
   startAt?: Date | null;
   endAt?: Date | null;

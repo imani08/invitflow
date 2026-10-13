@@ -6,7 +6,7 @@ import { parseIsoTimestamp, timestampMatchesTimeZone } from './events-date.js';
 import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFields } from './events.types.js';
 
 type AuthRequest = FastifyRequest & { identity: VerifiedIdentity };
-type EventInput = { name?: unknown; description?: unknown; eventType?: unknown; startAt?: unknown; endAt?: unknown; timezone?: unknown };
+type EventInput = { name?: unknown; description?: unknown; coupleNames?: unknown; invitationText?: unknown; eventType?: unknown; startAt?: unknown; endAt?: unknown; timezone?: unknown };
 type CeremonyInput = { name?: unknown; ceremonyType?: unknown; description?: unknown; location?: unknown; address?: unknown; latitude?: unknown; longitude?: unknown; instructions?: unknown; dressCode?: unknown; notes?: unknown; capacity?: unknown; startAt?: unknown; endAt?: unknown; timezone?: unknown };
 
 function optionalText(value: unknown, field: string, max: number): string | null | undefined {
@@ -77,12 +77,14 @@ function mapProgramItem(input: unknown, creating: boolean) {
 }
 
 function mapEvent(input: EventInput, creating: boolean): EventFields | CreateEventFields {
-  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !['name', 'description', 'eventType', 'startAt', 'endAt', 'timezone'].includes(key))) {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || Object.keys(input).some((key) => !['name', 'description', 'coupleNames', 'invitationText', 'eventType', 'startAt', 'endAt', 'timezone'].includes(key))) {
     throw new BadRequestException('Unsupported event fields');
   }
   const data: Record<string, unknown> = {};
   const name = optionalText(input.name, 'name', 120);
   const description = optionalText(input.description, 'description', 4000);
+  const coupleNames = optionalText(input.coupleNames, 'coupleNames', 300);
+  const invitationText = optionalText(input.invitationText, 'invitationText', 12000);
   const eventType = optionalText(input.eventType, 'eventType', 40);
   const timezone = timeZone(input.timezone);
   if (!creating && timezone === undefined && [input.startAt, input.endAt].some((value) => typeof value === 'string')) {
@@ -95,7 +97,7 @@ function mapEvent(input: EventInput, creating: boolean): EventFields | CreateEve
   if (eventType !== undefined && (typeof eventType !== 'string' || !['WEDDING', 'BIRTHDAY', 'GRADUATION', 'BAPTISM', 'BABY_SHOWER', 'CONFERENCE', 'GALA', 'DINNER', 'CORPORATE', 'CEREMONY', 'RELIGIOUS', 'ANNIVERSARY', 'OTHER'].includes(eventType))) {
     throw new BadRequestException('eventType is not supported');
   }
-  for (const [key, value] of Object.entries({ name, description, eventType, startAt, endAt, timezone })) if (value !== undefined) data[key] = value;
+  for (const [key, value] of Object.entries({ name, description, coupleNames, invitationText, eventType, startAt, endAt, timezone })) if (value !== undefined) data[key] = value;
   if (startAt instanceof Date && endAt instanceof Date && endAt <= startAt) throw new BadRequestException('endAt must be after startAt');
   return data as EventFields | CreateEventFields;
 }
@@ -165,6 +167,9 @@ export class EventsController {
 
   @Post('/:eventId/publish') publish(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.publish(request.identity.subject, eventId); }
   @Post('/:eventId/cancel') cancel(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.cancel(request.identity.subject, eventId); }
+  @Post('/:eventId/complete') complete(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.lifecycle(request.identity.subject, eventId, 'complete'); }
+  @Post('/:eventId/archive') archive(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.lifecycle(request.identity.subject, eventId, 'archive'); }
+  @Post('/:eventId/restore') restore(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.lifecycle(request.identity.subject, eventId, 'restore'); }
 
   @Post('/:eventId/ceremonies') addCeremony(@Req() request: AuthRequest, @Param('eventId') eventId: string, @Body() body: CeremonyInput, @Headers('idempotency-key') key?: string) {
     return this.events.addCeremony(request.identity.subject, eventId, mapCeremony(body ?? {}), key);

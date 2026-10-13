@@ -11,7 +11,9 @@ export function invitationDisplayFields(event) {
   const date = (value, zone) => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: zone }).format(new Date(value)) : '';
   const parts = (value, zone) => value && Number.isFinite(Date.parse(value)) ? Object.fromEntries(new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: zone }).formatToParts(new Date(value)).filter(part => ['weekday', 'day', 'month', 'year'].includes(part.type)).map(part => [part.type, part.value.toLocaleUpperCase('fr-FR')])) : {};
   return {
-    event: { ...parts(event.startAt, timezone), title: string(event.name), coupleNames: string(event.coupleNames), invitationText: string(event.invitationText), date: event.date ? string(event.date) : date(event.startAt, timezone), venue: string(event.venue) || string(event.venue?.name) || string(event.location) },
+    // description is the pre-P0 storage location for invitation copy. Keep it
+    // as a read-only compatibility fallback; new writes use invitationText.
+    event: { ...parts(event.startAt, timezone), title: string(event.name), coupleNames: string(event.coupleNames), invitationText: string(event.invitationText) || string(event.description), date: event.date ? string(event.date) : date(event.startAt, timezone), venue: string(event.venue) || string(event.venue?.name) || string(event.location) },
     ceremonies: (Array.isArray(event.ceremonies) ? event.ceremonies : []).map(ceremony => {
       const zone = string(ceremony.timezone) || timezone;
       const instant = ceremony.startAt && Number.isFinite(Date.parse(ceremony.startAt)) ? new Date(ceremony.startAt) : null;

@@ -3,9 +3,10 @@ import { AgencyMemberStatus, AgencyWorkspaceStatus, CeremonyStatus, EventStatus,
 import { PrismaService } from './prisma.service.js';
 import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFields } from './events.types.js';
 import { createHash } from 'node:crypto';
+import { eventLifecycleAction } from './event-lifecycle.js';
 
 const eventSelect = {
-  id: true, name: true, description: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
+  id: true, name: true, description: true, coupleNames: true, invitationText: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
   createdAt: true, updatedAt: true,
 } as const;
 
@@ -370,6 +371,23 @@ export class EventsService {
       }
     });
     return this.get(ownerSubject, id);
+  }
+
+  async lifecycle(ownerSubject: string, id: string, action: 'complete' | 'archive' | 'restore') {
+    this.assertUuid(id);
+    return this.prisma.$transaction(async (tx) => {
+      const event = await this.lockEvent(tx, ownerSubject, id);
+      if (!event) throw new NotFoundException('Event not found');
+      const target = eventLifecycleAction(event.status, action);
+      if (!target) throw new BadRequestException('This event lifecycle transition is not allowed');
+      const changed = await tx.event.updateMany({ where: { id, ownerSubject, status: event.status }, data: { status: target as EventStatus } });
+      if (!changed.count) throw new ConflictException('Event status changed; reload before continuing');
+      await tx.outboxMessage.create({ data: {
+        eventType: `events.${action}d.v1`, aggregateId: id,
+        payload: { id, ownerSubject, from: event.status, to: target, action, occurredAt: new Date().toISOString(), schemaVersion: 1 },
+      } });
+      return tx.event.findFirstOrThrow({ where: { id, ownerSubject }, select: { ...eventSelect, ceremonies: { orderBy: { startAt: 'asc' }, include: { programItems: { orderBy: { position: 'asc' } } } } } });
+    });
   }
 
   async addCeremony(ownerSubject: string, eventId: string, data: CreateCeremonyFields, requestKey?: string) {

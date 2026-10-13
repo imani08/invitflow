@@ -66,6 +66,18 @@ function inferredBinding(text) {
   return exact ? legacyBinding.get(exact[1]) ?? null : null;
 }
 
+// Early editable documents shipped the main-copy slot as the literal “Votre
+// texte”. Treat it as a binding during the v1-to-v2 upgrade, never as content
+// to print. The name/role guard keeps an intentional occurrence elsewhere
+// untouched.
+function inferredEditorialBinding(layer) {
+  if (inferredBinding(layer.text)) return inferredBinding(layer.text);
+  const identity = `${stringOrEmpty(layer.id)} ${stringOrEmpty(layer.name)} ${stringOrEmpty(layer.role)}`;
+  return /^votre texte$/iu.test(stringOrEmpty(layer.text).trim()) && /invitation|message|body|texte/i.test(identity)
+    ? 'event.invitationText'
+    : null;
+}
+
 function fontIdForFamily(family) {
   const normalized = stringOrEmpty(family).toLocaleLowerCase('en-US');
   if (normalized === 'arial') return 'arial';
@@ -92,7 +104,7 @@ export function normalizeDesignDocumentV2(input) {
     if (!isObject(element)) return element;
     const next = { ...element };
     if (next.type === 'TEXT') {
-      const binding = safeBinding(next.binding) ? next.binding : inferredBinding(next.text);
+      const binding = safeBinding(next.binding) ? next.binding : inferredEditorialBinding(next);
       const family = stringOrEmpty(next.fontFamily) || stringOrEmpty(document.theme?.tokens?.font) || 'Georgia';
       next.fontId = typeof next.fontId === 'string' && own(FONT_REGISTRY, next.fontId) ? next.fontId : fontIdForFamily(family);
       next.preferredFontSize = finite(next.preferredFontSize, finite(next.maxFontSize, finite(next.fontSize, 36)));
@@ -327,20 +339,25 @@ function resolveFont(layer) {
 }
 
 function estimatedWidth(text, fontSize, letterSpacing = 0) {
-  return [...text].reduce((sum, char) => sum + fontSize * (/[MW@#%]/u.test(char) ? 0.82 : /[il.,' ]/u.test(char) ? 0.3 : 0.56), 0) + Math.max(0, [...text].length - 1) * letterSpacing;
+  // The server chooses a deterministic layout and the SVG renders with the
+  // declared font. Never use this estimate to split a word into characters.
+  return [...text].reduce((sum, char) => sum + fontSize * (/[MW@#%ÀÂÆŒ]/u.test(char) ? 0.83 : /[il.,'’!:;| ]/u.test(char) ? 0.31 : /[0-9]/u.test(char) ? 0.56 : 0.57), 0)
+    + Math.max(0, [...text].length - 1) * letterSpacing;
 }
 function wrapText(text, width, fontSize, letterSpacing = 0) {
   const result = [];
-  for (const paragraph of text.split(/\r?\n/u)) {
+  // Preserve explicit paragraphs, including empty ones. Move content only at
+  // whitespace; an overlong word stays whole and becomes an explicit overflow.
+  for (const paragraph of String(text).split(/\r?\n/u)) {
+    if (!paragraph) { result.push(''); continue; }
+    const tokens = paragraph.match(/\S+|\s+/gu) ?? [''];
     let line = '';
-    for (const word of paragraph.split(/\s+/u).filter(Boolean)) {
-      const candidate = line ? `${line} ${word}` : word;
-      if (line && estimatedWidth(candidate, fontSize, letterSpacing) > width) { result.push(line); line = word; } else line = candidate;
-      if (estimatedWidth(line, fontSize, letterSpacing) > width) {
-        const chars = [...line]; let part = '';
-        for (const char of chars) { if (part && estimatedWidth(part + char, fontSize, letterSpacing) > width) { result.push(part); part = char; } else part += char; }
-        line = part;
-      }
+    for (const token of tokens) {
+      const candidate = line + token;
+      if (line && /\S/u.test(token) && estimatedWidth(candidate, fontSize, letterSpacing) > width) {
+        result.push(line.replace(/[ \t]+$/u, ''));
+        line = token.replace(/^[ \t]+/u, '');
+      } else line = candidate;
     }
     result.push(line);
   }
@@ -491,7 +508,7 @@ export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', frag
       if (font.fontId === 'great-vibes') { const script = renderReferenceScript(layer, lines, size, finite(layer.resolvedLineHeight, finite(layer.lineHeight, 1.2))); if (script) { parts.push(`<g${transform}>${script}</g>`); continue; } }
       const align = layer.align === 'left' ? 'start' : layer.align === 'right' ? 'end' : 'middle', tx = layer.align === 'left' ? x : layer.align === 'right' ? x + w : x + w / 2;
       const lineHeight = finite(layer.resolvedLineHeight, finite(layer.lineHeight, 1.2)), firstY = y + h / 2 - (lines.length - 1) * size * lineHeight / 2;
-      parts.push(`<text x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${layer.role === 'REFERENCE_BODY' ? referenceBodyLine(line) : svgEscape(line)}</tspan>`).join('')}</text>`);
+      parts.push(`<text xml:space="preserve" x="${tx}" y="${firstY}" text-anchor="${align}" dominant-baseline="middle" font-family="${svgEscape(`${font.family}, ${font.fallback}`)}" font-size="${size}" font-weight="${finite(layer.resolvedFontWeight, finite(layer.fontWeight, 400))}" font-style="${svgEscape(layer.resolvedFontStyle ?? layer.fontStyle ?? 'normal')}" letter-spacing="${finite(layer.letterSpacing)}" fill="${svgEscape(layer.color ?? '#29251f')}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}>${lines.map((line, index) => `<tspan x="${tx}" dy="${index ? size * lineHeight : 0}">${layer.role === 'REFERENCE_BODY' ? referenceBodyLine(line) : svgEscape(line)}</tspan>`).join('')}</text>`);
     }
   }
   return fragment ? parts.join('') : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${parts.join('')}</svg>`;
