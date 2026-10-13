@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { normalizeDesignDocument, validateDesignDocument } from './design-document.js';
-import { createProfessionalTemplate, PROFESSIONAL_RECIPES } from '@invitaflow/design-document';
+import { createInitialComposition, createProfessionalTemplate, PROFESSIONAL_RECIPES } from '@invitaflow/design-document';
+
+test('initial AI scaffold includes the complete text contract required for real server saves',()=>{
+  const document=createInitialComposition();
+  assert.doesNotThrow(()=>validateDesignDocument(normalizeDesignDocument(document)));
+  const prose=document.elements.find(layer=>layer['id']==='ai-invitation-prose')!;
+  assert.equal(prose['role'],'BODY');assert.equal(prose['fontWeight'],400);assert.equal(prose['hideWhenEmpty'],false);
+  prose['hidden']=true;prose['letterSpacing']=2;
+  const saved=validateDesignDocument(normalizeDesignDocument(document));
+  assert.equal(saved.elements.find(layer=>layer['id']==='ai-invitation-prose')!['hidden'],true);
+  assert.equal(saved.elements.find(layer=>layer['type']==='BACKGROUND')!['locked'],false);
+  prose['hidden']='invalid';assert.throws(()=>validateDesignDocument(normalizeDesignDocument(document)));
+});
 test('professional catalogue compositions survive the existing backend validator', () => {
   for (const { id } of PROFESSIONAL_RECIPES) {
     const document = createProfessionalTemplate(id);

@@ -21,7 +21,7 @@ import { editableDocument, MASK_REGISTRY, IMAGE_ROLES, assessImageResolution, re
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-type Layer = Record<string, unknown> & { role?: ImageRole; focalPoint?: { x: number; y: number }; maskId?: string; blur?: number; overlay?: ImageOverlay; id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE' | 'IMAGE' | 'QR'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; source?: 'guest_access_token'; assetId?: string; originalAssetId?: string; derivedAssetId?: string; sourceWidth?: number; sourceHeight?: number; fit?: 'cover' | 'contain'; cropX?: number; cropY?: number; cropScale?: number; opacity?: number; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
+type Layer = Record<string, unknown> & { role?: ImageRole | 'BODY'; focalPoint?: { x: number; y: number }; maskId?: string; blur?: number; overlay?: ImageOverlay; id: string; name: string; type: 'BACKGROUND' | 'TEXT' | 'SHAPE' | 'IMAGE' | 'QR'; x: number; y: number; width: number; height: number; rotation: number; locked: boolean; editable: boolean; zIndex: number; fill?: string; stroke?: string; strokeWidth?: number; text?: string; source?: 'guest_access_token'; assetId?: string; originalAssetId?: string; derivedAssetId?: string; sourceWidth?: number; sourceHeight?: number; fit?: 'cover' | 'contain'; cropX?: number; cropY?: number; cropScale?: number; opacity?: number; fontFamily?: string; fontSize?: number; fontWeight?: number; align?: 'left' | 'center' | 'right'; color?: string };
 type Document = { schemaVersion: 1 | 2; metadata: Record<string, unknown>; canvas: { width: number; height: number; unit: 'px' }; theme: { category: string; style: string; palette: string[]; tokens: { primary: string; secondary: string; background: string; font: string } }; assets: Record<string, unknown>[]; elements: Layer[]; variables: { key: string; label: string; type: 'TEXT'; defaultValue: string; required: boolean }[]; constraints: { safeMargin: number | { top: number; right: number; bottom: number; left: number }; allowOverflow: boolean }; layouts: { id: string; name: string; width: number; height: number }[]; ceremonyRules: Record<string, unknown>[]; exportProfiles: { id: string; width: number; height: number; unit: 'px' }[]; version: number };
 type Event = { id: string; name: string; eventType?: string; status: string; timezone: string; startAt?: string | null; venue?: string | null; coupleNames?: string | null; invitationText?: string | null; ceremonies: { id: string; name: string; ceremonyType: string; date?: string | null; time?: string | null; venue?: string | null; address?: string | null; reference?: string | null; dressCode?: string | null }[] };
 type PreviewGuest = { id: string; fullName: string; email: string | null; phone: string | null };
@@ -174,10 +174,14 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   const [backgroundJobs, setBackgroundJobs] = useState<Record<string, { status: 'NONE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; derivedAssetId?: string }>>({});
   const [imageUploading, setImageUploading] = useState(false);
   const [showSafeMargins, setShowSafeMargins] = useState(false);
-  const draft = useJourneyDraft('design-editor', { selected, savedDocument, savedName, personalizing, aiPrompt, previewCeremonyId, previewTableName }, saved => {
+  const draft = useJourneyDraft('design-editor', { selected, savedDocument, savedName, personalizing, aiPrompt, previewCeremonyId, previewTableName, creationMode, generateImage, aiScope, aiJob }, saved => {
+    setAiPrompt(typeof saved.aiPrompt === 'string' ? saved.aiPrompt : '');
+    setCreationMode(saved.creationMode === 'AI' ? 'AI' : 'MANUAL');
+    setGenerateImage(saved.generateImage === true); setAiScope(saved.aiScope === 'selection' ? 'selection' : 'all');
     const document = saved.selected?.document;
     if (saved.selected && designs.some(design => design.id === saved.selected?.id) && document && Array.isArray(document.elements) && Array.isArray(document.variables) && Array.isArray(document.assets) && Array.isArray(document.layouts)) {
       setSelected(saved.selected); setSavedDocument(saved.savedDocument); setSavedName(saved.savedName);
+      if (saved.aiJob && typeof saved.aiJob.id === 'string') setAiJob(saved.aiJob);
       setPersonalizing(saved.personalizing === true); setAiPrompt(typeof saved.aiPrompt === 'string' ? saved.aiPrompt : '');
       setPreviewCeremonyId(saved.previewCeremonyId); setPreviewTableName(saved.previewTableName);
     }
@@ -466,7 +470,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
       const persisted = dirty ? await api<Design>(event.id, encodeURIComponent(selected.id), 'PUT', { name: selected.name, document: selected.document, expectedVersion: selected.version }) : selected;
       setSelected(persisted); setSavedDocument(clone(persisted.document)); setSavedName(persisted.name);
       await api(event.id, `${encodeURIComponent(persisted.id)}/continue`, 'POST', { expectedVersion: persisted.version });
-      await draft.save({ selected: persisted, savedDocument: clone(persisted.document), savedName: persisted.name, personalizing, aiPrompt, previewCeremonyId, previewTableName });
+      await draft.save({ selected: persisted, savedDocument: clone(persisted.document), savedName: persisted.name, personalizing, aiPrompt, previewCeremonyId, previewTableName, creationMode, generateImage, aiScope, aiJob });
       router.push(`/events/${encodeURIComponent(event.id)}/guests`);
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Le design ne peut pas encore être validé.'); }
     finally { continuing.current = false; setBusy(false); }
@@ -551,7 +555,7 @@ export function DesignsWorkspace({ event }: { event: Event }) {
   function addText() {
     if (!selected) return;
     const id = `custom-${crypto.randomUUID().slice(0, 8)}`;
-    const layer: Layer = { id, type: 'TEXT', name: 'Nouveau texte', x: Math.round(selected.document.canvas.width * .1), y: Math.round(selected.document.canvas.height * .42), width: Math.round(selected.document.canvas.width * .8), height: Math.min(120, selected.document.canvas.height * .15), rotation: 0, locked: false, editable: true, zIndex: Math.max(...selected.document.elements.map((entry) => entry.zIndex), 0) + 1, text: 'Votre texte', fontId: 'georgia', fontFamily: 'Georgia', preferredFontSize: 36, minFontSize: 8, maxFontSize: 36, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT', fontSize: 36, fontWeight: 400, align: 'center', color: selected.document.theme.tokens.secondary };
+    const layer: Layer = { id, type: 'TEXT', role: 'BODY', maxLines: 4, hideWhenEmpty: false, collapseSpace: false, name: 'Nouveau texte', x: Math.round(selected.document.canvas.width * .1), y: Math.round(selected.document.canvas.height * .42), width: Math.round(selected.document.canvas.width * .8), height: Math.min(120, selected.document.canvas.height * .15), rotation: 0, locked: false, editable: true, zIndex: Math.max(...selected.document.elements.map((entry) => entry.zIndex), 0) + 1, text: 'Votre texte', fontId: 'georgia', fontFamily: 'Georgia', preferredFontSize: 36, minFontSize: 8, maxFontSize: 36, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT', fontSize: 36, fontWeight: 400, align: 'center', color: selected.document.theme.tokens.secondary };
     editDocument((document) => { document.elements.push(layer); }); setActiveLayerId(id);
   }
 

@@ -18,7 +18,7 @@ export function createInitialComposition() {
   const doc = editableDocument(createProfessionalTemplate('typographic-luxury'));
   doc.metadata.initialCompositionSeed = true;
   for (const layer of doc.elements) if (layer.type !== 'QR') { layer.locked = false; layer.editable = true; }
-  doc.elements.push({ id: 'ai-invitation-prose', name: 'Texte de votre invitation', type: 'TEXT', text: 'Partageons ensemble ce moment de joie.', x: 150, y: 780, width: 1180, height: 180, rotation: 0, zIndex: 50, locked: false, editable: true, fontId: 'georgia', fontFamily: 'Georgia', fontSize: 36, preferredFontSize: 36, minFontSize: 18, maxFontSize: 36, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT', color: '#32163a', opacity: 1 });
+  doc.elements.push({ id: 'ai-invitation-prose', role: 'BODY', fontWeight: 400, align: 'center', maxLines: 4, hideWhenEmpty: false, collapseSpace: false, name: 'Texte de votre invitation', type: 'TEXT', text: 'Partageons ensemble ce moment de joie.', x: 150, y: 780, width: 1180, height: 180, rotation: 0, zIndex: 50, locked: false, editable: true, fontId: 'georgia', fontFamily: 'Georgia', fontSize: 36, preferredFontSize: 36, minFontSize: 18, maxFontSize: 36, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT', color: '#32163a', opacity: 1 });
   return validateDesignDocumentV2(doc);
 }
 

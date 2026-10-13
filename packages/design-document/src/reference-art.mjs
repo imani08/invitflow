@@ -4,7 +4,7 @@ export const REFERENCE_ORNAMENTS = Object.freeze(['reference-ivory-v1', 'referen
 const esc = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 
 /** Code-owned vector art only. No document-supplied markup, external URL or embedded original JPG. */
-export function renderReferenceOrnament(layer) {
+export function renderReferenceOrnament(layer, paperTexture = '') {
   if (!REFERENCE_ORNAMENTS.includes(layer.ornamentId)) throw new TypeError('Unknown reference ornament');
   const id = `ref-${String(layer.id).replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const rotation = Number.isFinite(layer.rotation) ? layer.rotation : 0;
@@ -14,7 +14,8 @@ export function renderReferenceOrnament(layer) {
   const palm = (x, y, scale, angle, opacity = 1) => `<g transform="translate(${x} ${y}) rotate(${angle}) scale(${scale})" fill="#4b592e" opacity="${opacity}"><path d="M0 0Q90 170 12 390" fill="none" stroke="#667446" stroke-width="5"/>${Array.from({ length: 12 }, (_, i) => { const h = 22 + i * 28; return `<path d="M${22 + i} ${h} Q${130 - i * 3} ${h + 10} ${182 - i * 5} ${h - 32} Q${132 - i * 2} ${h + 22} ${25 + i} ${h + 5}Z"/><path d="M${22 + i} ${h} Q${-60 - i} ${h - 36} ${-100 - i * 4} ${h - 22} Q${-50 - i} ${h + 5} ${25 + i} ${h + 13}Z"/>`; }).join('')}</g>`;
   const outlines = `<g fill="none" stroke="#8c9270" stroke-width="1.3" opacity=".32">${Array.from({ length: 7 }, (_, i) => `<g transform="translate(${gold ? 1050 : 1120} ${700 + i * 180}) rotate(${i * 16})"><path d="M0 0Q-130 30-200 220Q-35 195 0 0Z"/>${Array.from({ length: 8 }, (_, n) => `<path d="M-15 ${n * 25}Q-120 ${50 + n * 21}-195 218"/>`).join('')}</g>`).join('')}</g>`;
   const flower = `<g transform="translate(1350 335)" fill="#fff0b8">${Array.from({ length: 5 }, (_, i) => `<ellipse cx="0" cy="-53" rx="32" ry="71" transform="rotate(${i * 72})" fill="url(#${id}-petal)"/>`).join('')}<circle r="16" fill="#e7c16d"/></g>`;
-  const paper = `<rect width="1500" height="${gold ? 1500 : 2121}" fill="${esc(layer.fill && layer.fill !== 'transparent' ? layer.fill : gold ? '#e3d59a' : '#f5f2e5')}"/><rect width="1500" height="${gold ? 1500 : 2121}" filter="url(#${id}-paper)" opacity="${gold ? '.055' : '.08'}"/>`;
+  const safePaper = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(paperTexture);
+  const paper = `<rect width="1500" height="${gold ? 1500 : 2121}" fill="${esc(layer.fill && layer.fill !== 'transparent' ? layer.fill : gold ? '#e3d59a' : '#f5f2e5')}"/>${safePaper ? `<image width="1500" height="${gold ? 1500 : 2121}" href="${paperTexture}" preserveAspectRatio="none" opacity="${gold ? '.055' : '.08'}"/>` : `<rect width="1500" height="${gold ? 1500 : 2121}" filter="url(#${id}-paper)" opacity="${gold ? '.055' : '.08'}"/>`}`;
   const wash = `<g fill="${esc(layer.ornamentId === 'gold-wash' ? layer.fill ?? '#b9a866' : '#b9a866')}" opacity=".09">${Array.from({ length: 12 }, (_, i) => `<ellipse cx="${i * 145}" cy="${150 + (i % 4) * 310}" rx="250" ry="95" transform="rotate(-25 ${i * 145} ${150 + (i % 4) * 310})"/>`).join('')}</g>`;
   const pieces = { 'paper-ivory': paper, 'paper-gold': paper, 'palm-top': palm(1430,-30,1.2,25), 'palm-bottom': palm(30,2060,.68,-140), 'palm-right': palm(1430,920,.65,120), flower, 'leaf-outlines': outlines, 'gold-wash': wash };
   const boxes = { 'palm-top': '900 0 600 600', 'palm-bottom': '0 1700 450 421', 'palm-right': '1050 800 450 650', flower: '1180 120 300 400', 'leaf-outlines': '850 600 650 1521' };

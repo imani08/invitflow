@@ -5,9 +5,9 @@ const number = (value, fallback, minimum, maximum) => {
 
 export function renderInvitationImage(layer, source) {
   if (!layer || typeof layer !== 'object' || typeof source !== 'string' ||
-      !/^data:image\/(?:webp|png);base64,[A-Za-z0-9+/]*={0,2}$/.test(source) ||
+      !/^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/]*={0,2}$/.test(source) ||
       typeof layer.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(layer.id)) {
-    throw new TypeError('A validated WebP or PNG layer and data source are required');
+    throw new TypeError('A validated WebP, PNG or JPEG layer and data source are required');
   }
   const x = number(layer.x, 0, 0, 4000);
   const y = number(layer.y, 0, 0, 4000);

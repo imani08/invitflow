@@ -1,7 +1,7 @@
 // Executed only inside the disposable integration container by the launcher.
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { writeFile, readFile } from 'node:fs/promises';
 import Fastify from 'fastify';
 import { PrismaClient } from './dist/generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -11,7 +11,7 @@ import { InvitationsController } from './dist/src/invitations.controller.js';
 import { invitationToken } from './dist/src/invitation-token.mjs';
 import { PrismaClient as WalletClient } from './test-wallet/generated/prisma/client.js';
 import { WalletService } from './test-wallet/src/wallet.service.js';
-import { createReferenceTemplate, editableDocument, resolveDesignLayout } from '@invitaflow/design-document';
+import { createReferenceTemplate, editableDocument, moveEditableGroup, resolveDesignLayout } from '@invitaflow/design-document';
 const realFetch = globalThis.fetch;
 const resources = [], storage = new InvitationStorage(), storedKeys = new Set();
 const batchId = randomUUID(), owner = 'pdf-integration-' + randomUUID();
@@ -71,14 +71,16 @@ try {
       for (const [assetId, entry] of Object.entries(snapshot.renderAssets ?? {})) {
         const oldKey = typeof entry === 'string' ? entry : entry.key;
         const key = 'batches/' + batchId + '/' + randomUUID() + (oldKey.endsWith('.png') ? '.png' : '.webp');
-        await storage.put(key, await storage.get(oldKey), typeof entry === 'string' ? 'image/webp' : entry.mimeType);
+        let bytes; let mimeType = typeof entry === 'string' ? 'image/webp' : entry.mimeType;
+        try { bytes = await storage.get(oldKey); } catch (error) { if (!process.env.TEST_DIAGNOSTIC_PHOTO) throw error; const map=JSON.parse(await readFile('/test-pdf-audit/diagnostic-images.json','utf8')); const name=map[assetId]; if(typeof name!=='string'|| !/^[a-zA-Z0-9_-]+\.(?:png|webp)$/.test(name))throw error; bytes=await readFile('/test-pdf-audit/'+name); mimeType=name.endsWith('.webp')?'image/webp':'image/png'; }
+        await storage.put(key, bytes, mimeType);
         storedKeys.add(key);
-        snapshot.renderAssets[assetId] = typeof entry === 'string' ? key : { ...entry, key };
+        snapshot.renderAssets[assetId] = { key, mimeType };
       }
     } finally { await source.$disconnect(); }
   }
   if (!process.env.TEST_SOURCE_BATCH) {
-    const document = editableDocument(createReferenceTemplate('reference-01-ivory'));
+    let document = editableDocument(createReferenceTemplate('reference-01-ivory'));
     const photoId = randomUUID(), photoKey = 'batches/' + batchId + '/' + photoId + '.png';
     // Tiny generated test image. No customer photo or source batch is modified.
     const photo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -87,6 +89,11 @@ try {
     document.assets.push({ id: photoId, assetId: photoId, width: 1, height: 1, mimeType: 'image/png', role: 'COUPLE_PHOTO' });
     snapshot.renderAssets[photoId] = { key: photoKey, mimeType: 'image/png' };
     document.elements.push({ id:'test-editable-text',name:'Texte ajouté',type:'TEXT',x:340,y:1230,width:800,height:100,rotation:0,locked:false,editable:true,zIndex:80,text:'Texte ajouté et enregistré',fontId:'arial',fontFamily:'Arial',fontSize:34,preferredFontSize:34,minFontSize:20,maxFontSize:34,lineHeight:1.2,overflowPolicy:'SHRINK_WITH_LIMIT',color:'#32163a',opacity:1 });
+    document.elements.push({ ...structuredClone(document.elements.at(-1)), id:'test-grouped-text', text:'Deuxième texte du groupe', y:1340 });
+    document.metadata.editorGroups=[{id:'test-group',elementIds:['test-editable-text','test-grouped-text']}];
+    document=moveEditableGroup(document,'test-editable-text',380,1260);
+    const first=document.elements.find(layer=>layer.id==='test-editable-text'),second=document.elements.find(layer=>layer.id==='test-grouped-text');
+    assert.equal(second.y-first.y,110);assert.equal(first.x,380);
     snapshot.designSnapshot.document = document;
     snapshot.resolvedLayout = resolveDesignLayout(document, { guest:{name:'Invité de test isolé'},event:{title:'Validation InvitaFlow'},ceremonies:[{name:'Accueil',date:'13/10/2026',time:'10:00',venue:'Lieu de test'}],qr:{available:true} },undefined,{}, {mode:'web'});
   }
@@ -94,6 +101,7 @@ try {
   await db.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId, designId, designVersion: 1, idempotencyKey: randomUUID(), reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: 1, totalItems: 1 } });
   const item = await db.batchItem.create({ data: { batchId, invitationId: invitation.id, invitationVersionId: version.id, guestId, snapshot } });
   const service = new InvitationService(db, storage);
+  let renderMs = 0; const realRender = service.render.bind(service); service.render = async snapshot => { const started=Date.now(); try { return await realRender(snapshot); } finally { renderMs+=Date.now()-started; } };
   await assert.rejects(service.download(owner, batchId, item.id));
   await service.reserveAndQueue(owner, batchId, 'isolated-test');
   assert.equal((await wallet.balance(owner)).availableCredits, 0);
@@ -136,7 +144,7 @@ try {
   await service.work();
   assert.equal(await walletDb.walletEntry.count({ where: { type: 'SETTLEMENT' } }), 1);
   assert.equal((await wallet.balance(owner)).reservedCredits, 0);
-  console.log(JSON.stringify({ batchStatus: batch.status, reserved: 1, consumed: 1, released: 0, httpDownload: 200, repeatedDownloadIdentical: true, settlements: 1, pdfBytes: pdf.length, pdfSha256: createHash('sha256').update(pdf).digest('hex'), realCustomerBalancesModified: false }));
+  console.log(JSON.stringify({ batchStatus: batch.status, reserved: 1, consumed: 1, released: 0, httpDownload: 200, repeatedDownloadIdentical: true, settlements: 1, pdfBytes: pdf.length, zipBytes: zip.length, renderMs, pdfSha256: createHash('sha256').update(pdf).digest('hex'), realCustomerBalancesModified: false }));
 } catch (error) {
   console.log(JSON.stringify({ integrationFailure: true, name: error.name, code: error.code, assertion: error instanceof assert.AssertionError ? { actual: error.actual, expected: error.expected } : undefined }));
   process.exitCode = 1;

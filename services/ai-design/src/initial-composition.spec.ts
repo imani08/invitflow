@@ -7,9 +7,9 @@ test('initial composition runs GPT then FLUX with checkpoints and keeps independ
   const oldFetch = globalThis.fetch, names = ['AI_PROVIDER','AI_IMAGE_PROVIDER','OPENAI_API_KEY','BFL_API_KEY'] as const;
   const prior = names.map(name => process.env[name]);
   Object.assign(process.env, { AI_PROVIDER:'openai', AI_IMAGE_PROVIDER:'flux', OPENAI_API_KEY:'test-placeholder', BFL_API_KEY:'test-placeholder' });
-  const source = createInitialComposition(); source.metadata.initialGeneration = true;
+  const source = createInitialComposition(); source['metadata'].initialGeneration = true;
   const before = JSON.stringify(source), calls: string[] = [];
-  const job: Record<string, any> = { id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',eventId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',designId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',baseVersion:1,sourceDocument:source,prompt:'VISUAL_VARIATION\nINITIAL_COMPOSITION\nUn style botanique',proposal:null,status:'QUEUED',errorCode:null };
+  const job: { id: string; status: string; errorCode: string | null; proposal: Record<string, unknown> | null; [key: string]: unknown } = { id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',eventId:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',designId:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',baseVersion:1,sourceDocument:source,prompt:'VISUAL_VARIATION\nINITIAL_COMPOSITION\nUn style botanique',proposal:null,status:'QUEUED',errorCode:null };
   const delegate = { findUnique:async()=>job, updateMany:async({where,data}:{where:Record<string,unknown>;data:Record<string,unknown>})=>{if(where['status']&&where['status']!==job['status'])return {count:0};Object.assign(job,data);return {count:1};} };
   const tx={aiDesignJob:delegate,outboxMessage:{create:async()=>({})}};
   const db={...tx,$transaction:async(run:(tx:unknown)=>Promise<unknown>)=>run(tx)};
@@ -29,10 +29,10 @@ test('initial composition runs GPT then FLUX with checkpoints and keeps independ
     const service=new AiDesignService(db as never,{} as never,{} as never,{put:async()=> 'test-preview',delete:async()=>{}} as never);
     await service.process(job['id']);
     assert.equal(job['status'],'PROPOSED'); assert.equal(job['previewObjectKey'],'test-preview');
-    const document=job['proposal'].document;
+    const document=job['proposal']!['document'] as ReturnType<typeof createInitialComposition>;
     validateDesignDocumentV2(document);assert.equal(document.elements.length,source.elements.length);
-    assert.equal(document.elements.find((layer:Record<string,unknown>)=>layer['id']==='ai-invitation-prose').text,'Partageons une belle célébration.');
-    assert.equal(document.metadata.initialCompositionSeed,undefined);assert.equal(JSON.stringify(source),before);
+    assert.equal(document.elements.find((layer:Record<string,unknown>)=>layer['id']==='ai-invitation-prose')!['text'],'Partageons une belle célébration.');
+    assert.equal(document['metadata'].initialCompositionSeed,undefined);assert.equal(JSON.stringify(source),before);
     const count=calls.length; await service.process(job['id']);assert.equal(calls.length,count);
     assert.equal(calls.filter(url=>url.includes('/responses')).length,1);assert.equal(calls.filter(url=>url.includes('/flux-2-klein')).length,1);
   } finally { globalThis.fetch=oldFetch;names.forEach((name,index)=>{if(prior[index]===undefined)delete process.env[name];else process.env[name]=prior[index];}); }

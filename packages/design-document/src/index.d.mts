@@ -41,7 +41,7 @@ export function renderOverlaySvg(overlay: ImageOverlay, layer: Record<string, an
 export function resolveDesignLayout(document: unknown, snapshot: RenderSnapshot, selectedVariantId?: string, assets?: Record<string, string>, target?: RenderTarget): ResolvedLayout;
 export function logicalCanvasTransform(canvas: { width: number; height: number }, viewport: { width: number; height: number }): { scale: number; offsetX: number; offsetY: number };
 export function imageRenderBounds(layer: Record<string, any>): Bounds;
-export function renderResolvedLayoutSvg(layout: ResolvedLayout, options?: { assets?: Record<string, string>; qrHref?: string; fragment?: boolean }): string;
+export function renderResolvedLayoutSvg(layout: ResolvedLayout, options?: { assets?: Record<string, string>; qrHref?: string; fragment?: boolean; paperTexture?: string }): string;
 export function fitInvitationText(layer: Record<string, any>, text: string): { fontSize: number; lines: string[]; lineHeight: number; reduced: boolean; overflow: boolean };
 export function scaleLogicalBounds(bounds: Bounds, canvas: { width: number; height: number }, viewport: { width: number; height: number }): Bounds;
 export const PROFESSIONAL_TEMPLATE_IDS: readonly string[];

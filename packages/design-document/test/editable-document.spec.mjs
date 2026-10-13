@@ -77,3 +77,14 @@ test('added text, styling, hidden flags and complete composition survive JSON an
   assert.ok(!resolveDesignLayout(restored,{},undefined,{}, {mode:'web'}).elements.some(layer=>layer.id==='custom-text'));
   restored.elements[1].hidden='yes'; assert.throws(()=>validateDesignDocumentV2(restored));
 });
+
+test('PDF JPEG variants and bounded paper textures render without allowing external or SVG sources',()=>{
+  const jpeg='data:image/jpeg;base64,/9j/2Q==',id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const doc=insertEditableImage(createBlankDesign(),{assetId:id,width:640,height:480}).document;
+  const layout=resolveDesignLayout(doc,{},undefined,{[id]:jpeg},{mode:'web'});
+  assert.match(renderResolvedLayoutSvg(layout,{assets:{[id]:jpeg}}),/data:image\/jpeg/);
+  assert.throws(()=>renderResolvedLayoutSvg(layout,{assets:{[id]:'data:image/svg+xml;base64,PHN2Zz4='}}));
+  const reference=resolveDesignLayout(createReferenceTemplate('reference-01-ivory'),{},undefined,{}, {mode:'web'});
+  assert.match(renderResolvedLayoutSvg(reference,{paperTexture:jpeg}),/href="data:image\/jpeg/);
+  assert.doesNotMatch(renderResolvedLayoutSvg(reference,{paperTexture:'https://external.invalid/texture'}),/external.invalid/);
+});

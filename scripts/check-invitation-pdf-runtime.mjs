@@ -12,11 +12,11 @@ const sourceBatch = process.argv[2];
 if (sourceBatch && !/^[0-9a-f-]{36}$/i.test(sourceBatch)) throw new Error('Invalid source batch ID');
 const service = process.argv[3] ?? 'invitations';
 if (!['invitations', 'rendering'].includes(service)) throw new Error('Invalid diagnostic service');
-const input = `process.env.TEST_WALLET_DATABASE_URL=${JSON.stringify(env.DATABASE_URL)};\nprocess.env.TEST_SOURCE_BATCH=${JSON.stringify(sourceBatch ?? '')};\n` + fixture;
+const input = `process.env.TEST_WALLET_DATABASE_URL=${JSON.stringify(env.DATABASE_URL)};\nprocess.env.TEST_SOURCE_BATCH=${JSON.stringify(sourceBatch ?? '')};\nprocess.env.TEST_DIAGNOSTIC_PHOTO=${JSON.stringify(process.env.PDF_AUDIT_PHOTO ?? '')};\n` + fixture;
 try {
   process.stdout.write(execFileSync('docker', ['compose', 'run', '--rm', '--no-deps', '-T',
     '--volume', `${resolve('services/wallet/dist')}:/app/test-wallet:ro`,
-    '--volume', `${output}:/test-output`, '--entrypoint', 'node', service, '--input-type=module'],
+    '--volume', `${output}:/test-output`, ...(process.env.PDF_AUDIT_PHOTO ? ['--volume', `${resolve('coverage/pdf-audit')}:/test-pdf-audit:ro`] : []), '--entrypoint', 'node', service, '--input-type=module'],
   { input, encoding: 'utf8', timeout: 120000, stdio: ['pipe', 'pipe', 'pipe'] }));
 } catch (error) {
   if (error.stdout) process.stdout.write(error.stdout);

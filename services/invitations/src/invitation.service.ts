@@ -9,6 +9,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { pdfImage, pdfPaperTexture } from './pdf-image.js';
 import { emissionRequestHash, finalBatchStatus, isFundedBatch } from './emission-policy.mjs';
 import {
   BatchItemStatus,
@@ -577,13 +578,13 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     await Promise.all(keys.map((key) => this.storage.delete(key)));
     for (const key of keys) for (const cacheKey of this.renderImageCache.keys()) if (cacheKey.startsWith(key + '|')) this.renderImageCache.delete(cacheKey);
   }
-  private renderImageSource(key: string, mimeType: string) {
-    const cacheKey = key + '|' + mimeType;
+  private renderImageSource(key: string, mimeType: string, width: number, height: number) {
+    const cacheKey = key + '|' + mimeType + '|' + width + 'x' + height;
     const cached = this.renderImageCache.get(cacheKey);
     if (cached) return cached;
     const loading = this.storage.get(key).then((bytes) => {
       if (!bytes.length || bytes.length > 8 * 1024 * 1024) throw new Error('Invitation image snapshot size is invalid');
-      return 'data:' + mimeType + ';base64,' + bytes.toString('base64');
+      return pdfImage(bytes, width, height);
     }).catch((error) => {
       this.renderImageCache.delete(cacheKey);
       throw error;
@@ -1281,6 +1282,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const renderElements = Array.isArray(resolvedLayout.elements) ? resolvedLayout.elements : Array.isArray(doc.elements) ? doc.elements : [];
     const token = invitationToken(String(snapshot.invitationId ?? ''));
     const qrTarget = `${requiredEnv('PUBLIC_WEB_URL').replace(/\/$/, '')}/invite/${token}`;
+    const { widthMm, heightMm } = invitationPrintFormat(doc);
     const imageData = new Map<string, string>();
     for (const value of renderElements) {
       const layer = object(value);
@@ -1289,7 +1291,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       const key = typeof entry === 'string' ? entry : object(entry)['key'];
       const mimeType = typeof entry === 'string' ? 'image/webp' : object(entry)['mimeType'];
       if (typeof key !== 'string' || !['image/webp', 'image/png'].includes(String(mimeType))) throw new Error('Invitation image snapshot is missing');
-      imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType)));
+      const instances = renderElements.map(object).filter((entry: Obj) => entry.assetId === layer.assetId);
+      const pixelWidth = Math.ceil(Math.max(...instances.map((entry: Obj) => Number(entry.width) * Math.max(1, Number(entry.cropScale) || 1))) / width * widthMm / 25.4 * 300);
+      const pixelHeight = Math.ceil(Math.max(...instances.map((entry: Obj) => Number(entry.height) * Math.max(1, Number(entry.cropScale) || 1))) / height * heightMm / 25.4 * 300);
+      imageData.set(layer.assetId, await this.renderImageSource(key, String(mimeType), pixelWidth, pixelHeight));
     }
     const legacyLayers = doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? '' : renderElements
       .map((value: unknown) => {
@@ -1324,11 +1329,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       })
       .join('');
     const layers = doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements)
-      ? renderResolvedLayoutSvg({ ...resolvedLayout, elements: resolvedLayout.elements.map((element: Obj) => element.binding === 'qr.url' ? { ...element, resolvedText: qrTarget, resolvedLines: [qrTarget] } : element) } as never, { assets: Object.fromEntries(imageData), qrHref: 'file://QR_FILE' })
+      ? renderResolvedLayoutSvg({ ...resolvedLayout, elements: resolvedLayout.elements.map((element: Obj) => element.binding === 'qr.url' ? { ...element, resolvedText: qrTarget, resolvedLines: [qrTarget] } : element) } as never, { assets: Object.fromEntries(imageData), qrHref: 'file://QR_FILE', paperTexture: await pdfPaperTexture() })
       : legacyLayers;
     const designBackground = esc(object(object(doc.theme).tokens).background ?? '#fffdf9');
     const hasDesignQr = renderElements.some((item: unknown) => object(item).type === 'QR');
-    const { widthMm, heightMm } = invitationPrintFormat(doc);
     const html = `<!doctype html><meta charset="utf-8"><style>@page{size:${widthMm}mm ${heightMm}mm;margin:0}html,body{margin:0;width:${widthMm}mm;height:${heightMm}mm;background:${designBackground};overflow:hidden}svg{display:block;width:${widthMm}mm;height:${heightMm}mm}.fallback{box-sizing:border-box;width:${widthMm}mm;height:${heightMm}mm;padding:25mm 16mm;text-align:center;font:22px Georgia,serif}.fallback h1{font-size:34px}.qr{position:fixed;right:8mm;bottom:8mm;width:27mm;height:27mm;background:#fff;padding:1mm}.qr svg,.qr img{display:block;width:100%;height:100%}</style>${layers ? (doc.schemaVersion === 2 && Array.isArray(resolvedLayout.elements) ? layers : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img">${layers}</svg>`) : `<div class="fallback"><h1>${esc(event.name ?? 'Invitation')}</h1><p>${esc(guest.fullName ?? 'Cher invité')}</p><p>${esc(event.startAt ?? event.date ?? '')}</p><p>${esc(venue.name ?? event.location ?? '')}</p>${ceremonyText}</div>`}${hasDesignQr ? '' : `<div class="qr" aria-label="QR de réponse"><img src="file://${'QR_FILE'}" alt="Répondre à l’invitation" /></div>`}`;
     const dir = await mkdtemp(join(tmpdir(), 'invitaflow-render-'));
     const input = join(dir, 'invitation.html');

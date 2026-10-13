@@ -7,6 +7,12 @@ export function confirmationState(batch, now = Date.now()) {
   return 'ready';
 }
 
+export function singlePdfItem(batch) {
+  if (!batch?.settledAt || batch.totalItems !== 1 || batch.completedItems !== 1 || !Number.isSafeInteger(batch.settlementCredits) || batch.settlementCredits < 1 || !['COMPLETED','PARTIAL','CANCELLED'].includes(batch.status)) return null;
+  const items = (Array.isArray(batch.items) ? batch.items : []).filter(item => item.status === 'GENERATED' && typeof item.id === 'string' && item.objectKey);
+  return items.length === 1 ? items[0] : null;
+}
+
 export function generationMessage(batch, now = Date.now()) {
   if (['RESERVING', 'QUEUED'].includes(batch.status)) return 'Votre demande est enregistrée. La préparation de vos invitations va commencer.';
   if (['GENERATING', 'FINALIZING'].includes(batch.status)) return 'Vos invitations sont en cours de préparation.';

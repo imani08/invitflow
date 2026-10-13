@@ -468,7 +468,7 @@ function referenceBodyLine(line) {
 }
 const svgEscape = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;');
 /** Serialize an already-resolved tree. Assets and QR hrefs are supplied by the caller; this function performs no I/O. */
-export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', fragment = false } = {}) {
+export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', fragment = false, paperTexture = '' } = {}) {
   const { width, height } = layout.canvas;
   const parts = [];
   for (const layer of layout.elements) {
@@ -482,7 +482,7 @@ export function renderResolvedLayoutSvg(layout, { assets = {}, qrHref = '', frag
         parts.push(renderVisualImageSvg(layer, href));
       }
     } else if (layer.ornamentId) {
-      parts.push(renderReferenceOrnament(layer));
+      parts.push(renderReferenceOrnament(layer, paperTexture));
     } else if (layer.type === 'BACKGROUND' || layer.type === 'SHAPE') {
       parts.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${svgEscape(layer.fill === 'transparent' ? 'none' : layer.fill ?? 'none')}" stroke="${svgEscape(layer.stroke ?? 'none')}" stroke-width="${finite(layer.strokeWidth)}" opacity="${Math.max(0, Math.min(1, finite(layer.opacity, 1)))}"${transform}/>`);
       if (layer.overlay) parts.push(`<g${transform} opacity="${finite(layer.opacity, 1)}">${renderOverlaySvg(layer.overlay, layer, `visual-${layer.id}`)}</g>`);

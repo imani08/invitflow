@@ -247,7 +247,8 @@ function legacyProjection(input: DesignDocument): Record<string, unknown> {
     const next = { ...element };
     const semanticBinding = next['binding'];
     const preferredFontSize = next['preferredFontSize'];
-    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'focalPoint', 'blur', 'overlay', 'ornamentId']) delete next[key];
+    for (const key of ['binding', 'fontId', 'preferredFontSize', 'visibility', 'groupId', 'maskId', 'focalPoint', 'blur', 'overlay', 'ornamentId', 'hidden', 'letterSpacing']) delete next[key];
+    if (next['type'] === 'BACKGROUND' && object(input['metadata']) && input['metadata']['editorMode'] === 'FULL') { next['locked'] = true; next['editable'] = false; }
     if (next['type'] === 'TEXT') {
       if (semanticBinding) next['text'] = '';
       next['maxFontSize'] = preferredFontSize ?? next['maxFontSize'] ?? next['fontSize'];

@@ -98,7 +98,7 @@ export function renderOverlaySvg(overlay, layer, prefix) {
 /** Trusted geometry only. No arbitrary markup or external asset URLs are accepted. */
 export function renderVisualImageSvg(layer, href, { rotation = true } = {}) {
   validateVisualProperties(layer);
-  if (typeof href !== 'string' || !/^(?:blob:|data:image\/(?:png|webp);base64,)/.test(href)) fail('A private PNG/WebP data source or preview blob is required');
+  if (typeof href !== 'string' || !/^(?:blob:|data:image\/(?:png|webp|jpeg);base64,)/.test(href)) fail('A private PNG/WebP/JPEG data source or preview blob is required');
   const mask = MASK_REGISTRY[layer.maskId ?? 'none'];
   const x = finite(layer.x), y = finite(layer.y), w = finite(layer.width), h = finite(layer.height), bounds = imageRenderBounds(layer);
   const id = `visual-${String(layer.id).replace(/[^a-zA-Z0-9_-]/g, '-')}`, clipId = `${id}-frame`, softId = `${id}-soft`, blurId = `${id}-blur`;
