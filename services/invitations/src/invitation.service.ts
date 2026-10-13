@@ -306,7 +306,10 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
             requestedGuests.some((guestId, index) => guestId !== priorGuests[index])))
       )
         throw new ConflictException('Cette clé d’idempotence a déjà été utilisée pour une autre demande de génération.');
-      return prior;
+      // Return the public batch shape rather than the Prisma record loaded for
+      // idempotency validation. The latter includes BatchItem.sizeBytes, a
+      // PostgreSQL bigint which Fastify cannot serialize as JSON.
+      return this.getBatch(owner, prior.id);
     }
     const snapshot = await this.snapshots(eventId, designId, validatedGuestIds, authorization);
     if (expectedDesignVersion !== undefined && snapshot.design.version !== expectedDesignVersion) throw new ConflictException('Le design a changé depuis votre aperçu. Vérifiez sa nouvelle version avant de générer.');

@@ -51,18 +51,21 @@ async function withStorageCapacity<T>(work: () => Promise<T>) {
 }
 
 function serviceWithPrior() {
-  const prior = { requestHash: null as string | null, id: 'batch-1', eventId, designId, designVersion: 3, items: [{ guestId: guestA }, { guestId: guestB }] };
-  const prisma = { invitationBatch: { findUnique: async () => prior } } as unknown as PrismaService;
-  return { service: new InvitationService(prisma, {} as InvitationStorage), prior };
+  const prior = { requestHash: null as string | null, id: 'batch-1', eventId, designId, designVersion: 3, zipSizeBytes: 9007199254740993n, items: [{ guestId: guestA, sizeBytes: 9007199254740993n }, { guestId: guestB, sizeBytes: null }] };
+  const publicBatch = { id: prior.id, ownerSubject: 'owner', zipSizeBytes: 9007199254740993n, items: [{ id: 'item-1', guestId: guestA, status: 'QUEUED', objectKey: null, errorCode: null, updatedAt: new Date() }] };
+  const prisma = { invitationBatch: { findUnique: async () => prior, findFirst: async () => publicBatch } } as unknown as PrismaService;
+  return { service: new InvitationService(prisma, {} as InvitationStorage), prior, publicBatch };
 }
 
 test('generation idempotency returns a prior batch only for the same event, design and selected guests', async () => {
   await withStorageCapacity(async () => {
-    const { service, prior } = serviceWithPrior();
+    const { service, prior, publicBatch } = serviceWithPrior();
     const replay = (requestedEvent: string, requestedDesign: string, guestIds: string[]) =>
       service.createBatch('owner', requestedEvent, 'Bearer token', 'same-key', { designId: requestedDesign, guestIds });
 
-    assert.equal(await replay(eventId, designId, [guestB, guestA]), prior);
+    const replayed = await replay(eventId, designId, [guestB, guestA]);
+    assert.doesNotThrow(() => JSON.stringify(replayed));
+    assert.deepEqual(replayed, { ...publicBatch, zipSizeBytes: '9007199254740993' });
     await assert.rejects(replay(otherEventId, designId, [guestA, guestB]), /autre demande de génération/);
     await assert.rejects(replay(eventId, otherDesignId, [guestA, guestB]), /autre demande de génération/);
     await assert.rejects(replay(eventId, designId, [guestA, guestC]), /autre demande de génération/);
@@ -71,20 +74,20 @@ test('generation idempotency returns a prior batch only for the same event, desi
 
 test('all-guests replay is bound to its original intent; explicit empty selection is rejected', async () => {
   await withStorageCapacity(async () => {
-    const { service, prior } = serviceWithPrior();
+    const { service, prior, publicBatch } = serviceWithPrior();
     prior.requestHash = emissionRequestHash(eventId, designId, undefined, []);
     const omitted = await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId });
     await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, guestIds: [] }), /au moins un invité/);
-    assert.equal(omitted, prior);
+    assert.deepEqual(omitted, { ...publicBatch, zipSizeBytes: '9007199254740993' });
 
   });
 });
 
 test('a replay cannot reuse a reservation for a different reviewed design version', async () => {
   await withStorageCapacity(async () => {
-    const { service, prior } = serviceWithPrior();
+    const { service, prior, publicBatch } = serviceWithPrior();
     prior.requestHash = emissionRequestHash(eventId, designId, 3, []);
-    assert.equal(await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 3 }), prior);
+    assert.deepEqual(await service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 3 }), { ...publicBatch, zipSizeBytes: '9007199254740993' });
     await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 4 }), /autre demande/);
     await assert.rejects(service.createBatch('owner', eventId, 'Bearer token', 'same-key', { designId, expectedDesignVersion: 0 }), /Version/);
   });
