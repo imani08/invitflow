@@ -48,6 +48,7 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
           : operation === 'set_element_font' ? ['op', 'elementId', 'value']
             : operation === 'set_element_font_size' ? ['op', 'elementId', 'value']
               : operation === 'set_element_position' ? ['op', 'elementId', 'x', 'y']
+                : operation === 'set_element_bounds' ? ['op', 'elementId', 'x', 'y', 'width', 'height']
                 : operation === 'set_element_rotation' ? ['op', 'elementId', 'value']
                   : operation === 'set_shape_color' ? ['op', 'elementId', 'fill', 'stroke'] : null;
     if (!allowed) fail('Le moteur a proposé une opération qui n’est pas prise en charge.');
@@ -81,6 +82,11 @@ export function applyDesignChanges(sourceValue: unknown, rawSummary: unknown, ra
     } else if (operation === 'set_element_font_size') {
       if (layer['type'] !== 'TEXT' || typeof change['value'] !== 'number' || !Number.isFinite(change['value']) || change['value'] < 8 || change['value'] > 180) fail('La taille de texte proposée est invalide.');
       layer['fontSize'] = change['value']; layer['preferredFontSize'] = change['value']; layer['maxFontSize'] = change['value']; layer['minFontSize'] = Math.min(Number(layer['minFontSize'] ?? 8), change['value']);
+    } else if (operation === 'set_element_bounds') {
+      const x = change['x'], y = change['y'], w = change['width'], h = change['height'];
+      if (layer['type'] === 'QR' || ![x,y,w,h].every(value => typeof value === 'number' && Number.isFinite(value)) || Number(x) < 0 || Number(y) < 0 || Number(w) <= 0 || Number(h) <= 0 || Number(x)+Number(w)>width || Number(y)+Number(h)>height) fail('Les dimensions proposées sortent du canevas.');
+      Object.assign(layer, { x, y, width: w, height: h });
+      for (const variant of (document['layoutVariants'] ?? []) as JsonObject[]) for (const override of (variant['overrides'] ?? []) as JsonObject[]) if (override['elementId'] === targetId && override['bounds']) override['bounds'] = { x, y, width: w, height: h };
     } else if (operation === 'set_element_position') {
       const x = change['x']; const y = change['y'];
       if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x + Number(layer['width']) > width || y + Number(layer['height']) > height) fail('La position proposée sort du canevas.');

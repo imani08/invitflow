@@ -10,6 +10,7 @@ import { PrismaService } from './prisma.service.js';
 import { PreviewStorage } from './preview-storage.js';
 import { applyDesignChanges, MockAIProvider, SelfHostedAIProvider, selectedProvider, type JsonObject } from './providers.js';
 import { aiJobLimits } from './env.js';
+import { validateDesignDocumentV2 } from '@invitaflow/design-document';
 import { aiActiveQuotaRejection, aiQuotaRejection } from './ai-job-quota.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -42,13 +43,19 @@ export class AiDesignService {
     if (!uuidPattern.test(eventId) || !uuidPattern.test(designId)) throw new NotFoundException('Design introuvable.');
     const input = inputObject(body);
     if (['EDITORIAL_COMPRESSION', 'EDITORIAL_REWRITE'].includes(String(input['workflow']))) return this.createEditorial(eventId, designId, ownerSubject, authorization, input);
-    if (Object.keys(input).some((key) => !['prompt', 'generateImage', 'elementIds'].includes(key)) || input['generateImage'] !== undefined && typeof input['generateImage'] !== 'boolean') throw new BadRequestException('Champs de proposition invalides.');
+    if (Object.keys(input).some((key) => !['prompt', 'generateImage', 'elementIds', 'workflow'].includes(key)) || input['generateImage'] !== undefined && typeof input['generateImage'] !== 'boolean' || input['workflow'] !== undefined && input['workflow'] !== 'INITIAL_COMPOSITION') throw new BadRequestException('Champs de proposition invalides.');
+    const initial = input['workflow'] === 'INITIAL_COMPOSITION';
+    if (initial && selectedProvider() !== 'openai') throw new ServiceUnavailableException('La génération initiale InvitaFlow IA est indisponible. Choisissez explicitement la création manuelle.');
     if (input['generateImage'] && (selectedProvider() !== 'openai' || process.env['AI_IMAGE_PROVIDER'] !== 'flux' || !process.env['BFL_API_KEY'])) throw new ServiceUnavailableException('FLUX non configuré. Choisissez un modèle existant ou une proposition sans nouveau décor.');
     if (selectedProvider() === 'openai' && !process.env['OPENAI_API_KEY']) throw new ServiceUnavailableException('GPT non configuré. La saisie manuelle et les modèles existants restent disponibles.');
-    let prompt = (input['generateImage'] ? 'VISUAL_VARIATION\n' : '') + promptText(input['prompt']);
+    let prompt = (input['generateImage'] ? 'VISUAL_VARIATION\n' : '') + (initial ? 'INITIAL_COMPOSITION\n' : '') + promptText(input['prompt']);
     const design = await this.designs.get(eventId, designId, authorization);
     if (!Number.isInteger(design.version) || design.version < 1) throw new BadRequestException('La version du design est invalide.');
     const source = structuredClone(design.document) as JsonObject;
+    if (initial) {
+      if (input['elementIds'] !== undefined || (source['metadata'] as JsonObject)?.['initialCompositionSeed'] !== true) throw new BadRequestException('Préparez une nouvelle composition IA avant cette demande.');
+      source['metadata'] = { ...(source['metadata'] as JsonObject), initialGeneration: true };
+    }
     const ids = input['elementIds'];
     if (ids !== undefined) {
       const elements = source['elements'] as JsonObject[];
@@ -264,12 +271,15 @@ export class AiDesignService {
         const marked = await this.prisma.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt: now }, data: { proposal: { textSubmissionStarted: true } } });
         if (!marked.count) return;
       }
-      const result = reusable ? { summary: checkpoint['summary'] as string, changes: checkpoint['changes'] as import('./providers.js').DesignChange[], ...(checkpoint['usage'] ? { usage: checkpoint['usage'] } : {}), visualPrompt: typeof checkpoint['visualPrompt'] === 'string' ? checkpoint['visualPrompt'] : '' } : await provider.edit(input);
+      const initial = (input.document['metadata'] as JsonObject)?.['initialGeneration'] === true;
+      const result = reusable ? { summary: checkpoint['summary'] as string, changes: checkpoint['changes'] as import('./providers.js').DesignChange[], ...(checkpoint['usage'] ? { usage: checkpoint['usage'] } : {}), visualPrompt: typeof checkpoint['visualPrompt'] === 'string' ? checkpoint['visualPrompt'] : '' } : initial ? await provider.generate(input) : await provider.edit(input);
       if (!reusable) {
         const saved = await this.prisma.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt: now }, data: { proposal: result as Prisma.InputJsonValue } });
         if (!saved.count) return;
       }
       const proposal = applyDesignChanges(input.document, result.summary, result.changes);
+      if (initial) { delete (proposal.document['metadata'] as JsonObject)['initialCompositionSeed']; delete (proposal.document['metadata'] as JsonObject)['initialGeneration']; }
+      if (initial) validateDesignDocumentV2(proposal.document);
       const previewPrompt = `Invitation background art direction. ${'visualPrompt' in result && result.visualPrompt ? result.visualPrompt : job.prompt}. Palette: ${((proposal.document['theme'] as JsonObject)['tokens'] as JsonObject)['primary']}, ${((proposal.document['theme'] as JsonObject)['tokens'] as JsonObject)['secondary']}, ${((proposal.document['theme'] as JsonObject)['tokens'] as JsonObject)['background']}. Preserve generous negative space for invitation text.`;
       if (providerMode === 'openai' && job.prompt.startsWith('VISUAL_VARIATION\n') && process.env['AI_IMAGE_PROVIDER'] === 'flux') {
         const flux = new FluxImageProvider();

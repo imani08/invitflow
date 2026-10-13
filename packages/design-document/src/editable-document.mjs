@@ -13,6 +13,33 @@ export function createBlankDesign() {
   return validateDesignDocumentV2(doc);
 }
 
+/** Editable scaffold only: never presented as an AI result before a provider proposal. */
+export function createInitialComposition() {
+  const doc = editableDocument(createProfessionalTemplate('typographic-luxury'));
+  doc.metadata.initialCompositionSeed = true;
+  for (const layer of doc.elements) if (layer.type !== 'QR') { layer.locked = false; layer.editable = true; }
+  doc.elements.push({ id: 'ai-invitation-prose', name: 'Texte de votre invitation', type: 'TEXT', text: 'Partageons ensemble ce moment de joie.', x: 150, y: 780, width: 1180, height: 180, rotation: 0, zIndex: 50, locked: false, editable: true, fontId: 'georgia', fontFamily: 'Georgia', fontSize: 36, preferredFontSize: 36, minFontSize: 18, maxFontSize: 36, lineHeight: 1.2, overflowPolicy: 'SHRINK_WITH_LIMIT', color: '#32163a', opacity: 1 });
+  return validateDesignDocumentV2(doc);
+}
+
+/** One bounded translation for the whole group, including layout overrides. */
+export function moveEditableGroup(input, elementId, x, y) {
+  const doc = structuredClone(input), anchor = doc.elements.find(layer => layer.id === elementId);
+  if (!anchor || !Number.isFinite(x) || !Number.isFinite(y)) throw new TypeError('Position invalide.');
+  const group = (doc.metadata.editorGroups ?? []).find(group => group.elementIds.includes(elementId));
+  const ids = new Set(group?.elementIds ?? [elementId]);
+  const members = doc.elements.filter(layer => ids.has(layer.id));
+  if (members.some(layer => layer.locked || !layer.editable || layer.type === 'BACKGROUND')) throw new TypeError('Déverrouillez tous les éléments du groupe avant de le déplacer.');
+  const dx = Math.max(-Math.min(...members.map(layer => layer.x)), Math.min(x - anchor.x, ...members.map(layer => doc.canvas.width - layer.x - layer.width)));
+  const dy = Math.max(-Math.min(...members.map(layer => layer.y)), Math.min(y - anchor.y, ...members.map(layer => doc.canvas.height - layer.y - layer.height)));
+  for (const layer of members) { layer.x += dx; layer.y += dy; }
+  for (const variant of doc.layoutVariants ?? []) for (const override of variant.overrides ?? []) {
+    const layer = members.find(layer => layer.id === override.elementId);
+    if (layer && override.bounds) override.bounds = { x: layer.x, y: layer.y, width: layer.width, height: layer.height };
+  }
+  return doc;
+}
+
 /** Normalize typography at the editing boundary, including older saved designs. */
 export function editableDocument(input) {
   const doc = splitReferenceArtwork(normalizeDesignDocumentV2(input));

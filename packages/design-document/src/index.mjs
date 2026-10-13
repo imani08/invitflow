@@ -1,6 +1,6 @@
 import { REFERENCE_ORNAMENTS, renderReferenceOrnament, renderReferenceScript } from './reference-art.mjs';
 export { REFERENCE_TEMPLATES, createReferenceTemplate, invitationPrintFormat } from './reference-templates.mjs';
-export { createBlankDesign, editableDocument, insertEditableImage } from './editable-document.mjs';
+export { createBlankDesign, createInitialComposition, editableDocument, insertEditableImage, moveEditableGroup } from './editable-document.mjs';
 export { EDITORIAL_BINDINGS, editorialField, editorialTarget, protectedEditorialTerms, redactEditorial, restoreEditorial, validateEditorialProposal, applyEditorialSelection } from './editorial-assist.mjs';
 import { assessImageResolution, renderOverlaySvg, renderVisualImageSvg, validateVisualProperties, visualOcclusionIssues } from './visual.mjs';
 export { MASK_REGISTRY, IMAGE_ROLES, assessImageResolution, imageRenderBounds, renderOverlaySvg, renderVisualImageSvg } from './visual.mjs';

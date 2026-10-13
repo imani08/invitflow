@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { DesignStatus, Prisma, TemplateCategory, type Design } from '../generated/prisma/client.js';
-import { REFERENCE_TEMPLATES, createBlankDesign, createReferenceTemplate, invitationDisplayFields, assertProfessionalPersonalization, editorialField, editorialTarget, protectedEditorialTerms, applyEditorialSelection, resolveDesignLayout, composeDesignProposals, professionalCompositionManifest, validateDesignDocumentV2, type ComposerEventType } from '@invitaflow/design-document';
+import { REFERENCE_TEMPLATES, createBlankDesign, createInitialComposition, createReferenceTemplate, invitationDisplayFields, assertProfessionalPersonalization, editorialField, editorialTarget, protectedEditorialTerms, applyEditorialSelection, resolveDesignLayout, composeDesignProposals, professionalCompositionManifest, validateDesignDocumentV2, type ComposerEventType } from '@invitaflow/design-document';
 import { EventsClient } from './events-client.js';
 import { PrismaService } from './prisma.service.js';
 import { normalizeDesignDocument, templateVariables, validateDesignDocument } from './design-document.js';
@@ -373,9 +373,9 @@ export class DesignsService {
     const templateId = input['templateId'];
     const reference = REFERENCE_TEMPLATES.find(item => item.id === templateId);
     if (reference && !['WEDDING', 'DOT'].includes(event.eventType ?? 'WEDDING')) throw new NotFoundException('Ce modèle de référence est prévu pour un mariage ou une dot.');
-    if (typeof templateId !== 'string' || (!reference && templateId !== 'blank' && !uuidPattern.test(templateId)))
+    if (typeof templateId !== 'string' || (!reference && templateId !== 'blank' && templateId !== 'ai-start' && !uuidPattern.test(templateId)))
       throw new BadRequestException('Choisissez un template enregistré.');
-    const template = templateId === 'blank' ? { id: null, slug: 'blank', version: 1, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createBlankDesign() }] } : reference ? { ...reference, id: null, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createReferenceTemplate(reference.id) }] } : await this.prisma.designTemplate.findFirst({
+    const template = templateId === 'ai-start' ? { id: null, slug: 'ai-start', version: 1, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createInitialComposition() }] } : templateId === 'blank' ? { id: null, slug: 'blank', version: 1, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createBlankDesign() }] } : reference ? { ...reference, id: null, versions: [{ version: 1, ceremonyTypes: ['UNIVERSAL'], document: createReferenceTemplate(reference.id) }] } : await this.prisma.designTemplate.findFirst({
       where: { id: templateId, isActive: true },
       include: { versions: { select: { version: true, ceremonyTypes: true, document: true } } },
     });

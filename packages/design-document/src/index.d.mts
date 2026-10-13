@@ -49,6 +49,8 @@ export function createProfessionalTemplate(id: string, photos?: Record<string, {
 export function fillProfessionalPhotoSlot(document: unknown, slotId: string, photo: { assetId: string; width: number; height: number }): DesignDocument;
 export function assertProfessionalPersonalization(previous: unknown, candidate: unknown, options?: { fullEditing?: boolean }): void;
 export function createBlankDesign(): DesignDocument;
+export function createInitialComposition(): DesignDocument;
+export function moveEditableGroup(document: DesignDocument, elementId: string, x: number, y: number): DesignDocument;
 export function insertEditableImage(document: DesignDocument, asset: { assetId: string; width: number; height: number }, targetId?: string | null): { document: DesignDocument; layerId: string };
 export function editableDocument(input: unknown): DesignDocument;
 

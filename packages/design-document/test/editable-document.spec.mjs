@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createBlankDesign, editableDocument, insertEditableImage, createReferenceTemplate, validateDesignDocumentV2, resolveDesignLayout, renderResolvedLayoutSvg, assertProfessionalPersonalization } from '../src/index.mjs';
+import { createBlankDesign, createInitialComposition, moveEditableGroup, editableDocument, insertEditableImage, createReferenceTemplate, validateDesignDocumentV2, resolveDesignLayout, renderResolvedLayoutSvg, assertProfessionalPersonalization } from '../src/index.mjs';
 
 test('blank and reference editing preserve separate editable artwork and the original document', () => {
   const blank = createBlankDesign();
@@ -16,6 +16,21 @@ test('blank and reference editing preserve separate editable artwork and the ori
     assert.doesNotThrow(() => assertProfessionalPersonalization(original, doc, { fullEditing: true }));
     assert.throws(() => assertProfessionalPersonalization(original, doc));
   }
+});
+
+test('group translation keeps relative positions, clamps together, persists and renders', () => {
+  const source=createInitialComposition(), a=source.elements.find(layer=>layer.id==='ai-invitation-prose');
+  const b={...structuredClone(a),id:'second-text',name:'Deuxième texte',x:a.x+100,y:a.y+250};source.elements.push(b);
+  source.metadata.editorGroups=[{id:'group-1',name:'Groupe',elementIds:[a.id,b.id]}];
+  const prior=JSON.stringify(source), moved=moveEditableGroup(source,a.id,a.x+50,a.y+80);
+  const first=moved.elements.find(layer=>layer.id===a.id),second=moved.elements.find(layer=>layer.id===b.id);
+  assert.equal(first.x-a.x,50);assert.equal(second.x-first.x,100);assert.equal(second.y-first.y,250);assert.equal(JSON.stringify(source),prior);
+  const edge=moveEditableGroup(moved,a.id,99999,99999);const one=edge.elements.find(layer=>layer.id===a.id),two=edge.elements.find(layer=>layer.id===b.id);
+  assert.equal(two.x-one.x,100);assert.equal(two.y-one.y,250);assert.ok(two.x+two.width<=edge.canvas.width);
+  const restored=JSON.parse(JSON.stringify(moved));validateDesignDocumentV2(restored);
+  const layout=resolveDesignLayout(restored,{},undefined,{}, {mode:'web'});
+  assert.equal(layout.elements.find(layer=>layer.sourceElementId===a.id||layer.id===a.id).x,first.x);
+  restored.elements.find(layer=>layer.id===b.id).locked=true;assert.throws(()=>moveEditableGroup(restored,a.id,0,0),/Déverrouillez/);
 });
 
 test('private photos and background textures stay independent, replaceable and rendered', () => {
