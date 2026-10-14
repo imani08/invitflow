@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 type EventOverview = {
   id: string;
   name: string;
+  eventType: string;
   status: string;
   ceremonies?: { id: string; name: string; ceremonyType: string }[];
 };
@@ -58,9 +59,10 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
       <header className="events-heading">
         <p className="eyebrow">APERÇU DE L’ÉVÉNEMENT · {eventStatusLabels[event.status] ?? 'Statut à vérifier'}</p>
         <h1>{event.name}</h1>
-        <p>Votre événement est enregistré. Configurez les cérémonies, puis poursuivez à votre rythme.</p>
+        <p>{event.eventType === 'WEDDING' ? 'Configurez au moins une cérémonie pour votre mariage, puis poursuivez à votre rythme.' : 'Ajoutez des moments seulement si votre événement en a besoin ; ils restent modifiables tant que l’événement est en brouillon.'}</p>
+        <Link className="subtle-link" href={`/events?event=${encodeURIComponent(eventId)}#ceremony-${encodeURIComponent(eventId)}`}>Gérer ou modifier le programme →</Link>
       </header>
-      <EventJourney eventId={eventId} activeStep="ceremonies" ceremonyCount={event.ceremonies?.length ?? 0} eventStatus={event.status} />
+      <EventJourney eventId={eventId} activeStep="ceremonies" ceremonyCount={event.ceremonies?.length ?? 0} eventType={event.eventType} eventStatus={event.status} />
     </main>
   );
 }

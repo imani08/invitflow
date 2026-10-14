@@ -17,6 +17,14 @@ export const AgentStatus = {
 export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus]
 
 
+export const CheckInLinkStatus = {
+  ACTIVE: 'ACTIVE',
+  REVOKED: 'REVOKED'
+} as const
+
+export type CheckInLinkStatus = (typeof CheckInLinkStatus)[keyof typeof CheckInLinkStatus]
+
+
 export const AccessScanOutcome = {
   ACCEPTED: 'ACCEPTED',
   DUPLICATE: 'DUPLICATE',

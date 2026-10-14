@@ -41,6 +41,7 @@ export type AccessScanAttemptMinAggregateOutputType = {
   ceremonyId: string | null
   operatorSubject: string | null
   agentId: string | null
+  linkId: string | null
   deviceFingerprint: string | null
   userAgent: string | null
   outcome: $Enums.AccessScanOutcome | null
@@ -55,6 +56,7 @@ export type AccessScanAttemptMaxAggregateOutputType = {
   ceremonyId: string | null
   operatorSubject: string | null
   agentId: string | null
+  linkId: string | null
   deviceFingerprint: string | null
   userAgent: string | null
   outcome: $Enums.AccessScanOutcome | null
@@ -69,6 +71,7 @@ export type AccessScanAttemptCountAggregateOutputType = {
   ceremonyId: number
   operatorSubject: number
   agentId: number
+  linkId: number
   deviceFingerprint: number
   userAgent: number
   outcome: number
@@ -93,6 +96,7 @@ export type AccessScanAttemptMinAggregateInputType = {
   ceremonyId?: true
   operatorSubject?: true
   agentId?: true
+  linkId?: true
   deviceFingerprint?: true
   userAgent?: true
   outcome?: true
@@ -107,6 +111,7 @@ export type AccessScanAttemptMaxAggregateInputType = {
   ceremonyId?: true
   operatorSubject?: true
   agentId?: true
+  linkId?: true
   deviceFingerprint?: true
   userAgent?: true
   outcome?: true
@@ -121,6 +126,7 @@ export type AccessScanAttemptCountAggregateInputType = {
   ceremonyId?: true
   operatorSubject?: true
   agentId?: true
+  linkId?: true
   deviceFingerprint?: true
   userAgent?: true
   outcome?: true
@@ -222,6 +228,7 @@ export type AccessScanAttemptGroupByOutputType = {
   ceremonyId: string
   operatorSubject: string
   agentId: string | null
+  linkId: string | null
   deviceFingerprint: string | null
   userAgent: string | null
   outcome: $Enums.AccessScanOutcome
@@ -259,12 +266,14 @@ export type AccessScanAttemptWhereInput = {
   ceremonyId?: Prisma.UuidFilter<"AccessScanAttempt"> | string
   operatorSubject?: Prisma.StringFilter<"AccessScanAttempt"> | string
   agentId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
+  linkId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
   deviceFingerprint?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   userAgent?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFilter<"AccessScanAttempt"> | $Enums.AccessScanOutcome
   upstreamStatus?: Prisma.IntFilter<"AccessScanAttempt"> | number
   createdAt?: Prisma.DateTimeFilter<"AccessScanAttempt"> | Date | string
   agent?: Prisma.XOR<Prisma.CheckInAgentNullableScalarRelationFilter, Prisma.CheckInAgentWhereInput> | null
+  link?: Prisma.XOR<Prisma.CheckInLinkNullableScalarRelationFilter, Prisma.CheckInLinkWhereInput> | null
 }
 
 export type AccessScanAttemptOrderByWithRelationInput = {
@@ -274,12 +283,14 @@ export type AccessScanAttemptOrderByWithRelationInput = {
   ceremonyId?: Prisma.SortOrder
   operatorSubject?: Prisma.SortOrder
   agentId?: Prisma.SortOrderInput | Prisma.SortOrder
+  linkId?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   outcome?: Prisma.SortOrder
   upstreamStatus?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   agent?: Prisma.CheckInAgentOrderByWithRelationInput
+  link?: Prisma.CheckInLinkOrderByWithRelationInput
 }
 
 export type AccessScanAttemptWhereUniqueInput = Prisma.AtLeast<{
@@ -292,12 +303,14 @@ export type AccessScanAttemptWhereUniqueInput = Prisma.AtLeast<{
   ceremonyId?: Prisma.UuidFilter<"AccessScanAttempt"> | string
   operatorSubject?: Prisma.StringFilter<"AccessScanAttempt"> | string
   agentId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
+  linkId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
   deviceFingerprint?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   userAgent?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFilter<"AccessScanAttempt"> | $Enums.AccessScanOutcome
   upstreamStatus?: Prisma.IntFilter<"AccessScanAttempt"> | number
   createdAt?: Prisma.DateTimeFilter<"AccessScanAttempt"> | Date | string
   agent?: Prisma.XOR<Prisma.CheckInAgentNullableScalarRelationFilter, Prisma.CheckInAgentWhereInput> | null
+  link?: Prisma.XOR<Prisma.CheckInLinkNullableScalarRelationFilter, Prisma.CheckInLinkWhereInput> | null
 }, "id">
 
 export type AccessScanAttemptOrderByWithAggregationInput = {
@@ -307,6 +320,7 @@ export type AccessScanAttemptOrderByWithAggregationInput = {
   ceremonyId?: Prisma.SortOrder
   operatorSubject?: Prisma.SortOrder
   agentId?: Prisma.SortOrderInput | Prisma.SortOrder
+  linkId?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceFingerprint?: Prisma.SortOrderInput | Prisma.SortOrder
   userAgent?: Prisma.SortOrderInput | Prisma.SortOrder
   outcome?: Prisma.SortOrder
@@ -329,6 +343,7 @@ export type AccessScanAttemptScalarWhereWithAggregatesInput = {
   ceremonyId?: Prisma.UuidWithAggregatesFilter<"AccessScanAttempt"> | string
   operatorSubject?: Prisma.StringWithAggregatesFilter<"AccessScanAttempt"> | string
   agentId?: Prisma.UuidNullableWithAggregatesFilter<"AccessScanAttempt"> | string | null
+  linkId?: Prisma.UuidNullableWithAggregatesFilter<"AccessScanAttempt"> | string | null
   deviceFingerprint?: Prisma.StringNullableWithAggregatesFilter<"AccessScanAttempt"> | string | null
   userAgent?: Prisma.StringNullableWithAggregatesFilter<"AccessScanAttempt"> | string | null
   outcome?: Prisma.EnumAccessScanOutcomeWithAggregatesFilter<"AccessScanAttempt"> | $Enums.AccessScanOutcome
@@ -348,6 +363,7 @@ export type AccessScanAttemptCreateInput = {
   upstreamStatus: number
   createdAt?: Date | string
   agent?: Prisma.CheckInAgentCreateNestedOneWithoutScansInput
+  link?: Prisma.CheckInLinkCreateNestedOneWithoutScansInput
 }
 
 export type AccessScanAttemptUncheckedCreateInput = {
@@ -357,6 +373,7 @@ export type AccessScanAttemptUncheckedCreateInput = {
   ceremonyId: string
   operatorSubject: string
   agentId?: string | null
+  linkId?: string | null
   deviceFingerprint?: string | null
   userAgent?: string | null
   outcome: $Enums.AccessScanOutcome
@@ -376,6 +393,7 @@ export type AccessScanAttemptUpdateInput = {
   upstreamStatus?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agent?: Prisma.CheckInAgentUpdateOneWithoutScansNestedInput
+  link?: Prisma.CheckInLinkUpdateOneWithoutScansNestedInput
 }
 
 export type AccessScanAttemptUncheckedUpdateInput = {
@@ -385,6 +403,7 @@ export type AccessScanAttemptUncheckedUpdateInput = {
   ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
   operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
   agentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  linkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
@@ -399,6 +418,7 @@ export type AccessScanAttemptCreateManyInput = {
   ceremonyId: string
   operatorSubject: string
   agentId?: string | null
+  linkId?: string | null
   deviceFingerprint?: string | null
   userAgent?: string | null
   outcome: $Enums.AccessScanOutcome
@@ -426,6 +446,7 @@ export type AccessScanAttemptUncheckedUpdateManyInput = {
   ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
   operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
   agentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  linkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
@@ -450,6 +471,7 @@ export type AccessScanAttemptCountOrderByAggregateInput = {
   ceremonyId?: Prisma.SortOrder
   operatorSubject?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  linkId?: Prisma.SortOrder
   deviceFingerprint?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   outcome?: Prisma.SortOrder
@@ -468,6 +490,7 @@ export type AccessScanAttemptMaxOrderByAggregateInput = {
   ceremonyId?: Prisma.SortOrder
   operatorSubject?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  linkId?: Prisma.SortOrder
   deviceFingerprint?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   outcome?: Prisma.SortOrder
@@ -482,6 +505,7 @@ export type AccessScanAttemptMinOrderByAggregateInput = {
   ceremonyId?: Prisma.SortOrder
   operatorSubject?: Prisma.SortOrder
   agentId?: Prisma.SortOrder
+  linkId?: Prisma.SortOrder
   deviceFingerprint?: Prisma.SortOrder
   userAgent?: Prisma.SortOrder
   outcome?: Prisma.SortOrder
@@ -551,6 +575,48 @@ export type IntFieldUpdateOperationsInput = {
   divide?: number
 }
 
+export type AccessScanAttemptCreateNestedManyWithoutLinkInput = {
+  create?: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput> | Prisma.AccessScanAttemptCreateWithoutLinkInput[] | Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput[]
+  connectOrCreate?: Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput | Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput[]
+  createMany?: Prisma.AccessScanAttemptCreateManyLinkInputEnvelope
+  connect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+}
+
+export type AccessScanAttemptUncheckedCreateNestedManyWithoutLinkInput = {
+  create?: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput> | Prisma.AccessScanAttemptCreateWithoutLinkInput[] | Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput[]
+  connectOrCreate?: Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput | Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput[]
+  createMany?: Prisma.AccessScanAttemptCreateManyLinkInputEnvelope
+  connect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+}
+
+export type AccessScanAttemptUpdateManyWithoutLinkNestedInput = {
+  create?: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput> | Prisma.AccessScanAttemptCreateWithoutLinkInput[] | Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput[]
+  connectOrCreate?: Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput | Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput[]
+  upsert?: Prisma.AccessScanAttemptUpsertWithWhereUniqueWithoutLinkInput | Prisma.AccessScanAttemptUpsertWithWhereUniqueWithoutLinkInput[]
+  createMany?: Prisma.AccessScanAttemptCreateManyLinkInputEnvelope
+  set?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  disconnect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  delete?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  connect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  update?: Prisma.AccessScanAttemptUpdateWithWhereUniqueWithoutLinkInput | Prisma.AccessScanAttemptUpdateWithWhereUniqueWithoutLinkInput[]
+  updateMany?: Prisma.AccessScanAttemptUpdateManyWithWhereWithoutLinkInput | Prisma.AccessScanAttemptUpdateManyWithWhereWithoutLinkInput[]
+  deleteMany?: Prisma.AccessScanAttemptScalarWhereInput | Prisma.AccessScanAttemptScalarWhereInput[]
+}
+
+export type AccessScanAttemptUncheckedUpdateManyWithoutLinkNestedInput = {
+  create?: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput> | Prisma.AccessScanAttemptCreateWithoutLinkInput[] | Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput[]
+  connectOrCreate?: Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput | Prisma.AccessScanAttemptCreateOrConnectWithoutLinkInput[]
+  upsert?: Prisma.AccessScanAttemptUpsertWithWhereUniqueWithoutLinkInput | Prisma.AccessScanAttemptUpsertWithWhereUniqueWithoutLinkInput[]
+  createMany?: Prisma.AccessScanAttemptCreateManyLinkInputEnvelope
+  set?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  disconnect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  delete?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  connect?: Prisma.AccessScanAttemptWhereUniqueInput | Prisma.AccessScanAttemptWhereUniqueInput[]
+  update?: Prisma.AccessScanAttemptUpdateWithWhereUniqueWithoutLinkInput | Prisma.AccessScanAttemptUpdateWithWhereUniqueWithoutLinkInput[]
+  updateMany?: Prisma.AccessScanAttemptUpdateManyWithWhereWithoutLinkInput | Prisma.AccessScanAttemptUpdateManyWithWhereWithoutLinkInput[]
+  deleteMany?: Prisma.AccessScanAttemptScalarWhereInput | Prisma.AccessScanAttemptScalarWhereInput[]
+}
+
 export type AccessScanAttemptCreateWithoutAgentInput = {
   id?: string
   ownerSubject: string
@@ -562,6 +628,7 @@ export type AccessScanAttemptCreateWithoutAgentInput = {
   outcome: $Enums.AccessScanOutcome
   upstreamStatus: number
   createdAt?: Date | string
+  link?: Prisma.CheckInLinkCreateNestedOneWithoutScansInput
 }
 
 export type AccessScanAttemptUncheckedCreateWithoutAgentInput = {
@@ -570,6 +637,7 @@ export type AccessScanAttemptUncheckedCreateWithoutAgentInput = {
   eventId: string
   ceremonyId: string
   operatorSubject: string
+  linkId?: string | null
   deviceFingerprint?: string | null
   userAgent?: string | null
   outcome: $Enums.AccessScanOutcome
@@ -613,11 +681,66 @@ export type AccessScanAttemptScalarWhereInput = {
   ceremonyId?: Prisma.UuidFilter<"AccessScanAttempt"> | string
   operatorSubject?: Prisma.StringFilter<"AccessScanAttempt"> | string
   agentId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
+  linkId?: Prisma.UuidNullableFilter<"AccessScanAttempt"> | string | null
   deviceFingerprint?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   userAgent?: Prisma.StringNullableFilter<"AccessScanAttempt"> | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFilter<"AccessScanAttempt"> | $Enums.AccessScanOutcome
   upstreamStatus?: Prisma.IntFilter<"AccessScanAttempt"> | number
   createdAt?: Prisma.DateTimeFilter<"AccessScanAttempt"> | Date | string
+}
+
+export type AccessScanAttemptCreateWithoutLinkInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  ceremonyId: string
+  operatorSubject: string
+  deviceFingerprint?: string | null
+  userAgent?: string | null
+  outcome: $Enums.AccessScanOutcome
+  upstreamStatus: number
+  createdAt?: Date | string
+  agent?: Prisma.CheckInAgentCreateNestedOneWithoutScansInput
+}
+
+export type AccessScanAttemptUncheckedCreateWithoutLinkInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  ceremonyId: string
+  operatorSubject: string
+  agentId?: string | null
+  deviceFingerprint?: string | null
+  userAgent?: string | null
+  outcome: $Enums.AccessScanOutcome
+  upstreamStatus: number
+  createdAt?: Date | string
+}
+
+export type AccessScanAttemptCreateOrConnectWithoutLinkInput = {
+  where: Prisma.AccessScanAttemptWhereUniqueInput
+  create: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput>
+}
+
+export type AccessScanAttemptCreateManyLinkInputEnvelope = {
+  data: Prisma.AccessScanAttemptCreateManyLinkInput | Prisma.AccessScanAttemptCreateManyLinkInput[]
+  skipDuplicates?: boolean
+}
+
+export type AccessScanAttemptUpsertWithWhereUniqueWithoutLinkInput = {
+  where: Prisma.AccessScanAttemptWhereUniqueInput
+  update: Prisma.XOR<Prisma.AccessScanAttemptUpdateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedUpdateWithoutLinkInput>
+  create: Prisma.XOR<Prisma.AccessScanAttemptCreateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedCreateWithoutLinkInput>
+}
+
+export type AccessScanAttemptUpdateWithWhereUniqueWithoutLinkInput = {
+  where: Prisma.AccessScanAttemptWhereUniqueInput
+  data: Prisma.XOR<Prisma.AccessScanAttemptUpdateWithoutLinkInput, Prisma.AccessScanAttemptUncheckedUpdateWithoutLinkInput>
+}
+
+export type AccessScanAttemptUpdateManyWithWhereWithoutLinkInput = {
+  where: Prisma.AccessScanAttemptScalarWhereInput
+  data: Prisma.XOR<Prisma.AccessScanAttemptUpdateManyMutationInput, Prisma.AccessScanAttemptUncheckedUpdateManyWithoutLinkInput>
 }
 
 export type AccessScanAttemptCreateManyAgentInput = {
@@ -626,6 +749,7 @@ export type AccessScanAttemptCreateManyAgentInput = {
   eventId: string
   ceremonyId: string
   operatorSubject: string
+  linkId?: string | null
   deviceFingerprint?: string | null
   userAgent?: string | null
   outcome: $Enums.AccessScanOutcome
@@ -644,6 +768,7 @@ export type AccessScanAttemptUpdateWithoutAgentInput = {
   outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
   upstreamStatus?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  link?: Prisma.CheckInLinkUpdateOneWithoutScansNestedInput
 }
 
 export type AccessScanAttemptUncheckedUpdateWithoutAgentInput = {
@@ -652,6 +777,7 @@ export type AccessScanAttemptUncheckedUpdateWithoutAgentInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
   operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  linkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
@@ -665,6 +791,63 @@ export type AccessScanAttemptUncheckedUpdateManyWithoutAgentInput = {
   eventId?: Prisma.StringFieldUpdateOperationsInput | string
   ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
   operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  linkId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
+  upstreamStatus?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type AccessScanAttemptCreateManyLinkInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  ceremonyId: string
+  operatorSubject: string
+  agentId?: string | null
+  deviceFingerprint?: string | null
+  userAgent?: string | null
+  outcome: $Enums.AccessScanOutcome
+  upstreamStatus: number
+  createdAt?: Date | string
+}
+
+export type AccessScanAttemptUpdateWithoutLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
+  operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
+  upstreamStatus?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agent?: Prisma.CheckInAgentUpdateOneWithoutScansNestedInput
+}
+
+export type AccessScanAttemptUncheckedUpdateWithoutLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
+  operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  agentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
+  upstreamStatus?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type AccessScanAttemptUncheckedUpdateManyWithoutLinkInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  ceremonyId?: Prisma.StringFieldUpdateOperationsInput | string
+  operatorSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  agentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceFingerprint?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   userAgent?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   outcome?: Prisma.EnumAccessScanOutcomeFieldUpdateOperationsInput | $Enums.AccessScanOutcome
@@ -681,12 +864,14 @@ export type AccessScanAttemptSelect<ExtArgs extends runtime.Types.Extensions.Int
   ceremonyId?: boolean
   operatorSubject?: boolean
   agentId?: boolean
+  linkId?: boolean
   deviceFingerprint?: boolean
   userAgent?: boolean
   outcome?: boolean
   upstreamStatus?: boolean
   createdAt?: boolean
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }, ExtArgs["result"]["accessScanAttempt"]>
 
 export type AccessScanAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -696,12 +881,14 @@ export type AccessScanAttemptSelectCreateManyAndReturn<ExtArgs extends runtime.T
   ceremonyId?: boolean
   operatorSubject?: boolean
   agentId?: boolean
+  linkId?: boolean
   deviceFingerprint?: boolean
   userAgent?: boolean
   outcome?: boolean
   upstreamStatus?: boolean
   createdAt?: boolean
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }, ExtArgs["result"]["accessScanAttempt"]>
 
 export type AccessScanAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -711,12 +898,14 @@ export type AccessScanAttemptSelectUpdateManyAndReturn<ExtArgs extends runtime.T
   ceremonyId?: boolean
   operatorSubject?: boolean
   agentId?: boolean
+  linkId?: boolean
   deviceFingerprint?: boolean
   userAgent?: boolean
   outcome?: boolean
   upstreamStatus?: boolean
   createdAt?: boolean
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }, ExtArgs["result"]["accessScanAttempt"]>
 
 export type AccessScanAttemptSelectScalar = {
@@ -726,6 +915,7 @@ export type AccessScanAttemptSelectScalar = {
   ceremonyId?: boolean
   operatorSubject?: boolean
   agentId?: boolean
+  linkId?: boolean
   deviceFingerprint?: boolean
   userAgent?: boolean
   outcome?: boolean
@@ -733,21 +923,25 @@ export type AccessScanAttemptSelectScalar = {
   createdAt?: boolean
 }
 
-export type AccessScanAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "ceremonyId" | "operatorSubject" | "agentId" | "deviceFingerprint" | "userAgent" | "outcome" | "upstreamStatus" | "createdAt", ExtArgs["result"]["accessScanAttempt"]>
+export type AccessScanAttemptOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "ceremonyId" | "operatorSubject" | "agentId" | "linkId" | "deviceFingerprint" | "userAgent" | "outcome" | "upstreamStatus" | "createdAt", ExtArgs["result"]["accessScanAttempt"]>
 export type AccessScanAttemptInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }
 export type AccessScanAttemptIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }
 export type AccessScanAttemptIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   agent?: boolean | Prisma.AccessScanAttempt$agentArgs<ExtArgs>
+  link?: boolean | Prisma.AccessScanAttempt$linkArgs<ExtArgs>
 }
 
 export type $AccessScanAttemptPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "AccessScanAttempt"
   objects: {
     agent: Prisma.$CheckInAgentPayload<ExtArgs> | null
+    link: Prisma.$CheckInLinkPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -756,6 +950,7 @@ export type $AccessScanAttemptPayload<ExtArgs extends runtime.Types.Extensions.I
     ceremonyId: string
     operatorSubject: string
     agentId: string | null
+    linkId: string | null
     deviceFingerprint: string | null
     userAgent: string | null
     outcome: $Enums.AccessScanOutcome
@@ -1156,6 +1351,7 @@ readonly fields: AccessScanAttemptFieldRefs;
 export interface Prisma__AccessScanAttemptClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   agent<T extends Prisma.AccessScanAttempt$agentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AccessScanAttempt$agentArgs<ExtArgs>>): Prisma.Prisma__CheckInAgentClient<runtime.Types.Result.GetResult<Prisma.$CheckInAgentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  link<T extends Prisma.AccessScanAttempt$linkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AccessScanAttempt$linkArgs<ExtArgs>>): Prisma.Prisma__CheckInLinkClient<runtime.Types.Result.GetResult<Prisma.$CheckInLinkPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1191,6 +1387,7 @@ export interface AccessScanAttemptFieldRefs {
   readonly ceremonyId: Prisma.FieldRef<"AccessScanAttempt", 'String'>
   readonly operatorSubject: Prisma.FieldRef<"AccessScanAttempt", 'String'>
   readonly agentId: Prisma.FieldRef<"AccessScanAttempt", 'String'>
+  readonly linkId: Prisma.FieldRef<"AccessScanAttempt", 'String'>
   readonly deviceFingerprint: Prisma.FieldRef<"AccessScanAttempt", 'String'>
   readonly userAgent: Prisma.FieldRef<"AccessScanAttempt", 'String'>
   readonly outcome: Prisma.FieldRef<"AccessScanAttempt", 'AccessScanOutcome'>
@@ -1613,6 +1810,25 @@ export type AccessScanAttempt$agentArgs<ExtArgs extends runtime.Types.Extensions
    */
   include?: Prisma.CheckInAgentInclude<ExtArgs> | null
   where?: Prisma.CheckInAgentWhereInput
+}
+
+/**
+ * AccessScanAttempt.link
+ */
+export type AccessScanAttempt$linkArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CheckInLink
+   */
+  select?: Prisma.CheckInLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CheckInLink
+   */
+  omit?: Prisma.CheckInLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckInLinkInclude<ExtArgs> | null
+  where?: Prisma.CheckInLinkWhereInput
 }
 
 /**

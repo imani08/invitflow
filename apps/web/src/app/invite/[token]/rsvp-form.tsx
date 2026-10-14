@@ -10,7 +10,7 @@ type Ceremony = {
   allowedCompanions: number;
   response: { status: 'ACCEPTED' | 'DECLINED'; attendingCompanions: number; respondedAt?: string } | null;
 };
-type Invitation = { guestName: string; event: { name: string; startAt: string | null; location: string }; ceremonies: Ceremony[] };
+type Invitation = { guestName: string; event: { name: string; startAt: string | null; location: string }; ceremonies: Ceremony[]; rsvpAvailable?: boolean };
 type Answer = { status: 'ACCEPTED' | 'DECLINED'; companions: number };
 
 export function RsvpForm({ token }: { token: string }) {
@@ -87,10 +87,10 @@ export function RsvpForm({ token }: { token: string }) {
     <section className="rsvp-card">
       <p className="rsvp-eyebrow">VOTRE INVITATION</p>
       <h1>{invite.event.name}</h1>
-      <p>Bonjour {invite.guestName}, indiquez votre présence pour chaque cérémonie à laquelle vous êtes invité(e).</p>
+      <p>Bonjour {invite.guestName}, {invite.ceremonies.length ? 'indiquez votre présence pour chaque cérémonie à laquelle vous êtes invité(e).' : 'votre invitation est prête.'}</p>
       {invite.event.startAt && <p>{new Date(invite.event.startAt).toLocaleString('fr-FR')}</p>}
       {invite.event.location && <p>{invite.event.location}</p>}
-      <div className="rsvp-list">
+      {invite.ceremonies.length > 0 ? <><div className="rsvp-list">
         {invite.ceremonies.map((ceremony) => {
           const answer = answers[ceremony.id] ?? { status: 'ACCEPTED' as const, companions: 0 };
           return (
@@ -121,7 +121,7 @@ export function RsvpForm({ token }: { token: string }) {
           );
         })}
       </div>
-      <button disabled={busy || submitting.current} onClick={() => void save()}>{busy ? 'Enregistrement…' : saved ? 'Mettre à jour mes réponses' : 'Confirmer mes réponses'}</button>
+      <button disabled={busy || submitting.current} onClick={() => void save()}>{busy ? 'Enregistrement…' : saved ? 'Mettre à jour mes réponses' : 'Confirmer mes réponses'}</button></> : <p className="rsvp-message">Aucune réponse par cérémonie n’est demandée pour cet événement.</p>}
       {message && <p className={error ? 'rsvp-message is-error' : 'rsvp-message'} role={error ? 'alert' : 'status'}>{message}</p>}
       <p className="rsvp-privacy-link"><Link href="/legal/invites">Confidentialité des invités</Link></p>
     </section>

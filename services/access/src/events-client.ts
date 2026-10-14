@@ -28,9 +28,16 @@ export class EventsClient {
     const value: unknown = await response.json();
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ServiceUnavailableException('Events service returned an invalid response');
     const record = value as Record<string, unknown>;
-    if (record['id'] !== eventId || !Array.isArray(record['ceremonies']) || (publishedOnly ? record['status'] !== 'PUBLISHED' : !['DRAFT', 'PUBLISHED'].includes(String(record['status'])))) throw new NotFoundException('Event not found');
-    const ceremonySet = new Set(record['ceremonies'].flatMap((item) => item && typeof item === 'object' && 'id' in item && typeof item.id === 'string' ? [item.id] : []));
-    if (ceremonyIds.some((id) => !ceremonySet.has(id))) throw new NotFoundException('Ceremony not found');
+    const ceremonies = Array.isArray(record['ceremonies']) ? record['ceremonies'] : [];
+    const ceremonySet = new Set(
+      ceremonies.flatMap((item: unknown) =>
+        item && typeof item === 'object' && 'id' in item && typeof (item as { id: unknown }).id === 'string'
+          ? [(item as { id: string }).id]
+          : []
+      )
+    );
+    const allowGlobal = ceremonies.length === 0;
+    if (ceremonyIds.some((id) => !ceremonySet.has(id) && (!allowGlobal || id !== eventId))) throw new NotFoundException('Ceremony not found');
     return record;
   }
 }

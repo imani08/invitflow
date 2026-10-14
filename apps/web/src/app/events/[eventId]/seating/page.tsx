@@ -10,7 +10,7 @@ import '../../journey.css';
 import './seating-journey.css';
 
 type Ceremony = { id: string; name: string; ceremonyType: string; startAt: string; timezone: string; status: string };
-type Event = { id: string; name: string; status: string; timezone: string; ceremonies: Ceremony[] };
+type Event = { id: string; name: string; eventType: string; status: string; timezone: string; ceremonies: Ceremony[] };
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +36,7 @@ export default async function SeatingPage({ params }: { params: Promise<{ eventI
   }
   return <main className="events-shell seating-page"><AppNavbar eventId={eventId} />
     <header className="seating-heading"><Link href="/events">← Retour aux événements</Link><p className="eyebrow">PLACEMENT & CAPACITÉS</p><h1>{event.name}</h1><p>Le placement est facultatif. Créez des tables ou des zones si votre réception en a besoin.</p></header>
-    <EventJourney eventId={event.id} activeStep="seating" ceremonyCount={event.ceremonies.length} eventStatus={event.status} />
+    <EventJourney eventId={event.id} activeStep="seating" ceremonyCount={event.ceremonies.length} eventType={event.eventType} eventStatus={event.status} />
     <SeatingWorkspace event={event} />
   </main>;
 }

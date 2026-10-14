@@ -21,9 +21,9 @@ export default async function ThankYouPage({ params, searchParams }: { params: P
     if (response.status === 401) redirect(`/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
     if (response.status === 404 || response.status === 403) notFound();
     if (!response.ok) throw new Error('event_unavailable');
-    const event = await response.json() as { id: string; name: string; status: string; ceremonies: unknown[] };
+    const event = await response.json() as { id: string; name: string; eventType?: string; status: string; ceremonies: unknown[] };
     if (event.id !== eventId || !Array.isArray(event.ceremonies)) throw new Error('invalid_event');
-    return <main className="events-shell"><AppNavbar eventId={eventId} /><EventJourney eventId={eventId} activeStep="thanks" ceremonyCount={event.ceremonies.length} eventStatus={event.status} /><InvitationConfirmation eventId={eventId} eventName={event.name} batchId={batch} /></main>;
+    return <main className="events-shell"><AppNavbar eventId={eventId} /><EventJourney eventId={eventId} activeStep="thanks" ceremonyCount={event.ceremonies.length} eventType={event.eventType} eventStatus={event.status} /><InvitationConfirmation eventId={eventId} eventName={event.name} batchId={batch} /></main>;
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error) throw error;
     return <main className="events-shell"><AppNavbar eventId={eventId} /><section className="invitation-panel"><h1>Confirmation momentanément indisponible</h1><p>Vos données enregistrées sont conservées. Réessayez ou consultez vos lots.</p><a href={returnTo}>Réessayer</a> · <a href={`/events/${encodeURIComponent(eventId)}/invitations`}>Retrouver mes lots</a></section></main>;

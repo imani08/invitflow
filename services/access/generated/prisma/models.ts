@@ -11,5 +11,7 @@
 export type * from './models/CheckInAgent.js'
 export type * from './models/AgentCeremonyGrant.js'
 export type * from './models/AccessScanAttempt.js'
+export type * from './models/CheckInLink.js'
+export type * from './models/CheckInLinkCeremonyGrant.js'
 export type * from './models/OutboxMessage.js'
 export type * from './commonInputTypes.js'

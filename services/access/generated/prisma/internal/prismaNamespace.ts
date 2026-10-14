@@ -400,6 +400,8 @@ export const ModelName = {
   CheckInAgent: 'CheckInAgent',
   AgentCeremonyGrant: 'AgentCeremonyGrant',
   AccessScanAttempt: 'AccessScanAttempt',
+  CheckInLink: 'CheckInLink',
+  CheckInLinkCeremonyGrant: 'CheckInLinkCeremonyGrant',
   OutboxMessage: 'OutboxMessage'
 } as const
 
@@ -416,7 +418,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "checkInAgent" | "agentCeremonyGrant" | "accessScanAttempt" | "outboxMessage"
+    modelProps: "checkInAgent" | "agentCeremonyGrant" | "accessScanAttempt" | "checkInLink" | "checkInLinkCeremonyGrant" | "outboxMessage"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -642,6 +644,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    CheckInLink: {
+      payload: Prisma.$CheckInLinkPayload<ExtArgs>
+      fields: Prisma.CheckInLinkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CheckInLinkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CheckInLinkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        findFirst: {
+          args: Prisma.CheckInLinkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CheckInLinkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        findMany: {
+          args: Prisma.CheckInLinkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>[]
+        }
+        create: {
+          args: Prisma.CheckInLinkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        createMany: {
+          args: Prisma.CheckInLinkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CheckInLinkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>[]
+        }
+        delete: {
+          args: Prisma.CheckInLinkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        update: {
+          args: Prisma.CheckInLinkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        deleteMany: {
+          args: Prisma.CheckInLinkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CheckInLinkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CheckInLinkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>[]
+        }
+        upsert: {
+          args: Prisma.CheckInLinkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkPayload>
+        }
+        aggregate: {
+          args: Prisma.CheckInLinkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCheckInLink>
+        }
+        groupBy: {
+          args: Prisma.CheckInLinkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLinkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CheckInLinkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLinkCountAggregateOutputType> | number
+        }
+      }
+    }
+    CheckInLinkCeremonyGrant: {
+      payload: Prisma.$CheckInLinkCeremonyGrantPayload<ExtArgs>
+      fields: Prisma.CheckInLinkCeremonyGrantFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CheckInLinkCeremonyGrantFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CheckInLinkCeremonyGrantFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        findFirst: {
+          args: Prisma.CheckInLinkCeremonyGrantFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CheckInLinkCeremonyGrantFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        findMany: {
+          args: Prisma.CheckInLinkCeremonyGrantFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>[]
+        }
+        create: {
+          args: Prisma.CheckInLinkCeremonyGrantCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        createMany: {
+          args: Prisma.CheckInLinkCeremonyGrantCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CheckInLinkCeremonyGrantCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>[]
+        }
+        delete: {
+          args: Prisma.CheckInLinkCeremonyGrantDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        update: {
+          args: Prisma.CheckInLinkCeremonyGrantUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        deleteMany: {
+          args: Prisma.CheckInLinkCeremonyGrantDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CheckInLinkCeremonyGrantUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CheckInLinkCeremonyGrantUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>[]
+        }
+        upsert: {
+          args: Prisma.CheckInLinkCeremonyGrantUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLinkCeremonyGrantPayload>
+        }
+        aggregate: {
+          args: Prisma.CheckInLinkCeremonyGrantAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCheckInLinkCeremonyGrant>
+        }
+        groupBy: {
+          args: Prisma.CheckInLinkCeremonyGrantGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLinkCeremonyGrantGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CheckInLinkCeremonyGrantCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLinkCeremonyGrantCountAggregateOutputType> | number
+        }
+      }
+    }
     OutboxMessage: {
       payload: Prisma.$OutboxMessagePayload<ExtArgs>
       fields: Prisma.OutboxMessageFieldRefs
@@ -787,6 +937,7 @@ export const AccessScanAttemptScalarFieldEnum = {
   ceremonyId: 'ceremonyId',
   operatorSubject: 'operatorSubject',
   agentId: 'agentId',
+  linkId: 'linkId',
   deviceFingerprint: 'deviceFingerprint',
   userAgent: 'userAgent',
   outcome: 'outcome',
@@ -795,6 +946,38 @@ export const AccessScanAttemptScalarFieldEnum = {
 } as const
 
 export type AccessScanAttemptScalarFieldEnum = (typeof AccessScanAttemptScalarFieldEnum)[keyof typeof AccessScanAttemptScalarFieldEnum]
+
+
+export const CheckInLinkScalarFieldEnum = {
+  id: 'id',
+  ownerSubject: 'ownerSubject',
+  eventId: 'eventId',
+  eventName: 'eventName',
+  timezone: 'timezone',
+  label: 'label',
+  reference: 'reference',
+  tokenHash: 'tokenHash',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  lastUsedAt: 'lastUsedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CheckInLinkScalarFieldEnum = (typeof CheckInLinkScalarFieldEnum)[keyof typeof CheckInLinkScalarFieldEnum]
+
+
+export const CheckInLinkCeremonyGrantScalarFieldEnum = {
+  id: 'id',
+  linkId: 'linkId',
+  ceremonyId: 'ceremonyId',
+  ceremonyName: 'ceremonyName',
+  startAt: 'startAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type CheckInLinkCeremonyGrantScalarFieldEnum = (typeof CheckInLinkCeremonyGrantScalarFieldEnum)[keyof typeof CheckInLinkCeremonyGrantScalarFieldEnum]
 
 
 export const OutboxMessageScalarFieldEnum = {
@@ -923,6 +1106,20 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLinkStatus'
+ */
+export type EnumCheckInLinkStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLinkStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLinkStatus[]'
+ */
+export type ListEnumCheckInLinkStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLinkStatus[]'>
     
 
 
@@ -1107,6 +1304,8 @@ export type GlobalOmitConfig = {
   checkInAgent?: Prisma.CheckInAgentOmit
   agentCeremonyGrant?: Prisma.AgentCeremonyGrantOmit
   accessScanAttempt?: Prisma.AccessScanAttemptOmit
+  checkInLink?: Prisma.CheckInLinkOmit
+  checkInLinkCeremonyGrant?: Prisma.CheckInLinkCeremonyGrantOmit
   outboxMessage?: Prisma.OutboxMessageOmit
 }
 

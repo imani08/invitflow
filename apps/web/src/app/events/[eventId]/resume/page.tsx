@@ -30,7 +30,7 @@ export default async function ResumePage({ params }: { params: Promise<{ eventId
     if (!Array.isArray(designs.items) || !Array.isArray(guests.items) || !Array.isArray(batches)) throw new Error('Contrat de parcours invalide');
     const selection = designs.selection;
     const hasSelectedDesign = Boolean(selection && designs.items.some((design: { id: string; version: number }) => design.id === selection.designId && design.version === selection.version));
-    destination = eventJourneyResumeDestination(eventId, { ceremonyCount: parsed.ceremonies.length, hasSelectedDesign, guestCount: guests.items.length, batchCount: batches.length });
+    destination = eventJourneyResumeDestination(eventId, { ceremonyCount: parsed.ceremonies.length, ceremonyRequired: parsed.eventType === 'WEDDING', hasSelectedDesign, guestCount: guests.items.length, batchCount: batches.length });
     }
   } catch {
     return <main className="events-shell"><h1>Votre parcours est momentanément indisponible.</h1><p>Votre travail enregistré est conservé.</p><a href={`/events/${encodeURIComponent(eventId)}/resume`}>Réessayer</a> · <Link href="/events">Mes événements</Link></main>;

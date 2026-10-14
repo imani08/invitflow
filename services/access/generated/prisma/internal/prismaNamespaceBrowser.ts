@@ -54,6 +54,8 @@ export const ModelName = {
   CheckInAgent: 'CheckInAgent',
   AgentCeremonyGrant: 'AgentCeremonyGrant',
   AccessScanAttempt: 'AccessScanAttempt',
+  CheckInLink: 'CheckInLink',
+  CheckInLinkCeremonyGrant: 'CheckInLinkCeremonyGrant',
   OutboxMessage: 'OutboxMessage'
 } as const
 
@@ -105,6 +107,7 @@ export const AccessScanAttemptScalarFieldEnum = {
   ceremonyId: 'ceremonyId',
   operatorSubject: 'operatorSubject',
   agentId: 'agentId',
+  linkId: 'linkId',
   deviceFingerprint: 'deviceFingerprint',
   userAgent: 'userAgent',
   outcome: 'outcome',
@@ -113,6 +116,38 @@ export const AccessScanAttemptScalarFieldEnum = {
 } as const
 
 export type AccessScanAttemptScalarFieldEnum = (typeof AccessScanAttemptScalarFieldEnum)[keyof typeof AccessScanAttemptScalarFieldEnum]
+
+
+export const CheckInLinkScalarFieldEnum = {
+  id: 'id',
+  ownerSubject: 'ownerSubject',
+  eventId: 'eventId',
+  eventName: 'eventName',
+  timezone: 'timezone',
+  label: 'label',
+  reference: 'reference',
+  tokenHash: 'tokenHash',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  lastUsedAt: 'lastUsedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CheckInLinkScalarFieldEnum = (typeof CheckInLinkScalarFieldEnum)[keyof typeof CheckInLinkScalarFieldEnum]
+
+
+export const CheckInLinkCeremonyGrantScalarFieldEnum = {
+  id: 'id',
+  linkId: 'linkId',
+  ceremonyId: 'ceremonyId',
+  ceremonyName: 'ceremonyName',
+  startAt: 'startAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+} as const
+
+export type CheckInLinkCeremonyGrantScalarFieldEnum = (typeof CheckInLinkCeremonyGrantScalarFieldEnum)[keyof typeof CheckInLinkCeremonyGrantScalarFieldEnum]
 
 
 export const OutboxMessageScalarFieldEnum = {

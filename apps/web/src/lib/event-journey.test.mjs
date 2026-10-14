@@ -20,6 +20,10 @@ test('journey statuses reflect available event, guest, design and invitation fac
     designs: 'IN_PROGRESS', invitations: 'IN_PROGRESS', checkin: 'READY', thanks: 'READY',
   });
   assert.equal(deriveEventJourneyStatuses({ ceremonyCount: 1, guestCount: null, designCount: null, hasCompletedBatch: null }).invitations, 'UNKNOWN');
+  assert.deepEqual(deriveEventJourneyStatuses({ ceremonyCount: 0, guestCount: 3, designCount: 1, hasCompletedBatch: false, ceremonyRequired: false }), {
+    event: 'COMPLETED', ceremonies: 'OPTIONAL', guests: 'IN_PROGRESS', seating: 'OPTIONAL',
+    designs: 'IN_PROGRESS', invitations: 'IN_PROGRESS', checkin: 'BLOCKED', thanks: 'BLOCKED',
+  });
 });
 
 test('journey renders destinations bound to the current event and a data-driven primary action', async () => {
@@ -39,6 +43,7 @@ test('resume uses persisted progress and keeps completed or pending generations 
   assert.equal(eventJourneyResumeDestination('event', { ...facts, guestCount: 2 }), '/events/event/invitations');
   assert.equal(eventJourneyResumeDestination('event', { ...facts, batchCount: 1 }), '/events/event/invitations');
   assert.match(eventJourneyResumeDestination('event', { ...facts, ceremonyCount: 0 }), /#ceremony-event$/);
+  assert.equal(eventJourneyResumeDestination('event', { ...facts, ceremonyCount: 0, ceremonyRequired: false }), '/events/event/guests');
   assert.throws(() => eventJourneyResumeDestination('event', { ...facts, guestCount: null }));
 });
 

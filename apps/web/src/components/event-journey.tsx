@@ -45,6 +45,7 @@ export default function EventJourney({
   eventId,
   activeStep,
   ceremonyCount,
+  eventType,
   eventStatus,
   loadFacts = true,
   nextActionOverride,
@@ -52,6 +53,7 @@ export default function EventJourney({
   eventId: string;
   activeStep: StepId;
   ceremonyCount: number;
+  eventType?: string | undefined;
   eventStatus?: string;
   loadFacts?: boolean;
   nextActionOverride?: NextAction;
@@ -95,13 +97,16 @@ export default function EventJourney({
     return () => controller.abort();
   }, [eventId, loadFacts, revision]);
 
-  const statuses = deriveEventJourneyStatuses({ ceremonyCount, ...facts });
+  const ceremonyRequired = eventType === 'WEDDING';
+  const statuses = deriveEventJourneyStatuses({ ceremonyCount, ceremonyRequired, ...facts });
   const activeIndex = EVENT_JOURNEY_STEPS.findIndex((step) => step.id === activeStep);
   const nextAction = nextActionOverride ?? (() => {
     if (activeStep === 'ceremonies') return ceremonyCount > 0
       ? { href: urls.designs, label: 'Découvrir mes propositions', note: `${ceremonyCount} cérémonie(s) enregistrée(s).` }
-      : { href: urls.ceremonies, label: 'Ajouter ma première cérémonie', note: 'La cérémonie peut être civile, religieuse, traditionnelle ou une réception.' };
-    if (activeStep === 'guests' && ceremonyCount === 0) return { href: urls.ceremonies, label: 'Configurer une cérémonie', note: 'Ajoutez une première cérémonie avant de préparer les accès des invités.' };
+      : ceremonyRequired
+        ? { href: urls.ceremonies, label: 'Ajouter ma première cérémonie', note: 'La cérémonie peut être civile, religieuse, traditionnelle ou une réception.' }
+        : { href: urls.designs, label: 'Découvrir mes propositions', note: 'Le programme est facultatif pour ce type d’événement.' };
+    if (activeStep === 'guests' && ceremonyRequired && ceremonyCount === 0) return { href: urls.ceremonies, label: 'Configurer une cérémonie', note: 'Ajoutez une première cérémonie avant de préparer les accès des invités.' };
     if (activeStep === 'guests') return facts.guestCount === null
       ? { href: undefined, label: 'Vérification des invités en cours', note: 'Les données de votre liste sont chargées depuis votre événement.' }
       : facts.guestCount === 0
@@ -113,7 +118,7 @@ export default function EventJourney({
       : facts.designCount === 0
         ? { href: '#design-catalog', label: 'Choisir un modèle', note: 'Prévisualisez une composition avant de la personnaliser.' }
         : { href: urls.guests, label: 'Continuer vers les invités', note: 'Vous pourrez prévisualiser avant de lancer un lot.' };
-    if (activeStep === 'invitations' && ceremonyCount === 0) return { href: urls.ceremonies, label: 'Configurer une cérémonie', note: 'La génération nécessite une cérémonie configurée.' };
+    if (activeStep === 'invitations' && ceremonyRequired && ceremonyCount === 0) return { href: urls.ceremonies, label: 'Configurer une cérémonie', note: 'La génération nécessite une cérémonie configurée pour un mariage.' };
     if (activeStep === 'invitations' && facts.guestCount === 0) return { href: urls.guests, label: 'Ajouter des invités', note: 'Ajoutez les personnes à inviter avant de préparer un lot.' };
     if (activeStep === 'invitations' && facts.designCount === 0) return { href: urls.designs, label: 'Choisir un modèle', note: 'Créez un design avant de préparer un lot.' };
     if (activeStep === 'invitations' && (facts.guestCount === null || facts.designCount === null)) return { href: undefined, label: 'Vérification des prérequis en cours', note: 'Les invités, le design, les accès et les crédits seront vérifiés avant toute génération.' };
@@ -121,7 +126,7 @@ export default function EventJourney({
       ? { href: urls.thanks, label: 'Terminer → Merci', note: 'Retrouvez votre événement et vos téléchargements.' }
       : { href: '#invitation-generation', label: 'Préparer la génération', note: facts.hasCompletedBatch === null ? 'Chargement des lots réels…' : 'Le service vérifiera le design, les accès et les crédits avant la génération.' };
     if (activeStep === 'thanks') return { href: urls.event, label: 'Revenir à mon événement', note: 'Vos données enregistrées restent disponibles.' };
-    if (activeStep === 'event') return { href: urls.ceremonies, label: 'Configurer les cérémonies', note: 'Ajoutez les horaires, lieux et informations utiles.' };
+    if (activeStep === 'event') return { href: urls.ceremonies, label: ceremonyRequired ? 'Configurer les cérémonies' : 'Configurer le programme (facultatif)', note: ceremonyRequired ? 'Ajoutez les horaires, lieux et informations utiles.' : 'Ajoutez des moments seulement si votre événement en a besoin.' };
     return { href: undefined, label: 'Votre parcours est prêt pour le jour J', note: 'Scannez les QR et consultez le statut transmis par le service Access.' };
   })();
 
@@ -133,7 +138,7 @@ export default function EventJourney({
     <nav aria-label="Étapes de préparation de l’événement"><ol ref={stepList} className="event-journey-steps">{EVENT_JOURNEY_STEPS.map((step, index) => {
       const status = step.id === 'event' && activeStep === 'event' ? 'IN_PROGRESS' : statuses[step.id as keyof typeof statuses];
       const title = step.id === 'invitations' && status === 'BLOCKED'
-        ? 'Configurez une cérémonie, ajoutez des invités et choisissez un design.'
+        ? ceremonyRequired ? 'Configurez une cérémonie, ajoutez des invités et choisissez un design.' : 'Ajoutez des invités et choisissez un design.'
         : step.id === 'checkin' && status === 'BLOCKED'
           ? 'Le pointage sera prêt après la génération d’un lot terminé.'
           : `${step.label} · ${eventJourneyStatusLabel(status)}`;

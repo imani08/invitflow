@@ -33,6 +33,16 @@ export type AgentCeremonyGrant = Prisma.AgentCeremonyGrantModel
  */
 export type AccessScanAttempt = Prisma.AccessScanAttemptModel
 /**
+ * Model CheckInLink
+ * 
+ */
+export type CheckInLink = Prisma.CheckInLinkModel
+/**
+ * Model CheckInLinkCeremonyGrant
+ * 
+ */
+export type CheckInLinkCeremonyGrant = Prisma.CheckInLinkCeremonyGrantModel
+/**
  * Model OutboxMessage
  * 
  */

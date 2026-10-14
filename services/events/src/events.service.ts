@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { eventLifecycleAction } from './event-lifecycle.js';
 
 const eventSelect = {
-  id: true, name: true, description: true, coupleNames: true, invitationText: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
+  id: true, ownerSubject: true, name: true, description: true, coupleNames: true, invitationText: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
   createdAt: true, updatedAt: true,
 } as const;
 
@@ -342,7 +342,7 @@ export class EventsService {
       if (event.status === EventStatus.PUBLISHED) return tx.event.findFirst({ where: { id, ownerSubject }, select: { ...eventSelect, ceremonies: { include: { programItems: { orderBy: { position: 'asc' } } } } } });
       if (event.status !== EventStatus.DRAFT) throw new BadRequestException('Only draft events can be published');
       const scheduled = await tx.ceremony.count({ where: { eventId: id, status: CeremonyStatus.SCHEDULED } });
-      if (scheduled === 0) throw new BadRequestException('Add at least one scheduled ceremony before publishing');
+      if (event.eventType === 'WEDDING' && scheduled === 0) throw new BadRequestException('Ajoutez au moins une cérémonie planifiée avant de publier un mariage.');
       const transition = await tx.event.updateMany({ where: { id, ownerSubject, status: EventStatus.DRAFT }, data: { status: EventStatus.PUBLISHED } });
       if (transition.count !== 1) throw new ConflictException('Event status changed; reload before publishing');
       const updated = await tx.event.findFirstOrThrow({ where: { id, ownerSubject }, select: eventSelect });
@@ -528,8 +528,8 @@ export class EventsService {
   }
 
   private async lockEvent(tx: Prisma.TransactionClient, ownerSubject: string, id: string) {
-    const rows = await tx.$queryRaw<Array<{ id: string; status: EventStatus; start_at: Date | null; end_at: Date | null }>>`
-      SELECT e."id", e."status", e."start_at", e."end_at"
+    const rows = await tx.$queryRaw<Array<{ id: string; status: EventStatus; event_type: string; start_at: Date | null; end_at: Date | null }>>`
+      SELECT e."id", e."status", e."event_type", e."start_at", e."end_at"
       FROM "events" e
       WHERE e."id" = ${id}::uuid AND (
         (e."agency_workspace_id" IS NULL AND e."owner_subject" = ${ownerSubject}) OR EXISTS (
@@ -542,7 +542,7 @@ export class EventsService {
       ) FOR UPDATE
     `;
     const event = rows[0];
-    return event ? { id: event.id, status: event.status, startAt: event.start_at, endAt: event.end_at } : null;
+    return event ? { id: event.id, status: event.status, eventType: event.event_type, startAt: event.start_at, endAt: event.end_at } : null;
   }
 
   private assertUuid(id: string) {

@@ -1070,6 +1070,10 @@ class InvitationsProxyController {
 
 @Controller('/v1')
 class AccessProxyController {
+  @All('/events/:eventId/check-in-links')
+  links(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/events/:eventId/check-in-links/:linkId')
+  link(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/access-agents')
   agents(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/ceremonies/:ceremonyId/access-agents')
@@ -1086,7 +1090,7 @@ class AccessProxyController {
   scan(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
 
   async proxy(request: FastifyRequest, reply: FastifyReply) {
-    if (!['GET', 'PUT', 'DELETE', 'POST'].includes(request.method)) return reply.code(405).send({ error: 'method_not_allowed' });
+    if (!['GET', 'PUT', 'PATCH', 'DELETE', 'POST'].includes(request.method)) return reply.code(405).send({ error: 'method_not_allowed' });
     const authorization = request.headers['authorization'];
     if (typeof authorization !== 'string' || !/^Bearer [^\s]+$/.test(authorization)) throw new UnauthorizedException();
     const headers: Record<string, string> = { authorization };
@@ -1106,6 +1110,32 @@ class AccessProxyController {
     } catch {
       return reply.code(503).send({ error: 'access_service_unavailable' });
     }
+  }
+}
+
+@Controller('/v1/public/check-in-links')
+class PublicCheckInLinksProxyController {
+  @All('/:token/context')
+  context(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/:token/scan')
+  scan(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+
+  private async proxy(request: FastifyRequest, reply: FastifyReply) {
+    if (!['GET', 'POST'].includes(request.method)) return reply.code(405).send({ error: 'method_not_allowed' });
+    const token = request.url.split('/')[4]?.split('?')[0] ?? '';
+    if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return reply.code(404).send({ error: 'checkin_link_not_found' });
+    if (request.method === 'GET' && !request.url.endsWith('/context')) return reply.code(404).send({ error: 'checkin_link_not_found' });
+    if (request.method === 'POST' && (!request.url.endsWith('/scan') || !request.headers['content-type']?.toLowerCase().startsWith('application/json'))) return reply.code(415).send({ error: 'unsupported_media_type' });
+    if (request.method === 'POST' && Buffer.byteLength(JSON.stringify(request.body ?? {})) > 8_192) return reply.code(413).send({ error: 'payload_too_large' });
+    const headers: Record<string, string> = {};
+    const device = request.headers['x-checkin-device-id'];
+    if (typeof device === 'string' && device.length <= 200) headers['x-checkin-device-id'] = device;
+    if (request.method === 'POST') headers['content-type'] = 'application/json';
+    reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
+    try {
+      const upstream = await fetchWithRequestContext(request, `${requiredEnv('ACCESS_SERVICE_URL').replace(/\/$/, '')}${request.url}`, { method: request.method, headers, ...(request.method === 'POST' ? { body: JSON.stringify(request.body ?? {}) } : {}), cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+      return reply.code(upstream.status).send(await upstream.json().catch(() => ({ error: 'invalid_checkin_link_response' })));
+    } catch { return reply.code(503).send({ error: 'access_service_unavailable' }); }
   }
 }
 
@@ -1270,6 +1300,7 @@ class ModerationProxyController {
     HealthController,
     MetricsController,
     AccessProxyController,
+    PublicCheckInLinksProxyController,
     ProfileProxyController,
     EventsProxyController,
     AgenciesProxyController,

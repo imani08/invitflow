@@ -188,7 +188,7 @@ export function SeatingWorkspace({ event }: { event: Event }) {
   const places = plan?.mode === 'TABLE' ? plan.tables : plan?.mode === 'ZONE' ? plan.zones : [];
   const targetName = (assignment: Assignment) => places.find((place) => place.id === (assignment.tableId ?? assignment.zoneId))?.name ?? 'Élément supprimé';
 
-  if (event.ceremonies.length === 0) return <section className="seating-empty"><h2>Aucune cérémonie à organiser</h2><p>Ajoutez d’abord une cérémonie à votre événement.</p><Link href="/events">Retour aux événements</Link></section>;
+  if (event.ceremonies.length === 0) return <section className="seating-empty"><h2>Aucun moment à organiser</h2><p>Le placement est facultatif. Ajoutez un moment uniquement si vous souhaitez créer des tables ou des zones pour une partie précise de l’événement.</p><Link href="/events">Retour aux événements</Link></section>;
 
   return <section className="seating-workspace">
     <div className="seating-toolbar"><label>Cérémonie<select value={ceremonyId} onChange={(change) => setCeremonyId(change.target.value)}>{event.ceremonies.map((ceremony) => <option key={ceremony.id} value={ceremony.id}>{ceremony.name}</option>)}</select></label><span aria-live="polite">{searchingGuests ? 'Recherche des invités…' : searchResults ? `${eligibleGuests.length} résultat(s)` : guestSearch.trim().length === 1 ? 'Saisissez 2 caractères pour rechercher tous les invités.' : `${guests.length} invité(s) chargé(s)`}{loading ? ' · actualisation…' : ''}</span></div>

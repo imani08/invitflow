@@ -128,6 +128,17 @@ export class AccessService {
       try { await this.events.assertCeremonies(eventId, [input.ceremonyId], authorization); owner = operator; }
       catch (error) { if (error instanceof NotFoundException) throw new ForbiddenException('Accès de pointage refusé.'); throw error; }
     }
+    return this.forwardScan(owner, eventId, input, operator, grant?.agentId ?? null, null, deviceId, userAgent);
+  }
+
+  async scanDelegated(owner: string, eventId: string, input: ScanInput, linkId: string, deviceId?: string, userAgent?: string) {
+    this.assertIds(eventId, input?.ceremonyId, linkId);
+    if (!input || typeof input.token !== 'string' || input.token.length < 80 || input.token.length > 2048 || (input.companionCount !== undefined && (!Number.isInteger(input.companionCount) || input.companionCount < 0 || input.companionCount > 20)))
+      throw new BadRequestException('Données de scan invalides.');
+    return this.forwardScan(owner, eventId, input, `link:${linkId}`, null, linkId, deviceId, userAgent);
+  }
+
+  private async forwardScan(owner: string, eventId: string, input: ScanInput, operator: string, agentId: string | null, linkId: string | null, deviceId?: string, userAgent?: string) {
     let status = 200;
     let result: unknown;
     let outcome: AccessScanOutcome = AccessScanOutcome.ACCEPTED;
@@ -145,7 +156,8 @@ export class AccessService {
     }
     await this.prisma.accessScanAttempt.create({ data: {
       ownerSubject: owner, eventId, ceremonyId: input.ceremonyId, operatorSubject: operator,
-      agentId: grant?.agentId ?? null,
+      agentId,
+      linkId,
       deviceFingerprint: deviceId && deviceId.length <= 200 ? createHash('sha256').update(deviceId).digest('hex') : null,
       userAgent: userAgent?.slice(0, 300) ?? null, outcome, upstreamStatus: status,
     } }).catch(() => undefined);

@@ -320,10 +320,11 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const safeMargin = typeof rawSafeMargin === 'number' ? rawSafeMargin : ['top', 'right', 'bottom', 'left'].every((edge) => typeof marginObject[edge] === 'number') ? marginObject as { top: number; right: number; bottom: number; left: number } : 64;
     const resolvedLayouts = new Map<string, unknown>();
     const guestProgrammes = new Map<string, typeof snapshot.ceremonySnapshots>();
+    const hasProgramme = snapshot.ceremonySnapshots.length > 0;
     for (const guest of snapshot.guests) {
       let programmes: typeof snapshot.ceremonySnapshots;
-      try { programmes = guestCeremonySnapshots(snapshot.ceremonySnapshots, guest.access); } catch { throw new BadRequestException('Les accès aux cérémonies de cet invité sont incomplets. Vérifiez sa fiche.'); }
-      if (!programmes.length) throw new BadRequestException('Un invité du lot n’est affecté à aucune cérémonie. Vérifiez les accès avant de générer.');
+      try { programmes = hasProgramme ? guestCeremonySnapshots(snapshot.ceremonySnapshots, guest.access) : []; } catch { throw new BadRequestException('Les accès aux cérémonies de cet invité sont incomplets. Vérifiez sa fiche.'); }
+      if (hasProgramme && !programmes.length) throw new BadRequestException('Un invité du lot n’est affecté à aucune cérémonie. Vérifiez les accès avant de générer.');
       guestProgrammes.set(String(guest.id), programmes);
       const invitedIds = new Set(programmes.map(entry => object(entry.ceremony).id));
       const seating = snapshot.seatingFor(String(guest.id)).filter(entry => invitedIds.has(entry.ceremonyId));
@@ -845,7 +846,6 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
             : null,
         };
       });
-    if (!ceremonies.length) throw new NotFoundException('Invitation introuvable.');
     return {
       guestName: guest.fullName ?? '',
       event: {
@@ -854,6 +854,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
         location: venue.name ?? event.location ?? '',
       },
       ceremonies,
+      rsvpAvailable: ceremonies.length > 0,
     };
   }
 
@@ -861,6 +862,8 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const invitationId = invitationIdFromToken(token);
     if (!invitationId) throw new NotFoundException('Invitation introuvable.');
     const current = await this.publicInvitation(token);
+    if (!current.ceremonies.length)
+      throw new BadRequestException('Cette invitation ne comporte aucune réponse par cérémonie à enregistrer.');
     const invitation = await this.prisma.invitation.findUniqueOrThrow({
       where: { id: invitationId },
     });
@@ -962,12 +965,22 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException('Invitation introuvable pour cet événement.');
     const snapshot = await this.fundedSnapshot(invitation);
     const guest = object(snapshot.guestSnapshot);
-    const access = (Array.isArray(guest.access) ? guest.access : []).find(
-      (item: unknown) => object(item).ceremonyId === ceremonyId && object(item).isInvited === true,
-    );
-    if (!access)
-      throw new ForbiddenException('Cet invité ne figure pas sur la liste de cette cérémonie.');
-    const maxCompanions = Math.max(0, Number(object(access).allowedCompanions) || 0);
+    const ceremonySnapshots = Array.isArray(snapshot.ceremonySnapshots) ? snapshot.ceremonySnapshots : [];
+    const hasProgramme = ceremonySnapshots.length > 0;
+    let maxCompanions = 0;
+    if (hasProgramme) {
+      const access = (Array.isArray(guest.access) ? guest.access : []).find(
+        (item: unknown) => object(item).ceremonyId === ceremonyId && object(item).isInvited === true,
+      );
+      if (!access)
+        throw new ForbiddenException('Cet invité ne figure pas sur la liste de cette cérémonie.');
+      maxCompanions = Math.max(0, Number(object(access).allowedCompanions) || 0);
+    } else {
+      if (ceremonyId !== eventId && !ceremonySnapshots.some(c => object(c.ceremony).id === ceremonyId)) {
+        throw new ForbiddenException('Périmètre de pointage invalide pour cet événement.');
+      }
+      maxCompanions = Math.max(0, Array.isArray(guest.companions) ? guest.companions.length : (Number(guest.allowedCompanions) || 0));
+    }
     if (companionCount > maxCompanions)
       throw new BadRequestException('Le nombre d’accompagnants dépasse l’autorisation.');
     const prior = await this.prisma.invitationCheckIn.findUnique({
