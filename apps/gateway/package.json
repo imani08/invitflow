@@ -11,7 +11,7 @@
     "test": "tsx --test src/http-metrics.spec.ts src/request-context.spec.ts src/designs-forwarding.spec.ts"
   },
   "dependencies": {
-    "@fastify/multipart": "10.1.0",
+    "@fastify/multipart": "10.1.2",
     "@nestjs/common": "11.2.4",
     "@nestjs/core": "11.2.4",
     "@nestjs/platform-fastify": "11.2.4",
