@@ -1,14 +1,14 @@
 import Link from 'next/link';
-import { BrandLogo } from '@/components/brand-logo';
+import { PublicBrandLogo } from '@/components/public-brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { legalDocuments, legalDocumentVersion } from '@/lib/legal-documents';
 import './legal.css';
 
 export const metadata = { title: 'Légal & confidentialité · InvitaFlow', robots: { index: false, follow: false } };
 
-export default function LegalIndexPage() {
+export default async function LegalIndexPage() {
   return <main className="legal-shell">
-    <header className="legal-topbar"><BrandLogo variant="compact" href="/"/><ThemeToggle/></header>
+    <header className="legal-topbar"><PublicBrandLogo variant="compact"/><ThemeToggle/></header>
     <p className="legal-status">DOCUMENTS · VERSION {legalDocumentVersion}</p>
     <h1>Légal & confidentialité</h1>
     <p className="legal-intro">Retrouvez les informations applicables à InvitaFlow, service exploité par FOCUS HD ENTREPRISES.</p>

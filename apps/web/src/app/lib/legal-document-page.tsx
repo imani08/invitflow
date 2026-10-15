@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { BrandLogo } from '@/components/brand-logo';
+import { PublicBrandLogo } from '@/components/public-brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { getLegalDocument, legalDocumentVersion, type LegalSlug } from '@/lib/legal-documents';
 import '../legal/legal.css';
@@ -64,7 +64,7 @@ export async function LegalDocumentPage({ slug }: { slug: LegalSlug }) {
   try { source = await readFile(path.join(process.cwd(), 'content/legal', document.file), 'utf8'); }
   catch { notFound(); }
   return <main className="legal-shell legal-document-shell">
-    <header className="legal-topbar"><BrandLogo variant="compact" href="/"/><ThemeToggle/></header>
+    <header className="legal-topbar"><PublicBrandLogo variant="compact"/><ThemeToggle/></header>
     <p className="legal-status">VERSION {legalDocumentVersion} · DERNIÈRE MISE À JOUR : 6 OCTOBRE 2026</p>
     <h1>{document.title}</h1>
     <p className="legal-intro">{document.purpose}</p>
