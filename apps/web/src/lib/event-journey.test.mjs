@@ -3,11 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { deriveEventJourneyStatuses, EVENT_JOURNEY_STEPS, eventJourneyResumeDestination } from './event-journey.mjs';
 
-test('journey follows the six storyboard screens with optional tools outside progression', () => {
+test('journey includes check-in as a preparation step', () => {
   assert.deepEqual(EVENT_JOURNEY_STEPS.map(({ id }) => id), [
-    'event', 'ceremonies', 'designs', 'guests', 'invitations', 'thanks',
+    'event', 'ceremonies', 'designs', 'guests', 'invitations', 'checkin', 'thanks',
   ]);
-  assert.equal(EVENT_JOURNEY_STEPS.length, 6);
+  assert.equal(EVENT_JOURNEY_STEPS.length, 7);
 });
 
 test('journey statuses reflect available event, guest, design and invitation facts conservatively', () => {
@@ -16,13 +16,13 @@ test('journey statuses reflect available event, guest, design and invitation fac
     designs: 'NOT_STARTED', invitations: 'BLOCKED', checkin: 'BLOCKED', thanks: 'BLOCKED',
   });
   assert.deepEqual(deriveEventJourneyStatuses({ ceremonyCount: 2, guestCount: 12, designCount: 1, hasCompletedBatch: true }), {
-    event: 'COMPLETED', ceremonies: 'COMPLETED', guests: 'IN_PROGRESS', seating: 'OPTIONAL',
-    designs: 'IN_PROGRESS', invitations: 'IN_PROGRESS', checkin: 'READY', thanks: 'READY',
+    event: 'COMPLETED', ceremonies: 'COMPLETED', guests: 'COMPLETED', seating: 'OPTIONAL',
+    designs: 'COMPLETED', invitations: 'COMPLETED', checkin: 'READY', thanks: 'READY',
   });
   assert.equal(deriveEventJourneyStatuses({ ceremonyCount: 1, guestCount: null, designCount: null, hasCompletedBatch: null }).invitations, 'UNKNOWN');
   assert.deepEqual(deriveEventJourneyStatuses({ ceremonyCount: 0, guestCount: 3, designCount: 1, hasCompletedBatch: false, ceremonyRequired: false }), {
-    event: 'COMPLETED', ceremonies: 'OPTIONAL', guests: 'IN_PROGRESS', seating: 'OPTIONAL',
-    designs: 'IN_PROGRESS', invitations: 'IN_PROGRESS', checkin: 'BLOCKED', thanks: 'BLOCKED',
+    event: 'COMPLETED', ceremonies: 'OPTIONAL', guests: 'COMPLETED', seating: 'OPTIONAL',
+    designs: 'COMPLETED', invitations: 'IN_PROGRESS', checkin: 'BLOCKED', thanks: 'BLOCKED',
   });
 });
 
@@ -34,6 +34,9 @@ test('journey renders destinations bound to the current event and a data-driven 
   assert.match(component, /aria-current=\{step\.id === activeStep \? 'step' : undefined\}/);
   assert.match(component, /Le placement reste facultatif/);
   assert.match(component, /Le service vérifiera le design, les accès et les crédits/);
+  assert.match(component, /Préparer le pointage/);
+  assert.match(component, /Terminer l’événement/);
+  assert.match(component, /Annuler l’événement/);
 });
 
 test('resume uses persisted progress and keeps completed or pending generations accessible', () => {

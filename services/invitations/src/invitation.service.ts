@@ -346,7 +346,9 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     if (agencyWorkspaceId) {
       agencyReference = `agency-invitation-batch/${batchId}`;
     }
-    const walletReservedCredits = snapshot.guests.length;
+    // An agency event is financed exclusively by its workspace quota.  It must
+    // never fall back to the owner's personal wallet, even for a shortfall.
+    const walletReservedCredits = agencyWorkspaceId ? 0 : snapshot.guests.length;
     try {
     for (const asset of snapshot.photoAssets) await this.storage.put(renderAssets[asset.assetId]!.key, asset.bytes, asset.mimeType!);
     await this.prisma.$transaction(async (tx) => {
@@ -433,10 +435,11 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     let batch = await this.prisma.invitationBatch.findFirstOrThrow({ where: { id: batchId, ownerSubject: owner } });
     try {
       if (batch.agencyReservationReference && batch.agencyWorkspaceId) {
-        const response = await fetch(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/agencies/' + batch.agencyWorkspaceId + '/quota/reservations', { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': 'reserve-' + batchId }, body: JSON.stringify({ eventId: batch.eventId, referenceKey: batch.agencyReservationReference, credits: batch.totalItems, allowPartial: true }), signal: AbortSignal.timeout(10_000) });
+        const response = await fetch(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/agencies/' + batch.agencyWorkspaceId + '/quota/reservations', { method: 'POST', headers: { authorization, 'content-type': 'application/json', 'idempotency-key': 'reserve-' + batchId }, body: JSON.stringify({ eventId: batch.eventId, referenceKey: batch.agencyReservationReference, credits: batch.totalItems, allowPartial: false }), signal: AbortSignal.timeout(10_000) });
         const value = await response.json().catch(() => null) as { reservedCredits?: number } | null;
         if (!response.ok || !Number.isSafeInteger(value?.reservedCredits) || value!.reservedCredits! < 0 || value!.reservedCredits! > batch.totalItems) throw new Error('Agency reservation unavailable');
-        const updated = await this.prisma.invitationBatch.updateMany({ where: { id: batchId, status: BatchStatus.RESERVING }, data: { agencyReservationReference: value!.reservedCredits === 0 ? null : batch.agencyReservationReference, agencyReservedCredits: value!.reservedCredits!, walletReservedCredits: batch.totalItems - value!.reservedCredits! } });
+        if (value!.reservedCredits !== batch.totalItems) throw new Error('Agency quota insufficient');
+        const updated = await this.prisma.invitationBatch.updateMany({ where: { id: batchId, status: BatchStatus.RESERVING }, data: { agencyReservedCredits: batch.totalItems, walletReservedCredits: 0 } });
         if (!updated.count) throw new Error('Reservation stopped');
         batch = await this.prisma.invitationBatch.findUniqueOrThrow({ where: { id: batchId } });
       }
@@ -482,7 +485,7 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     const batchId = randomUUID();
     try {
       await this.prisma.$transaction(async tx => {
-        await tx.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId: source.eventId, designId: source.designId, designVersion: source.designVersion, retryOfBatchId: id, idempotencyKey: 'technical-retry/' + id, requestHash: source.requestHash, totalItems: failed.length, reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: failed.length, agencyWorkspaceId: source.agencyWorkspaceId, agencyReservationReference: source.agencyWorkspaceId ? 'agency-invitation-batch/' + batchId : null } });
+        await tx.invitationBatch.create({ data: { id: batchId, ownerSubject: owner, eventId: source.eventId, designId: source.designId, designVersion: source.designVersion, retryOfBatchId: id, idempotencyKey: 'technical-retry/' + id, requestHash: source.requestHash, totalItems: failed.length, reservationReference: 'invitation-batch/' + batchId, walletReservedCredits: source.agencyWorkspaceId ? 0 : failed.length, agencyWorkspaceId: source.agencyWorkspaceId, agencyReservationReference: source.agencyWorkspaceId ? 'agency-invitation-batch/' + batchId : null } });
         await tx.batchItem.createMany({ data: failed.map(item => ({ batchId, invitationId: item.invitationId, invitationVersionId: item.invitationVersionId, guestId: item.guestId, snapshot: item.snapshot as Prisma.InputJsonValue })) });
       });
     } catch (error) {

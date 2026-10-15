@@ -85,16 +85,56 @@ model CheckInLink {
   label       String?           @db.VarChar(120)
   reference   String            @db.VarChar(140)
   tokenHash   String            @unique @map("token_hash") @db.Char(64)
+  tokenCiphertext String?       @map("token_ciphertext") @db.Text
   status      CheckInLinkStatus @default(ACTIVE)
   expiresAt   DateTime          @map("expires_at") @db.Timestamptz(3)
   lastUsedAt  DateTime?         @map("last_used_at") @db.Timestamptz(3)
   createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  licenseId   String?           @map("license_id") @db.Uuid
+  license     CheckInLicense?   @relation(fields: [licenseId], references: [id], onDelete: Restrict)
   ceremonies  CheckInLinkCeremonyGrant[]
   scans       AccessScanAttempt[]
 
   @@index([ownerSubject, eventId, status, createdAt(sort: Desc)], map: "checkin_links_owner_event_status_created_idx")
   @@map("checkin_links")
+}
+
+enum CheckInLicenseSource {
+  PERSONAL
+  AGENCY
+}
+
+enum CheckInLicenseStatus {
+  UNASSIGNED
+  ACTIVE
+  REVOKED
+}
+
+model CheckInLicense {
+  id              String               @id @default(uuid()) @db.Uuid
+  source          CheckInLicenseSource
+  status          CheckInLicenseStatus @default(UNASSIGNED)
+  ownerSubject    String               @map("owner_subject") @db.VarChar(255)
+  sourceReference String               @unique @map("source_reference") @db.VarChar(255)
+  eventId         String?              @unique @map("event_id") @db.Uuid
+  guestCapacity   Int                  @map("guest_capacity")
+  usedGuestCount  Int                  @default(0) @map("used_guest_count")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  assignedAt      DateTime?            @map("assigned_at") @db.Timestamptz(3)
+  links           CheckInLink[]
+  guests          CheckInLicenseGuest[]
+  @@index([ownerSubject, source, status], map: "checkin_licenses_owner_status_idx")
+  @@map("checkin_licenses")
+}
+
+model CheckInLicenseGuest {
+  licenseId  String   @map("license_id") @db.Uuid
+  tokenHash  String   @map("token_hash") @db.Char(64)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  license    CheckInLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  @@id([licenseId, tokenHash])
+  @@map("checkin_license_guests")
 }
 
 model CheckInLinkCeremonyGrant {

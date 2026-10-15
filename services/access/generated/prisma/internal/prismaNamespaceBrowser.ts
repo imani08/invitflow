@@ -55,6 +55,8 @@ export const ModelName = {
   AgentCeremonyGrant: 'AgentCeremonyGrant',
   AccessScanAttempt: 'AccessScanAttempt',
   CheckInLink: 'CheckInLink',
+  CheckInLicense: 'CheckInLicense',
+  CheckInLicenseGuest: 'CheckInLicenseGuest',
   CheckInLinkCeremonyGrant: 'CheckInLinkCeremonyGrant',
   OutboxMessage: 'OutboxMessage'
 } as const
@@ -127,14 +129,41 @@ export const CheckInLinkScalarFieldEnum = {
   label: 'label',
   reference: 'reference',
   tokenHash: 'tokenHash',
+  tokenCiphertext: 'tokenCiphertext',
   status: 'status',
   expiresAt: 'expiresAt',
   lastUsedAt: 'lastUsedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  licenseId: 'licenseId'
 } as const
 
 export type CheckInLinkScalarFieldEnum = (typeof CheckInLinkScalarFieldEnum)[keyof typeof CheckInLinkScalarFieldEnum]
+
+
+export const CheckInLicenseScalarFieldEnum = {
+  id: 'id',
+  source: 'source',
+  status: 'status',
+  ownerSubject: 'ownerSubject',
+  sourceReference: 'sourceReference',
+  eventId: 'eventId',
+  guestCapacity: 'guestCapacity',
+  usedGuestCount: 'usedGuestCount',
+  createdAt: 'createdAt',
+  assignedAt: 'assignedAt'
+} as const
+
+export type CheckInLicenseScalarFieldEnum = (typeof CheckInLicenseScalarFieldEnum)[keyof typeof CheckInLicenseScalarFieldEnum]
+
+
+export const CheckInLicenseGuestScalarFieldEnum = {
+  licenseId: 'licenseId',
+  tokenHash: 'tokenHash',
+  createdAt: 'createdAt'
+} as const
+
+export type CheckInLicenseGuestScalarFieldEnum = (typeof CheckInLicenseGuestScalarFieldEnum)[keyof typeof CheckInLicenseGuestScalarFieldEnum]
 
 
 export const CheckInLinkCeremonyGrantScalarFieldEnum = {

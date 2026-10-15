@@ -68,6 +68,13 @@ body:has(.app-sidebar) .events-shell {
   transition: background-color .16s ease, color .16s ease;
 }
 .app-sidebar-links > a svg { width: 18px; height: 18px; flex: none; }
+.app-nav-icon { position: relative; display: inline-grid; flex: none; place-items: center; }
+.app-nav-icon svg { width: 18px; height: 18px; }
+.notification-badge { position: absolute; top: -8px; right: -12px; display: grid; min-width: 17px; height: 17px; place-items: center; padding: 0 3px; border: 2px solid var(--paper, #faf8f4); border-radius: 999px; background: #b63b43; color: #fff; font-size: 9px; font-weight: 800; line-height: 1; }
+.app-mobile-actions { display: flex; align-items: center; gap: 6px; }
+.app-mobile-notifications { position: relative; display: grid; width: 38px; height: 38px; place-items: center; color: var(--muted, #77766f); }
+.app-mobile-notifications svg { width: 20px; height: 20px; }
+.app-mobile-notifications .notification-badge { top: 0; right: -2px; }
 .app-sidebar-links > a:hover { background: color-mix(in srgb, var(--brand-purple, #32163a) 7%, transparent); color: var(--brand-purple, #32163a); }
 .app-sidebar-links > a.is-active { background: color-mix(in srgb, var(--brand-purple, #32163a) 10%, transparent); color: var(--brand-purple, #32163a); font-weight: 650; }
 .app-sidebar-logout { margin-top: auto; padding: 14px 8px 2px; border-top: 1px solid var(--line, #e5e0d7); }
@@ -172,6 +179,8 @@ body:has(.app-sidebar) .events-shell {
     text-decoration: none;
   }
   .app-mobile-nav a svg { width: 20px; height: 20px; }
+  .app-mobile-nav .app-nav-icon svg { width: 20px; height: 20px; }
+  .app-mobile-nav .notification-badge { top: -7px; right: -13px; }
   .app-mobile-nav a.is-active { color: var(--brand-purple, #32163a); font-weight: 700; }
 .app-mobile-nav a.app-mobile-create { color: var(--brand-purple, #32163a); }
   .app-mobile-nav a.app-mobile-create svg { width: 25px; height: 25px; padding: 3px; border-radius: 50%; background: var(--brand-purple, #32163a); color: white; }

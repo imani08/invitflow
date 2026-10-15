@@ -3,7 +3,7 @@ import type { FastifyRequest } from 'fastify';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from './env.js';
 
-export type VerifiedIdentity = { subject: string };
+export type VerifiedIdentity = { subject: string; roles: string[] };
 type AuthenticatedRequest = FastifyRequest & { identity?: VerifiedIdentity };
 
 @Injectable()
@@ -20,7 +20,11 @@ export class IdentityGuard implements CanActivate {
     try {
       const { payload } = await jwtVerify(authorization.slice(7), this.jwks, { issuer: this.issuer, audience: this.audience, algorithms: ['RS256'], maxTokenAge: '10m' });
       if (typeof payload['sub'] !== 'string' || payload['azp'] !== this.clientId || payload['email_verified'] !== true) throw new Error('Invalid identity claims');
-      request.identity = { subject: payload['sub'] };
+      const realmAccess = payload['realm_access'];
+      const roles = realmAccess && typeof realmAccess === 'object' && 'roles' in realmAccess && Array.isArray(realmAccess.roles)
+        ? realmAccess.roles.filter((role): role is string => typeof role === 'string')
+        : [];
+      request.identity = { subject: payload['sub'], roles };
       return true;
     } catch { throw new UnauthorizedException('Invalid or expired identity token'); }
   }

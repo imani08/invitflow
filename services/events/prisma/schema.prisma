@@ -70,6 +70,7 @@ model Event {
   agencyWorkspaceId String? @map("agency_workspace_id") @db.Uuid
   agencyWorkspace AgencyWorkspace? @relation("AgencyWorkspaceEvents", fields: [agencyWorkspaceId], references: [id], onDelete: SetNull)
   agencyUsageReservations AgencyQuotaReservation[]
+  checkInActivations AgencyCheckInActivation[]
   agencyClientEvents AgencyClientEvent[]
 
   @@index([ownerSubject, createdAt(sort: Desc)], map: "events_owner_created_idx")
@@ -148,6 +149,7 @@ model AgencyWorkspace {
   clients     AgencyClient[]
   events      Event[] @relation("AgencyWorkspaceEvents")
   subscriptions AgencySubscription[]
+  checkInActivations AgencyCheckInActivation[]
   usageReservations AgencyQuotaReservation[]
 
   @@index([ownerSubject, createdAt(sort: Desc)], map: "agency_workspaces_owner_created_idx")
@@ -221,6 +223,8 @@ model AgencySubscription {
   planKey             String   @map("plan_key") @db.VarChar(60)
   planName            String   @map("plan_name") @db.VarChar(100)
   quotaCredits        Int      @map("quota_credits")
+  checkInEventLimit   Int      @default(0) @map("checkin_event_limit")
+  checkInGuestCapacity Int     @default(0) @map("checkin_guest_capacity")
   priceMinor          Int      @map("price_minor")
   currency            String   @db.Char(3)
   priceScheduleId     String   @map("price_schedule_id") @db.Uuid
@@ -240,9 +244,25 @@ model AgencySubscription {
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   workspace           AgencyWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   quotaReservations   AgencyQuotaReservation[]
+  checkInActivations  AgencyCheckInActivation[]
 
   @@index([workspaceId, createdAt(sort: Desc)], map: "agency_subscriptions_workspace_created_idx")
   @@map("agency_subscriptions")
+}
+
+model AgencyCheckInActivation {
+  id             String   @id @default(uuid()) @db.Uuid
+  workspaceId    String   @map("workspace_id") @db.Uuid
+  eventId        String   @unique @map("event_id") @db.Uuid
+  subscriptionId String   @map("subscription_id") @db.Uuid
+  guestCapacity  Int      @map("guest_capacity")
+  activatedBy    String   @map("activated_by") @db.VarChar(255)
+  activatedAt    DateTime @default(now()) @map("activated_at") @db.Timestamptz(3)
+  workspace      AgencyWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subscription   AgencySubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  @@index([workspaceId, subscriptionId], map: "agency_checkin_activations_subscription_idx")
+  @@map("agency_checkin_activations")
 }
 
 model AgencyQuotaReservation {

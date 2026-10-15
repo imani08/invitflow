@@ -106,6 +106,9 @@ export class AgenciesController {
   @Get('/:workspaceId/quota')
   quota(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string) { return this.events.agencyQuotaSummary(request.identity.subject, workspaceId); }
 
+  @Post('/:workspaceId/events/:eventId/check-in/activate')
+  activateCheckIn(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Param('eventId') eventId: string) { return this.events.activateAgencyCheckIn(request.identity.subject, workspaceId, eventId); }
+
   @Post('/:workspaceId/quota/:referenceKey/:action')
   finalizeQuota(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Param('referenceKey') referenceKey: string, @Param('action') action: string) {
     if (action !== 'consume' && action !== 'release') throw new BadRequestException('action must be consume or release');

@@ -398,7 +398,8 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   Notification: 'Notification',
-  NotificationPreference: 'NotificationPreference'
+  NotificationPreference: 'NotificationPreference',
+  EmailDelivery: 'EmailDelivery'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "notification" | "notificationPreference"
+    modelProps: "notification" | "notificationPreference" | "emailDelivery"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -566,6 +567,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    EmailDelivery: {
+      payload: Prisma.$EmailDeliveryPayload<ExtArgs>
+      fields: Prisma.EmailDeliveryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.EmailDeliveryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.EmailDeliveryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        findFirst: {
+          args: Prisma.EmailDeliveryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.EmailDeliveryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        findMany: {
+          args: Prisma.EmailDeliveryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>[]
+        }
+        create: {
+          args: Prisma.EmailDeliveryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        createMany: {
+          args: Prisma.EmailDeliveryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.EmailDeliveryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>[]
+        }
+        delete: {
+          args: Prisma.EmailDeliveryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        update: {
+          args: Prisma.EmailDeliveryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        deleteMany: {
+          args: Prisma.EmailDeliveryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.EmailDeliveryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.EmailDeliveryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>[]
+        }
+        upsert: {
+          args: Prisma.EmailDeliveryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$EmailDeliveryPayload>
+        }
+        aggregate: {
+          args: Prisma.EmailDeliveryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateEmailDelivery>
+        }
+        groupBy: {
+          args: Prisma.EmailDeliveryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmailDeliveryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.EmailDeliveryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.EmailDeliveryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -628,6 +703,21 @@ export const NotificationPreferenceScalarFieldEnum = {
 } as const
 
 export type NotificationPreferenceScalarFieldEnum = (typeof NotificationPreferenceScalarFieldEnum)[keyof typeof NotificationPreferenceScalarFieldEnum]
+
+
+export const EmailDeliveryScalarFieldEnum = {
+  id: 'id',
+  notificationId: 'notificationId',
+  recipientEmail: 'recipientEmail',
+  subject: 'subject',
+  text: 'text',
+  attempts: 'attempts',
+  claimedAt: 'claimedAt',
+  sentAt: 'sentAt',
+  createdAt: 'createdAt'
+} as const
+
+export type EmailDeliveryScalarFieldEnum = (typeof EmailDeliveryScalarFieldEnum)[keyof typeof EmailDeliveryScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -736,6 +826,20 @@ export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'In
  * Reference to a field of type 'Int[]'
  */
 export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Float'
+ */
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
+    
+
+
+/**
+ * Reference to a field of type 'Float[]'
+ */
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 /**
@@ -891,6 +995,7 @@ export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaC
 export type GlobalOmitConfig = {
   notification?: Prisma.NotificationOmit
   notificationPreference?: Prisma.NotificationPreferenceOmit
+  emailDelivery?: Prisma.EmailDeliveryOmit
 }
 
 /* Types for Logging */

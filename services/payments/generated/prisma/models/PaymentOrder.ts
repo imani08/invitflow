@@ -29,6 +29,8 @@ export type AggregatePaymentOrder = {
 export type PaymentOrderAvgAggregateOutputType = {
   credits: number | null
   unitCredits: number | null
+  checkInEvents: number | null
+  checkInGuestCapacity: number | null
   quantity: number | null
   unitPriceMinor: number | null
   discountMinor: number | null
@@ -43,6 +45,8 @@ export type PaymentOrderAvgAggregateOutputType = {
 export type PaymentOrderSumAggregateOutputType = {
   credits: number | null
   unitCredits: number | null
+  checkInEvents: number | null
+  checkInGuestCapacity: number | null
   quantity: number | null
   unitPriceMinor: number | null
   discountMinor: number | null
@@ -64,6 +68,8 @@ export type PaymentOrderMinAggregateOutputType = {
   packName: string | null
   credits: number | null
   unitCredits: number | null
+  checkInEvents: number | null
+  checkInGuestCapacity: number | null
   quantity: number | null
   unitPriceMinor: number | null
   discountMinor: number | null
@@ -98,6 +104,8 @@ export type PaymentOrderMaxAggregateOutputType = {
   packName: string | null
   credits: number | null
   unitCredits: number | null
+  checkInEvents: number | null
+  checkInGuestCapacity: number | null
   quantity: number | null
   unitPriceMinor: number | null
   discountMinor: number | null
@@ -133,6 +141,8 @@ export type PaymentOrderCountAggregateOutputType = {
   packName: number
   credits: number
   unitCredits: number
+  checkInEvents: number
+  checkInGuestCapacity: number
   quantity: number
   unitPriceMinor: number
   discountMinor: number
@@ -162,6 +172,8 @@ export type PaymentOrderCountAggregateOutputType = {
 export type PaymentOrderAvgAggregateInputType = {
   credits?: true
   unitCredits?: true
+  checkInEvents?: true
+  checkInGuestCapacity?: true
   quantity?: true
   unitPriceMinor?: true
   discountMinor?: true
@@ -176,6 +188,8 @@ export type PaymentOrderAvgAggregateInputType = {
 export type PaymentOrderSumAggregateInputType = {
   credits?: true
   unitCredits?: true
+  checkInEvents?: true
+  checkInGuestCapacity?: true
   quantity?: true
   unitPriceMinor?: true
   discountMinor?: true
@@ -197,6 +211,8 @@ export type PaymentOrderMinAggregateInputType = {
   packName?: true
   credits?: true
   unitCredits?: true
+  checkInEvents?: true
+  checkInGuestCapacity?: true
   quantity?: true
   unitPriceMinor?: true
   discountMinor?: true
@@ -231,6 +247,8 @@ export type PaymentOrderMaxAggregateInputType = {
   packName?: true
   credits?: true
   unitCredits?: true
+  checkInEvents?: true
+  checkInGuestCapacity?: true
   quantity?: true
   unitPriceMinor?: true
   discountMinor?: true
@@ -266,6 +284,8 @@ export type PaymentOrderCountAggregateInputType = {
   packName?: true
   credits?: true
   unitCredits?: true
+  checkInEvents?: true
+  checkInGuestCapacity?: true
   quantity?: true
   unitPriceMinor?: true
   discountMinor?: true
@@ -388,6 +408,8 @@ export type PaymentOrderGroupByOutputType = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents: number
+  checkInGuestCapacity: number
   quantity: number
   unitPriceMinor: number
   discountMinor: number
@@ -446,6 +468,8 @@ export type PaymentOrderWhereInput = {
   packName?: Prisma.StringFilter<"PaymentOrder"> | string
   credits?: Prisma.IntFilter<"PaymentOrder"> | number
   unitCredits?: Prisma.IntFilter<"PaymentOrder"> | number
+  checkInEvents?: Prisma.IntFilter<"PaymentOrder"> | number
+  checkInGuestCapacity?: Prisma.IntFilter<"PaymentOrder"> | number
   quantity?: Prisma.IntFilter<"PaymentOrder"> | number
   unitPriceMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   discountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
@@ -483,6 +507,8 @@ export type PaymentOrderOrderByWithRelationInput = {
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -524,6 +550,8 @@ export type PaymentOrderWhereUniqueInput = Prisma.AtLeast<{
   packName?: Prisma.StringFilter<"PaymentOrder"> | string
   credits?: Prisma.IntFilter<"PaymentOrder"> | number
   unitCredits?: Prisma.IntFilter<"PaymentOrder"> | number
+  checkInEvents?: Prisma.IntFilter<"PaymentOrder"> | number
+  checkInGuestCapacity?: Prisma.IntFilter<"PaymentOrder"> | number
   quantity?: Prisma.IntFilter<"PaymentOrder"> | number
   unitPriceMinor?: Prisma.IntFilter<"PaymentOrder"> | number
   discountMinor?: Prisma.IntFilter<"PaymentOrder"> | number
@@ -561,6 +589,8 @@ export type PaymentOrderOrderByWithAggregationInput = {
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -604,6 +634,8 @@ export type PaymentOrderScalarWhereWithAggregatesInput = {
   packName?: Prisma.StringWithAggregatesFilter<"PaymentOrder"> | string
   credits?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   unitCredits?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  checkInEvents?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
+  checkInGuestCapacity?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   quantity?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   unitPriceMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
   discountMinor?: Prisma.IntWithAggregatesFilter<"PaymentOrder"> | number
@@ -639,6 +671,8 @@ export type PaymentOrderCreateInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -676,6 +710,8 @@ export type PaymentOrderUncheckedCreateInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -713,6 +749,8 @@ export type PaymentOrderUpdateInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -750,6 +788,8 @@ export type PaymentOrderUncheckedUpdateInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -787,6 +827,8 @@ export type PaymentOrderCreateManyInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -822,6 +864,8 @@ export type PaymentOrderUpdateManyMutationInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -857,6 +901,8 @@ export type PaymentOrderUncheckedUpdateManyInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -897,6 +943,8 @@ export type PaymentOrderCountOrderByAggregateInput = {
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -924,6 +972,8 @@ export type PaymentOrderCountOrderByAggregateInput = {
 export type PaymentOrderAvgOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -945,6 +995,8 @@ export type PaymentOrderMaxOrderByAggregateInput = {
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -979,6 +1031,8 @@ export type PaymentOrderMinOrderByAggregateInput = {
   packName?: Prisma.SortOrder
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -1006,6 +1060,8 @@ export type PaymentOrderMinOrderByAggregateInput = {
 export type PaymentOrderSumOrderByAggregateInput = {
   credits?: Prisma.SortOrder
   unitCredits?: Prisma.SortOrder
+  checkInEvents?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   quantity?: Prisma.SortOrder
   unitPriceMinor?: Prisma.SortOrder
   discountMinor?: Prisma.SortOrder
@@ -1097,6 +1153,8 @@ export type PaymentOrderCreateWithoutPaymentInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -1133,6 +1191,8 @@ export type PaymentOrderUncheckedCreateWithoutPaymentInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -1185,6 +1245,8 @@ export type PaymentOrderUpdateWithoutPaymentInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1221,6 +1283,8 @@ export type PaymentOrderUncheckedUpdateWithoutPaymentInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1257,6 +1321,8 @@ export type PaymentOrderCreateWithoutCommissionLedgerEntriesInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -1293,6 +1359,8 @@ export type PaymentOrderUncheckedCreateWithoutCommissionLedgerEntriesInput = {
   packName: string
   credits: number
   unitCredits: number
+  checkInEvents?: number
+  checkInGuestCapacity?: number
   quantity?: number
   unitPriceMinor: number
   discountMinor?: number
@@ -1345,6 +1413,8 @@ export type PaymentOrderUpdateWithoutCommissionLedgerEntriesInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1381,6 +1451,8 @@ export type PaymentOrderUncheckedUpdateWithoutCommissionLedgerEntriesInput = {
   packName?: Prisma.StringFieldUpdateOperationsInput | string
   credits?: Prisma.IntFieldUpdateOperationsInput | number
   unitCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEvents?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   quantity?: Prisma.IntFieldUpdateOperationsInput | number
   unitPriceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   discountMinor?: Prisma.IntFieldUpdateOperationsInput | number
@@ -1448,6 +1520,8 @@ export type PaymentOrderSelect<ExtArgs extends runtime.Types.Extensions.Internal
   packName?: boolean
   credits?: boolean
   unitCredits?: boolean
+  checkInEvents?: boolean
+  checkInGuestCapacity?: boolean
   quantity?: boolean
   unitPriceMinor?: boolean
   discountMinor?: boolean
@@ -1486,6 +1560,8 @@ export type PaymentOrderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   packName?: boolean
   credits?: boolean
   unitCredits?: boolean
+  checkInEvents?: boolean
+  checkInGuestCapacity?: boolean
   quantity?: boolean
   unitPriceMinor?: boolean
   discountMinor?: boolean
@@ -1521,6 +1597,8 @@ export type PaymentOrderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   packName?: boolean
   credits?: boolean
   unitCredits?: boolean
+  checkInEvents?: boolean
+  checkInGuestCapacity?: boolean
   quantity?: boolean
   unitPriceMinor?: boolean
   discountMinor?: boolean
@@ -1556,6 +1634,8 @@ export type PaymentOrderSelectScalar = {
   packName?: boolean
   credits?: boolean
   unitCredits?: boolean
+  checkInEvents?: boolean
+  checkInGuestCapacity?: boolean
   quantity?: boolean
   unitPriceMinor?: boolean
   discountMinor?: boolean
@@ -1580,7 +1660,7 @@ export type PaymentOrderSelectScalar = {
   updatedAt?: boolean
 }
 
-export type PaymentOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderType" | "businessReference" | "metadata" | "ownerSubject" | "packId" | "packKey" | "packName" | "credits" | "unitCredits" | "quantity" | "unitPriceMinor" | "discountMinor" | "discountRule" | "taxEnabled" | "taxRule" | "taxRateBps" | "taxMinor" | "subtotalMinor" | "totalMinor" | "amountMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "idempotencyKey" | "salesTermsVersion" | "refundPolicyVersion" | "salesTermsAcceptedAt" | "refundPolicyAcceptedAt" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["paymentOrder"]>
+export type PaymentOrderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "orderType" | "businessReference" | "metadata" | "ownerSubject" | "packId" | "packKey" | "packName" | "credits" | "unitCredits" | "checkInEvents" | "checkInGuestCapacity" | "quantity" | "unitPriceMinor" | "discountMinor" | "discountRule" | "taxEnabled" | "taxRule" | "taxRateBps" | "taxMinor" | "subtotalMinor" | "totalMinor" | "amountMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "idempotencyKey" | "salesTermsVersion" | "refundPolicyVersion" | "salesTermsAcceptedAt" | "refundPolicyAcceptedAt" | "status" | "createdAt" | "updatedAt", ExtArgs["result"]["paymentOrder"]>
 export type PaymentOrderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   payment?: boolean | Prisma.PaymentOrder$paymentArgs<ExtArgs>
   commissionLedgerEntries?: boolean | Prisma.PaymentOrder$commissionLedgerEntriesArgs<ExtArgs>
@@ -1606,6 +1686,8 @@ export type $PaymentOrderPayload<ExtArgs extends runtime.Types.Extensions.Intern
     packName: string
     credits: number
     unitCredits: number
+    checkInEvents: number
+    checkInGuestCapacity: number
     quantity: number
     unitPriceMinor: number
     discountMinor: number
@@ -2063,6 +2145,8 @@ export interface PaymentOrderFieldRefs {
   readonly packName: Prisma.FieldRef<"PaymentOrder", 'String'>
   readonly credits: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly unitCredits: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly checkInEvents: Prisma.FieldRef<"PaymentOrder", 'Int'>
+  readonly checkInGuestCapacity: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly quantity: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly unitPriceMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>
   readonly discountMinor: Prisma.FieldRef<"PaymentOrder", 'Int'>

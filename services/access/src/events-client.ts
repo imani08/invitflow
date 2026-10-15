@@ -13,6 +13,14 @@ export class EventsClient {
     return this.fetchEvent(eventId, ceremonyIds, authorization, false);
   }
 
+  async agencyCheckInEntitlement(eventId: string) {
+    let response: Response;
+    try { response = await fetch(`${this.baseUrl}/v1/internal/events/${encodeURIComponent(eventId)}/check-in-entitlement`, { headers: { 'x-service-token': requiredEnv('EVENTS_INTERNAL_TOKEN') }, cache: 'no-store', signal: AbortSignal.timeout(4_000) }); }
+    catch { throw new ServiceUnavailableException('Events service is unavailable'); }
+    if (!response.ok) throw new ServiceUnavailableException('Events service entitlement request failed');
+    return response.json() as Promise<Record<string, unknown> | null>;
+  }
+
   private async fetchEvent(eventId: string, ceremonyIds: string[], authorization: string, publishedOnly: boolean) {
     let response: Response;
     try {

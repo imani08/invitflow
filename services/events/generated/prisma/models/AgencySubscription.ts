@@ -28,6 +28,8 @@ export type AggregateAgencySubscription = {
 
 export type AgencySubscriptionAvgAggregateOutputType = {
   quotaCredits: number | null
+  checkInEventLimit: number | null
+  checkInGuestCapacity: number | null
   priceMinor: number | null
   priceScheduleVersion: number | null
   currentPlanVersion: number | null
@@ -36,6 +38,8 @@ export type AgencySubscriptionAvgAggregateOutputType = {
 
 export type AgencySubscriptionSumAggregateOutputType = {
   quotaCredits: number | null
+  checkInEventLimit: number | null
+  checkInGuestCapacity: number | null
   priceMinor: number | null
   priceScheduleVersion: number | null
   currentPlanVersion: number | null
@@ -49,6 +53,8 @@ export type AgencySubscriptionMinAggregateOutputType = {
   planKey: string | null
   planName: string | null
   quotaCredits: number | null
+  checkInEventLimit: number | null
+  checkInGuestCapacity: number | null
   priceMinor: number | null
   currency: string | null
   priceScheduleId: string | null
@@ -73,6 +79,8 @@ export type AgencySubscriptionMaxAggregateOutputType = {
   planKey: string | null
   planName: string | null
   quotaCredits: number | null
+  checkInEventLimit: number | null
+  checkInGuestCapacity: number | null
   priceMinor: number | null
   currency: string | null
   priceScheduleId: string | null
@@ -97,6 +105,8 @@ export type AgencySubscriptionCountAggregateOutputType = {
   planKey: number
   planName: number
   quotaCredits: number
+  checkInEventLimit: number
+  checkInGuestCapacity: number
   priceMinor: number
   currency: number
   priceScheduleId: number
@@ -118,6 +128,8 @@ export type AgencySubscriptionCountAggregateOutputType = {
 
 export type AgencySubscriptionAvgAggregateInputType = {
   quotaCredits?: true
+  checkInEventLimit?: true
+  checkInGuestCapacity?: true
   priceMinor?: true
   priceScheduleVersion?: true
   currentPlanVersion?: true
@@ -126,6 +138,8 @@ export type AgencySubscriptionAvgAggregateInputType = {
 
 export type AgencySubscriptionSumAggregateInputType = {
   quotaCredits?: true
+  checkInEventLimit?: true
+  checkInGuestCapacity?: true
   priceMinor?: true
   priceScheduleVersion?: true
   currentPlanVersion?: true
@@ -139,6 +153,8 @@ export type AgencySubscriptionMinAggregateInputType = {
   planKey?: true
   planName?: true
   quotaCredits?: true
+  checkInEventLimit?: true
+  checkInGuestCapacity?: true
   priceMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -163,6 +179,8 @@ export type AgencySubscriptionMaxAggregateInputType = {
   planKey?: true
   planName?: true
   quotaCredits?: true
+  checkInEventLimit?: true
+  checkInGuestCapacity?: true
   priceMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -187,6 +205,8 @@ export type AgencySubscriptionCountAggregateInputType = {
   planKey?: true
   planName?: true
   quotaCredits?: true
+  checkInEventLimit?: true
+  checkInGuestCapacity?: true
   priceMinor?: true
   currency?: true
   priceScheduleId?: true
@@ -298,6 +318,8 @@ export type AgencySubscriptionGroupByOutputType = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit: number
+  checkInGuestCapacity: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -345,6 +367,8 @@ export type AgencySubscriptionWhereInput = {
   planKey?: Prisma.StringFilter<"AgencySubscription"> | string
   planName?: Prisma.StringFilter<"AgencySubscription"> | string
   quotaCredits?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInEventLimit?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInGuestCapacity?: Prisma.IntFilter<"AgencySubscription"> | number
   priceMinor?: Prisma.IntFilter<"AgencySubscription"> | number
   currency?: Prisma.StringFilter<"AgencySubscription"> | string
   priceScheduleId?: Prisma.UuidFilter<"AgencySubscription"> | string
@@ -364,6 +388,7 @@ export type AgencySubscriptionWhereInput = {
   renewedPeriods?: Prisma.AgencySubscriptionListRelationFilter
   workspace?: Prisma.XOR<Prisma.AgencyWorkspaceScalarRelationFilter, Prisma.AgencyWorkspaceWhereInput>
   quotaReservations?: Prisma.AgencyQuotaReservationListRelationFilter
+  checkInActivations?: Prisma.AgencyCheckInActivationListRelationFilter
 }
 
 export type AgencySubscriptionOrderByWithRelationInput = {
@@ -373,6 +398,8 @@ export type AgencySubscriptionOrderByWithRelationInput = {
   planKey?: Prisma.SortOrder
   planName?: Prisma.SortOrder
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -392,6 +419,7 @@ export type AgencySubscriptionOrderByWithRelationInput = {
   renewedPeriods?: Prisma.AgencySubscriptionOrderByRelationAggregateInput
   workspace?: Prisma.AgencyWorkspaceOrderByWithRelationInput
   quotaReservations?: Prisma.AgencyQuotaReservationOrderByRelationAggregateInput
+  checkInActivations?: Prisma.AgencyCheckInActivationOrderByRelationAggregateInput
 }
 
 export type AgencySubscriptionWhereUniqueInput = Prisma.AtLeast<{
@@ -406,6 +434,8 @@ export type AgencySubscriptionWhereUniqueInput = Prisma.AtLeast<{
   planKey?: Prisma.StringFilter<"AgencySubscription"> | string
   planName?: Prisma.StringFilter<"AgencySubscription"> | string
   quotaCredits?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInEventLimit?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInGuestCapacity?: Prisma.IntFilter<"AgencySubscription"> | number
   priceMinor?: Prisma.IntFilter<"AgencySubscription"> | number
   currency?: Prisma.StringFilter<"AgencySubscription"> | string
   priceScheduleId?: Prisma.UuidFilter<"AgencySubscription"> | string
@@ -423,6 +453,7 @@ export type AgencySubscriptionWhereUniqueInput = Prisma.AtLeast<{
   renewedPeriods?: Prisma.AgencySubscriptionListRelationFilter
   workspace?: Prisma.XOR<Prisma.AgencyWorkspaceScalarRelationFilter, Prisma.AgencyWorkspaceWhereInput>
   quotaReservations?: Prisma.AgencyQuotaReservationListRelationFilter
+  checkInActivations?: Prisma.AgencyCheckInActivationListRelationFilter
 }, "id" | "paymentOrderId" | "paymentId">
 
 export type AgencySubscriptionOrderByWithAggregationInput = {
@@ -432,6 +463,8 @@ export type AgencySubscriptionOrderByWithAggregationInput = {
   planKey?: Prisma.SortOrder
   planName?: Prisma.SortOrder
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -464,6 +497,8 @@ export type AgencySubscriptionScalarWhereWithAggregatesInput = {
   planKey?: Prisma.StringWithAggregatesFilter<"AgencySubscription"> | string
   planName?: Prisma.StringWithAggregatesFilter<"AgencySubscription"> | string
   quotaCredits?: Prisma.IntWithAggregatesFilter<"AgencySubscription"> | number
+  checkInEventLimit?: Prisma.IntWithAggregatesFilter<"AgencySubscription"> | number
+  checkInGuestCapacity?: Prisma.IntWithAggregatesFilter<"AgencySubscription"> | number
   priceMinor?: Prisma.IntWithAggregatesFilter<"AgencySubscription"> | number
   currency?: Prisma.StringWithAggregatesFilter<"AgencySubscription"> | string
   priceScheduleId?: Prisma.UuidWithAggregatesFilter<"AgencySubscription"> | string
@@ -487,6 +522,8 @@ export type AgencySubscriptionCreateInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -505,6 +542,7 @@ export type AgencySubscriptionCreateInput = {
   renewedPeriods?: Prisma.AgencySubscriptionCreateNestedManyWithoutRenewalOfInput
   workspace: Prisma.AgencyWorkspaceCreateNestedOneWithoutSubscriptionsInput
   quotaReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionUncheckedCreateInput = {
@@ -514,6 +552,8 @@ export type AgencySubscriptionUncheckedCreateInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -531,6 +571,7 @@ export type AgencySubscriptionUncheckedCreateInput = {
   createdAt?: Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedCreateNestedManyWithoutRenewalOfInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionUpdateInput = {
@@ -539,6 +580,8 @@ export type AgencySubscriptionUpdateInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -557,6 +600,7 @@ export type AgencySubscriptionUpdateInput = {
   renewedPeriods?: Prisma.AgencySubscriptionUpdateManyWithoutRenewalOfNestedInput
   workspace?: Prisma.AgencyWorkspaceUpdateOneRequiredWithoutSubscriptionsNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateInput = {
@@ -566,6 +610,8 @@ export type AgencySubscriptionUncheckedUpdateInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -583,6 +629,7 @@ export type AgencySubscriptionUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionCreateManyInput = {
@@ -592,6 +639,8 @@ export type AgencySubscriptionCreateManyInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -615,6 +664,8 @@ export type AgencySubscriptionUpdateManyMutationInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -638,6 +689,8 @@ export type AgencySubscriptionUncheckedUpdateManyInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -677,6 +730,8 @@ export type AgencySubscriptionCountOrderByAggregateInput = {
   planKey?: Prisma.SortOrder
   planName?: Prisma.SortOrder
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -696,6 +751,8 @@ export type AgencySubscriptionCountOrderByAggregateInput = {
 
 export type AgencySubscriptionAvgOrderByAggregateInput = {
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   priceScheduleVersion?: Prisma.SortOrder
   currentPlanVersion?: Prisma.SortOrder
@@ -709,6 +766,8 @@ export type AgencySubscriptionMaxOrderByAggregateInput = {
   planKey?: Prisma.SortOrder
   planName?: Prisma.SortOrder
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -733,6 +792,8 @@ export type AgencySubscriptionMinOrderByAggregateInput = {
   planKey?: Prisma.SortOrder
   planName?: Prisma.SortOrder
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   currency?: Prisma.SortOrder
   priceScheduleId?: Prisma.SortOrder
@@ -752,10 +813,17 @@ export type AgencySubscriptionMinOrderByAggregateInput = {
 
 export type AgencySubscriptionSumOrderByAggregateInput = {
   quotaCredits?: Prisma.SortOrder
+  checkInEventLimit?: Prisma.SortOrder
+  checkInGuestCapacity?: Prisma.SortOrder
   priceMinor?: Prisma.SortOrder
   priceScheduleVersion?: Prisma.SortOrder
   currentPlanVersion?: Prisma.SortOrder
   periodDays?: Prisma.SortOrder
+}
+
+export type AgencySubscriptionScalarRelationFilter = {
+  is?: Prisma.AgencySubscriptionWhereInput
+  isNot?: Prisma.AgencySubscriptionWhereInput
 }
 
 export type AgencySubscriptionCreateNestedManyWithoutWorkspaceInput = {
@@ -862,6 +930,20 @@ export type AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput = {
   deleteMany?: Prisma.AgencySubscriptionScalarWhereInput | Prisma.AgencySubscriptionScalarWhereInput[]
 }
 
+export type AgencySubscriptionCreateNestedOneWithoutCheckInActivationsInput = {
+  create?: Prisma.XOR<Prisma.AgencySubscriptionCreateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedCreateWithoutCheckInActivationsInput>
+  connectOrCreate?: Prisma.AgencySubscriptionCreateOrConnectWithoutCheckInActivationsInput
+  connect?: Prisma.AgencySubscriptionWhereUniqueInput
+}
+
+export type AgencySubscriptionUpdateOneRequiredWithoutCheckInActivationsNestedInput = {
+  create?: Prisma.XOR<Prisma.AgencySubscriptionCreateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedCreateWithoutCheckInActivationsInput>
+  connectOrCreate?: Prisma.AgencySubscriptionCreateOrConnectWithoutCheckInActivationsInput
+  upsert?: Prisma.AgencySubscriptionUpsertWithoutCheckInActivationsInput
+  connect?: Prisma.AgencySubscriptionWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.AgencySubscriptionUpdateToOneWithWhereWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUpdateWithoutCheckInActivationsInput>, Prisma.AgencySubscriptionUncheckedUpdateWithoutCheckInActivationsInput>
+}
+
 export type AgencySubscriptionCreateNestedOneWithoutQuotaReservationsInput = {
   create?: Prisma.XOR<Prisma.AgencySubscriptionCreateWithoutQuotaReservationsInput, Prisma.AgencySubscriptionUncheckedCreateWithoutQuotaReservationsInput>
   connectOrCreate?: Prisma.AgencySubscriptionCreateOrConnectWithoutQuotaReservationsInput
@@ -884,6 +966,8 @@ export type AgencySubscriptionCreateWithoutWorkspaceInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -901,6 +985,7 @@ export type AgencySubscriptionCreateWithoutWorkspaceInput = {
   renewalOf?: Prisma.AgencySubscriptionCreateNestedOneWithoutRenewedPeriodsInput
   renewedPeriods?: Prisma.AgencySubscriptionCreateNestedManyWithoutRenewalOfInput
   quotaReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionUncheckedCreateWithoutWorkspaceInput = {
@@ -909,6 +994,8 @@ export type AgencySubscriptionUncheckedCreateWithoutWorkspaceInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -926,6 +1013,7 @@ export type AgencySubscriptionUncheckedCreateWithoutWorkspaceInput = {
   createdAt?: Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedCreateNestedManyWithoutRenewalOfInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionCreateOrConnectWithoutWorkspaceInput = {
@@ -964,6 +1052,8 @@ export type AgencySubscriptionScalarWhereInput = {
   planKey?: Prisma.StringFilter<"AgencySubscription"> | string
   planName?: Prisma.StringFilter<"AgencySubscription"> | string
   quotaCredits?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInEventLimit?: Prisma.IntFilter<"AgencySubscription"> | number
+  checkInGuestCapacity?: Prisma.IntFilter<"AgencySubscription"> | number
   priceMinor?: Prisma.IntFilter<"AgencySubscription"> | number
   currency?: Prisma.StringFilter<"AgencySubscription"> | string
   priceScheduleId?: Prisma.UuidFilter<"AgencySubscription"> | string
@@ -987,6 +1077,8 @@ export type AgencySubscriptionCreateWithoutRenewedPeriodsInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1004,6 +1096,7 @@ export type AgencySubscriptionCreateWithoutRenewedPeriodsInput = {
   renewalOf?: Prisma.AgencySubscriptionCreateNestedOneWithoutRenewedPeriodsInput
   workspace: Prisma.AgencyWorkspaceCreateNestedOneWithoutSubscriptionsInput
   quotaReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionUncheckedCreateWithoutRenewedPeriodsInput = {
@@ -1013,6 +1106,8 @@ export type AgencySubscriptionUncheckedCreateWithoutRenewedPeriodsInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1029,6 +1124,7 @@ export type AgencySubscriptionUncheckedCreateWithoutRenewedPeriodsInput = {
   endsAt?: Date | string | null
   createdAt?: Date | string
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionCreateOrConnectWithoutRenewedPeriodsInput = {
@@ -1042,6 +1138,8 @@ export type AgencySubscriptionCreateWithoutRenewalOfInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1059,6 +1157,7 @@ export type AgencySubscriptionCreateWithoutRenewalOfInput = {
   renewedPeriods?: Prisma.AgencySubscriptionCreateNestedManyWithoutRenewalOfInput
   workspace: Prisma.AgencyWorkspaceCreateNestedOneWithoutSubscriptionsInput
   quotaReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionUncheckedCreateWithoutRenewalOfInput = {
@@ -1068,6 +1167,8 @@ export type AgencySubscriptionUncheckedCreateWithoutRenewalOfInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1084,6 +1185,7 @@ export type AgencySubscriptionUncheckedCreateWithoutRenewalOfInput = {
   createdAt?: Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedCreateNestedManyWithoutRenewalOfInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutSubscriptionInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionCreateOrConnectWithoutRenewalOfInput = {
@@ -1113,6 +1215,8 @@ export type AgencySubscriptionUpdateWithoutRenewedPeriodsInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1130,6 +1234,7 @@ export type AgencySubscriptionUpdateWithoutRenewedPeriodsInput = {
   renewalOf?: Prisma.AgencySubscriptionUpdateOneWithoutRenewedPeriodsNestedInput
   workspace?: Prisma.AgencyWorkspaceUpdateOneRequiredWithoutSubscriptionsNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateWithoutRenewedPeriodsInput = {
@@ -1139,6 +1244,8 @@ export type AgencySubscriptionUncheckedUpdateWithoutRenewedPeriodsInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1155,6 +1262,7 @@ export type AgencySubscriptionUncheckedUpdateWithoutRenewedPeriodsInput = {
   endsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUpsertWithWhereUniqueWithoutRenewalOfInput = {
@@ -1173,12 +1281,14 @@ export type AgencySubscriptionUpdateManyWithWhereWithoutRenewalOfInput = {
   data: Prisma.XOR<Prisma.AgencySubscriptionUpdateManyMutationInput, Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfInput>
 }
 
-export type AgencySubscriptionCreateWithoutQuotaReservationsInput = {
+export type AgencySubscriptionCreateWithoutCheckInActivationsInput = {
   id?: string
   planPackId: string
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1196,15 +1306,18 @@ export type AgencySubscriptionCreateWithoutQuotaReservationsInput = {
   renewalOf?: Prisma.AgencySubscriptionCreateNestedOneWithoutRenewedPeriodsInput
   renewedPeriods?: Prisma.AgencySubscriptionCreateNestedManyWithoutRenewalOfInput
   workspace: Prisma.AgencyWorkspaceCreateNestedOneWithoutSubscriptionsInput
+  quotaReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutSubscriptionInput
 }
 
-export type AgencySubscriptionUncheckedCreateWithoutQuotaReservationsInput = {
+export type AgencySubscriptionUncheckedCreateWithoutCheckInActivationsInput = {
   id?: string
   workspaceId: string
   planPackId: string
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1221,6 +1334,135 @@ export type AgencySubscriptionUncheckedCreateWithoutQuotaReservationsInput = {
   endsAt?: Date | string | null
   createdAt?: Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedCreateNestedManyWithoutRenewalOfInput
+  quotaReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutSubscriptionInput
+}
+
+export type AgencySubscriptionCreateOrConnectWithoutCheckInActivationsInput = {
+  where: Prisma.AgencySubscriptionWhereUniqueInput
+  create: Prisma.XOR<Prisma.AgencySubscriptionCreateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedCreateWithoutCheckInActivationsInput>
+}
+
+export type AgencySubscriptionUpsertWithoutCheckInActivationsInput = {
+  update: Prisma.XOR<Prisma.AgencySubscriptionUpdateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedUpdateWithoutCheckInActivationsInput>
+  create: Prisma.XOR<Prisma.AgencySubscriptionCreateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedCreateWithoutCheckInActivationsInput>
+  where?: Prisma.AgencySubscriptionWhereInput
+}
+
+export type AgencySubscriptionUpdateToOneWithWhereWithoutCheckInActivationsInput = {
+  where?: Prisma.AgencySubscriptionWhereInput
+  data: Prisma.XOR<Prisma.AgencySubscriptionUpdateWithoutCheckInActivationsInput, Prisma.AgencySubscriptionUncheckedUpdateWithoutCheckInActivationsInput>
+}
+
+export type AgencySubscriptionUpdateWithoutCheckInActivationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  planPackId?: Prisma.StringFieldUpdateOperationsInput | string
+  planKey?: Prisma.StringFieldUpdateOperationsInput | string
+  planName?: Prisma.StringFieldUpdateOperationsInput | string
+  quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
+  priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
+  priceScheduleVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  currentPlanVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  periodDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  status?: Prisma.EnumAgencySubscriptionStatusFieldUpdateOperationsInput | $Enums.AgencySubscriptionStatus
+  paymentOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billingPeriodStart?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  billingPeriodEnd?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  startsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  endsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  renewalOf?: Prisma.AgencySubscriptionUpdateOneWithoutRenewedPeriodsNestedInput
+  renewedPeriods?: Prisma.AgencySubscriptionUpdateManyWithoutRenewalOfNestedInput
+  workspace?: Prisma.AgencyWorkspaceUpdateOneRequiredWithoutSubscriptionsNestedInput
+  quotaReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutSubscriptionNestedInput
+}
+
+export type AgencySubscriptionUncheckedUpdateWithoutCheckInActivationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  workspaceId?: Prisma.StringFieldUpdateOperationsInput | string
+  planPackId?: Prisma.StringFieldUpdateOperationsInput | string
+  planKey?: Prisma.StringFieldUpdateOperationsInput | string
+  planName?: Prisma.StringFieldUpdateOperationsInput | string
+  quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
+  priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
+  currency?: Prisma.StringFieldUpdateOperationsInput | string
+  priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
+  priceScheduleVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  currentPlanVersion?: Prisma.IntFieldUpdateOperationsInput | number
+  periodDays?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  renewalOfId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumAgencySubscriptionStatusFieldUpdateOperationsInput | $Enums.AgencySubscriptionStatus
+  paymentOrderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  billingPeriodStart?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  billingPeriodEnd?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  startsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  endsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  renewedPeriods?: Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput
+  quotaReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutSubscriptionNestedInput
+}
+
+export type AgencySubscriptionCreateWithoutQuotaReservationsInput = {
+  id?: string
+  planPackId: string
+  planKey: string
+  planName: string
+  quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
+  priceMinor: number
+  currency: string
+  priceScheduleId: string
+  priceScheduleVersion: number
+  currentPlanVersion?: number
+  periodDays?: number | null
+  status?: $Enums.AgencySubscriptionStatus
+  paymentOrderId?: string | null
+  paymentId?: string | null
+  billingPeriodStart?: Date | string | null
+  billingPeriodEnd?: Date | string | null
+  startsAt?: Date | string | null
+  endsAt?: Date | string | null
+  createdAt?: Date | string
+  renewalOf?: Prisma.AgencySubscriptionCreateNestedOneWithoutRenewedPeriodsInput
+  renewedPeriods?: Prisma.AgencySubscriptionCreateNestedManyWithoutRenewalOfInput
+  workspace: Prisma.AgencyWorkspaceCreateNestedOneWithoutSubscriptionsInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutSubscriptionInput
+}
+
+export type AgencySubscriptionUncheckedCreateWithoutQuotaReservationsInput = {
+  id?: string
+  workspaceId: string
+  planPackId: string
+  planKey: string
+  planName: string
+  quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
+  priceMinor: number
+  currency: string
+  priceScheduleId: string
+  priceScheduleVersion: number
+  currentPlanVersion?: number
+  periodDays?: number | null
+  renewalOfId?: string | null
+  status?: $Enums.AgencySubscriptionStatus
+  paymentOrderId?: string | null
+  paymentId?: string | null
+  billingPeriodStart?: Date | string | null
+  billingPeriodEnd?: Date | string | null
+  startsAt?: Date | string | null
+  endsAt?: Date | string | null
+  createdAt?: Date | string
+  renewedPeriods?: Prisma.AgencySubscriptionUncheckedCreateNestedManyWithoutRenewalOfInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutSubscriptionInput
 }
 
 export type AgencySubscriptionCreateOrConnectWithoutQuotaReservationsInput = {
@@ -1245,6 +1487,8 @@ export type AgencySubscriptionUpdateWithoutQuotaReservationsInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1262,6 +1506,7 @@ export type AgencySubscriptionUpdateWithoutQuotaReservationsInput = {
   renewalOf?: Prisma.AgencySubscriptionUpdateOneWithoutRenewedPeriodsNestedInput
   renewedPeriods?: Prisma.AgencySubscriptionUpdateManyWithoutRenewalOfNestedInput
   workspace?: Prisma.AgencyWorkspaceUpdateOneRequiredWithoutSubscriptionsNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateWithoutQuotaReservationsInput = {
@@ -1271,6 +1516,8 @@ export type AgencySubscriptionUncheckedUpdateWithoutQuotaReservationsInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1287,6 +1534,7 @@ export type AgencySubscriptionUncheckedUpdateWithoutQuotaReservationsInput = {
   endsAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionCreateManyWorkspaceInput = {
@@ -1295,6 +1543,8 @@ export type AgencySubscriptionCreateManyWorkspaceInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1318,6 +1568,8 @@ export type AgencySubscriptionUpdateWithoutWorkspaceInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1335,6 +1587,7 @@ export type AgencySubscriptionUpdateWithoutWorkspaceInput = {
   renewalOf?: Prisma.AgencySubscriptionUpdateOneWithoutRenewedPeriodsNestedInput
   renewedPeriods?: Prisma.AgencySubscriptionUpdateManyWithoutRenewalOfNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateWithoutWorkspaceInput = {
@@ -1343,6 +1596,8 @@ export type AgencySubscriptionUncheckedUpdateWithoutWorkspaceInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1360,6 +1615,7 @@ export type AgencySubscriptionUncheckedUpdateWithoutWorkspaceInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateManyWithoutWorkspaceInput = {
@@ -1368,6 +1624,8 @@ export type AgencySubscriptionUncheckedUpdateManyWithoutWorkspaceInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1392,6 +1650,8 @@ export type AgencySubscriptionCreateManyRenewalOfInput = {
   planKey: string
   planName: string
   quotaCredits: number
+  checkInEventLimit?: number
+  checkInGuestCapacity?: number
   priceMinor: number
   currency: string
   priceScheduleId: string
@@ -1414,6 +1674,8 @@ export type AgencySubscriptionUpdateWithoutRenewalOfInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1431,6 +1693,7 @@ export type AgencySubscriptionUpdateWithoutRenewalOfInput = {
   renewedPeriods?: Prisma.AgencySubscriptionUpdateManyWithoutRenewalOfNestedInput
   workspace?: Prisma.AgencyWorkspaceUpdateOneRequiredWithoutSubscriptionsNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateWithoutRenewalOfInput = {
@@ -1440,6 +1703,8 @@ export type AgencySubscriptionUncheckedUpdateWithoutRenewalOfInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1456,6 +1721,7 @@ export type AgencySubscriptionUncheckedUpdateWithoutRenewalOfInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   renewedPeriods?: Prisma.AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfNestedInput
   quotaReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutSubscriptionNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutSubscriptionNestedInput
 }
 
 export type AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfInput = {
@@ -1465,6 +1731,8 @@ export type AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfInput = {
   planKey?: Prisma.StringFieldUpdateOperationsInput | string
   planName?: Prisma.StringFieldUpdateOperationsInput | string
   quotaCredits?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInEventLimit?: Prisma.IntFieldUpdateOperationsInput | number
+  checkInGuestCapacity?: Prisma.IntFieldUpdateOperationsInput | number
   priceMinor?: Prisma.IntFieldUpdateOperationsInput | number
   currency?: Prisma.StringFieldUpdateOperationsInput | string
   priceScheduleId?: Prisma.StringFieldUpdateOperationsInput | string
@@ -1489,11 +1757,13 @@ export type AgencySubscriptionUncheckedUpdateManyWithoutRenewalOfInput = {
 export type AgencySubscriptionCountOutputType = {
   renewedPeriods: number
   quotaReservations: number
+  checkInActivations: number
 }
 
 export type AgencySubscriptionCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   renewedPeriods?: boolean | AgencySubscriptionCountOutputTypeCountRenewedPeriodsArgs
   quotaReservations?: boolean | AgencySubscriptionCountOutputTypeCountQuotaReservationsArgs
+  checkInActivations?: boolean | AgencySubscriptionCountOutputTypeCountCheckInActivationsArgs
 }
 
 /**
@@ -1520,6 +1790,13 @@ export type AgencySubscriptionCountOutputTypeCountQuotaReservationsArgs<ExtArgs 
   where?: Prisma.AgencyQuotaReservationWhereInput
 }
 
+/**
+ * AgencySubscriptionCountOutputType without action
+ */
+export type AgencySubscriptionCountOutputTypeCountCheckInActivationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgencyCheckInActivationWhereInput
+}
+
 
 export type AgencySubscriptionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1528,6 +1805,8 @@ export type AgencySubscriptionSelect<ExtArgs extends runtime.Types.Extensions.In
   planKey?: boolean
   planName?: boolean
   quotaCredits?: boolean
+  checkInEventLimit?: boolean
+  checkInGuestCapacity?: boolean
   priceMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -1547,6 +1826,7 @@ export type AgencySubscriptionSelect<ExtArgs extends runtime.Types.Extensions.In
   renewedPeriods?: boolean | Prisma.AgencySubscription$renewedPeriodsArgs<ExtArgs>
   workspace?: boolean | Prisma.AgencyWorkspaceDefaultArgs<ExtArgs>
   quotaReservations?: boolean | Prisma.AgencySubscription$quotaReservationsArgs<ExtArgs>
+  checkInActivations?: boolean | Prisma.AgencySubscription$checkInActivationsArgs<ExtArgs>
   _count?: boolean | Prisma.AgencySubscriptionCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["agencySubscription"]>
 
@@ -1557,6 +1837,8 @@ export type AgencySubscriptionSelectCreateManyAndReturn<ExtArgs extends runtime.
   planKey?: boolean
   planName?: boolean
   quotaCredits?: boolean
+  checkInEventLimit?: boolean
+  checkInGuestCapacity?: boolean
   priceMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -1583,6 +1865,8 @@ export type AgencySubscriptionSelectUpdateManyAndReturn<ExtArgs extends runtime.
   planKey?: boolean
   planName?: boolean
   quotaCredits?: boolean
+  checkInEventLimit?: boolean
+  checkInGuestCapacity?: boolean
   priceMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -1609,6 +1893,8 @@ export type AgencySubscriptionSelectScalar = {
   planKey?: boolean
   planName?: boolean
   quotaCredits?: boolean
+  checkInEventLimit?: boolean
+  checkInGuestCapacity?: boolean
   priceMinor?: boolean
   currency?: boolean
   priceScheduleId?: boolean
@@ -1626,12 +1912,13 @@ export type AgencySubscriptionSelectScalar = {
   createdAt?: boolean
 }
 
-export type AgencySubscriptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "workspaceId" | "planPackId" | "planKey" | "planName" | "quotaCredits" | "priceMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "currentPlanVersion" | "periodDays" | "renewalOfId" | "status" | "paymentOrderId" | "paymentId" | "billingPeriodStart" | "billingPeriodEnd" | "startsAt" | "endsAt" | "createdAt", ExtArgs["result"]["agencySubscription"]>
+export type AgencySubscriptionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "workspaceId" | "planPackId" | "planKey" | "planName" | "quotaCredits" | "checkInEventLimit" | "checkInGuestCapacity" | "priceMinor" | "currency" | "priceScheduleId" | "priceScheduleVersion" | "currentPlanVersion" | "periodDays" | "renewalOfId" | "status" | "paymentOrderId" | "paymentId" | "billingPeriodStart" | "billingPeriodEnd" | "startsAt" | "endsAt" | "createdAt", ExtArgs["result"]["agencySubscription"]>
 export type AgencySubscriptionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   renewalOf?: boolean | Prisma.AgencySubscription$renewalOfArgs<ExtArgs>
   renewedPeriods?: boolean | Prisma.AgencySubscription$renewedPeriodsArgs<ExtArgs>
   workspace?: boolean | Prisma.AgencyWorkspaceDefaultArgs<ExtArgs>
   quotaReservations?: boolean | Prisma.AgencySubscription$quotaReservationsArgs<ExtArgs>
+  checkInActivations?: boolean | Prisma.AgencySubscription$checkInActivationsArgs<ExtArgs>
   _count?: boolean | Prisma.AgencySubscriptionCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type AgencySubscriptionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1650,6 +1937,7 @@ export type $AgencySubscriptionPayload<ExtArgs extends runtime.Types.Extensions.
     renewedPeriods: Prisma.$AgencySubscriptionPayload<ExtArgs>[]
     workspace: Prisma.$AgencyWorkspacePayload<ExtArgs>
     quotaReservations: Prisma.$AgencyQuotaReservationPayload<ExtArgs>[]
+    checkInActivations: Prisma.$AgencyCheckInActivationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1658,6 +1946,8 @@ export type $AgencySubscriptionPayload<ExtArgs extends runtime.Types.Extensions.
     planKey: string
     planName: string
     quotaCredits: number
+    checkInEventLimit: number
+    checkInGuestCapacity: number
     priceMinor: number
     currency: string
     priceScheduleId: string
@@ -2071,6 +2361,7 @@ export interface Prisma__AgencySubscriptionClient<T, Null = never, ExtArgs exten
   renewedPeriods<T extends Prisma.AgencySubscription$renewedPeriodsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgencySubscription$renewedPeriodsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencySubscriptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   workspace<T extends Prisma.AgencyWorkspaceDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgencyWorkspaceDefaultArgs<ExtArgs>>): Prisma.Prisma__AgencyWorkspaceClient<runtime.Types.Result.GetResult<Prisma.$AgencyWorkspacePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   quotaReservations<T extends Prisma.AgencySubscription$quotaReservationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgencySubscription$quotaReservationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencyQuotaReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  checkInActivations<T extends Prisma.AgencySubscription$checkInActivationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.AgencySubscription$checkInActivationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencyCheckInActivationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2106,6 +2397,8 @@ export interface AgencySubscriptionFieldRefs {
   readonly planKey: Prisma.FieldRef<"AgencySubscription", 'String'>
   readonly planName: Prisma.FieldRef<"AgencySubscription", 'String'>
   readonly quotaCredits: Prisma.FieldRef<"AgencySubscription", 'Int'>
+  readonly checkInEventLimit: Prisma.FieldRef<"AgencySubscription", 'Int'>
+  readonly checkInGuestCapacity: Prisma.FieldRef<"AgencySubscription", 'Int'>
   readonly priceMinor: Prisma.FieldRef<"AgencySubscription", 'Int'>
   readonly currency: Prisma.FieldRef<"AgencySubscription", 'String'>
   readonly priceScheduleId: Prisma.FieldRef<"AgencySubscription", 'String'>
@@ -2586,6 +2879,30 @@ export type AgencySubscription$quotaReservationsArgs<ExtArgs extends runtime.Typ
   take?: number
   skip?: number
   distinct?: Prisma.AgencyQuotaReservationScalarFieldEnum | Prisma.AgencyQuotaReservationScalarFieldEnum[]
+}
+
+/**
+ * AgencySubscription.checkInActivations
+ */
+export type AgencySubscription$checkInActivationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgencyCheckInActivation
+   */
+  select?: Prisma.AgencyCheckInActivationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgencyCheckInActivation
+   */
+  omit?: Prisma.AgencyCheckInActivationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgencyCheckInActivationInclude<ExtArgs> | null
+  where?: Prisma.AgencyCheckInActivationWhereInput
+  orderBy?: Prisma.AgencyCheckInActivationOrderByWithRelationInput | Prisma.AgencyCheckInActivationOrderByWithRelationInput[]
+  cursor?: Prisma.AgencyCheckInActivationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgencyCheckInActivationScalarFieldEnum | Prisma.AgencyCheckInActivationScalarFieldEnum[]
 }
 
 /**

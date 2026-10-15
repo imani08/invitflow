@@ -31,7 +31,9 @@ model CreditPack {
   key              String        @db.VarChar(60)
   name             String        @db.VarChar(100)
     credits          Int
-    periodDays       Int?          @map("period_days")
+  periodDays       Int?          @map("period_days")
+  checkInEvents    Int           @default(0) @map("checkin_events")
+  checkInGuestCapacity Int       @default(0) @map("checkin_guest_capacity")
   priceMinor       Int           @map("price_minor")
   currency         String        @db.Char(3)
   description      String        @default("") @db.VarChar(1000)

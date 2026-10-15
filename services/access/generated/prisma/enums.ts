@@ -33,3 +33,20 @@ export const AccessScanOutcome = {
 } as const
 
 export type AccessScanOutcome = (typeof AccessScanOutcome)[keyof typeof AccessScanOutcome]
+
+
+export const CheckInLicenseSource = {
+  PERSONAL: 'PERSONAL',
+  AGENCY: 'AGENCY'
+} as const
+
+export type CheckInLicenseSource = (typeof CheckInLicenseSource)[keyof typeof CheckInLicenseSource]
+
+
+export const CheckInLicenseStatus = {
+  UNASSIGNED: 'UNASSIGNED',
+  ACTIVE: 'ACTIVE',
+  REVOKED: 'REVOKED'
+} as const
+
+export type CheckInLicenseStatus = (typeof CheckInLicenseStatus)[keyof typeof CheckInLicenseStatus]

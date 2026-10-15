@@ -4,6 +4,7 @@ export const EVENT_JOURNEY_STEPS = [
   { id: 'designs', label: 'Design et textes' },
   { id: 'guests', label: 'Invités' },
   { id: 'invitations', label: 'Invitations' },
+  { id: 'checkin', label: 'Pointage' },
   { id: 'thanks', label: 'Merci' },
 ];
 
@@ -20,12 +21,12 @@ export function deriveEventJourneyStatuses({ ceremonyCount, guestCount, designCo
   return {
     event: 'COMPLETED',
     ceremonies: ceremonyCount === null ? 'UNKNOWN' : ceremonyCount > 0 ? 'COMPLETED' : ceremonyRequired ? 'NOT_STARTED' : 'OPTIONAL',
-    guests: guestCount === null ? 'UNKNOWN' : guestCount > 0 ? 'IN_PROGRESS' : 'NOT_STARTED',
+    guests: guestCount === null ? 'UNKNOWN' : guestCount > 0 ? 'COMPLETED' : 'NOT_STARTED',
     seating: 'OPTIONAL',
-    designs: designCount === null ? 'UNKNOWN' : designCount > 0 ? 'IN_PROGRESS' : 'NOT_STARTED',
+    designs: designCount === null ? 'UNKNOWN' : designCount > 0 ? 'COMPLETED' : 'NOT_STARTED',
     invitations: guestCount === null || designCount === null
       ? 'UNKNOWN'
-      : (ceremonyRequired && ceremonyCount === 0) || guestCount === 0 || designCount === 0 ? 'BLOCKED' : 'IN_PROGRESS',
+      : (ceremonyRequired && ceremonyCount === 0) || guestCount === 0 || designCount === 0 ? 'BLOCKED' : hasCompletedBatch ? 'COMPLETED' : 'IN_PROGRESS',
     thanks: hasCompletedBatch === null ? 'UNKNOWN' : hasCompletedBatch ? 'READY' : 'BLOCKED',
     checkin: hasCompletedBatch === null ? 'UNKNOWN' : hasCompletedBatch ? 'READY' : 'BLOCKED',
   };

@@ -257,6 +257,7 @@ export type EventWhereInput = {
   ceremonies?: Prisma.CeremonyListRelationFilter
   agencyWorkspace?: Prisma.XOR<Prisma.AgencyWorkspaceNullableScalarRelationFilter, Prisma.AgencyWorkspaceWhereInput> | null
   agencyUsageReservations?: Prisma.AgencyQuotaReservationListRelationFilter
+  checkInActivations?: Prisma.AgencyCheckInActivationListRelationFilter
   agencyClientEvents?: Prisma.AgencyClientEventListRelationFilter
 }
 
@@ -278,6 +279,7 @@ export type EventOrderByWithRelationInput = {
   ceremonies?: Prisma.CeremonyOrderByRelationAggregateInput
   agencyWorkspace?: Prisma.AgencyWorkspaceOrderByWithRelationInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationOrderByRelationAggregateInput
+  checkInActivations?: Prisma.AgencyCheckInActivationOrderByRelationAggregateInput
   agencyClientEvents?: Prisma.AgencyClientEventOrderByRelationAggregateInput
 }
 
@@ -303,6 +305,7 @@ export type EventWhereUniqueInput = Prisma.AtLeast<{
   ceremonies?: Prisma.CeremonyListRelationFilter
   agencyWorkspace?: Prisma.XOR<Prisma.AgencyWorkspaceNullableScalarRelationFilter, Prisma.AgencyWorkspaceWhereInput> | null
   agencyUsageReservations?: Prisma.AgencyQuotaReservationListRelationFilter
+  checkInActivations?: Prisma.AgencyCheckInActivationListRelationFilter
   agencyClientEvents?: Prisma.AgencyClientEventListRelationFilter
 }, "id" | "id_agencyWorkspaceId">
 
@@ -363,6 +366,7 @@ export type EventCreateInput = {
   ceremonies?: Prisma.CeremonyCreateNestedManyWithoutEventInput
   agencyWorkspace?: Prisma.AgencyWorkspaceCreateNestedOneWithoutEventsInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventCreateNestedManyWithoutEventInput
 }
 
@@ -383,6 +387,7 @@ export type EventUncheckedCreateInput = {
   agencyWorkspaceId?: string | null
   ceremonies?: Prisma.CeremonyUncheckedCreateNestedManyWithoutEventInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedCreateNestedManyWithoutEventInput
 }
 
@@ -403,6 +408,7 @@ export type EventUpdateInput = {
   ceremonies?: Prisma.CeremonyUpdateManyWithoutEventNestedInput
   agencyWorkspace?: Prisma.AgencyWorkspaceUpdateOneWithoutEventsNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUpdateManyWithoutEventNestedInput
 }
 
@@ -423,6 +429,7 @@ export type EventUncheckedUpdateInput = {
   agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ceremonies?: Prisma.CeremonyUncheckedUpdateManyWithoutEventNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedUpdateManyWithoutEventNestedInput
 }
 
@@ -637,6 +644,20 @@ export type EventUpdateOneRequiredWithoutAgencyClientEventsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.EventUpdateToOneWithWhereWithoutAgencyClientEventsInput, Prisma.EventUpdateWithoutAgencyClientEventsInput>, Prisma.EventUncheckedUpdateWithoutAgencyClientEventsInput>
 }
 
+export type EventCreateNestedOneWithoutCheckInActivationsInput = {
+  create?: Prisma.XOR<Prisma.EventCreateWithoutCheckInActivationsInput, Prisma.EventUncheckedCreateWithoutCheckInActivationsInput>
+  connectOrCreate?: Prisma.EventCreateOrConnectWithoutCheckInActivationsInput
+  connect?: Prisma.EventWhereUniqueInput
+}
+
+export type EventUpdateOneRequiredWithoutCheckInActivationsNestedInput = {
+  create?: Prisma.XOR<Prisma.EventCreateWithoutCheckInActivationsInput, Prisma.EventUncheckedCreateWithoutCheckInActivationsInput>
+  connectOrCreate?: Prisma.EventCreateOrConnectWithoutCheckInActivationsInput
+  upsert?: Prisma.EventUpsertWithoutCheckInActivationsInput
+  connect?: Prisma.EventWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.EventUpdateToOneWithWhereWithoutCheckInActivationsInput, Prisma.EventUpdateWithoutCheckInActivationsInput>, Prisma.EventUncheckedUpdateWithoutCheckInActivationsInput>
+}
+
 export type EventCreateNestedOneWithoutAgencyUsageReservationsInput = {
   create?: Prisma.XOR<Prisma.EventCreateWithoutAgencyUsageReservationsInput, Prisma.EventUncheckedCreateWithoutAgencyUsageReservationsInput>
   connectOrCreate?: Prisma.EventCreateOrConnectWithoutAgencyUsageReservationsInput
@@ -667,6 +688,7 @@ export type EventCreateWithoutCeremoniesInput = {
   updatedAt?: Date | string
   agencyWorkspace?: Prisma.AgencyWorkspaceCreateNestedOneWithoutEventsInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventCreateNestedManyWithoutEventInput
 }
 
@@ -686,6 +708,7 @@ export type EventUncheckedCreateWithoutCeremoniesInput = {
   updatedAt?: Date | string
   agencyWorkspaceId?: string | null
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedCreateNestedManyWithoutEventInput
 }
 
@@ -721,6 +744,7 @@ export type EventUpdateWithoutCeremoniesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agencyWorkspace?: Prisma.AgencyWorkspaceUpdateOneWithoutEventsNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUpdateManyWithoutEventNestedInput
 }
 
@@ -740,6 +764,7 @@ export type EventUncheckedUpdateWithoutCeremoniesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedUpdateManyWithoutEventNestedInput
 }
 
@@ -759,6 +784,7 @@ export type EventCreateWithoutAgencyWorkspaceInput = {
   updatedAt?: Date | string
   ceremonies?: Prisma.CeremonyCreateNestedManyWithoutEventInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventCreateNestedManyWithoutEventInput
 }
 
@@ -778,6 +804,7 @@ export type EventUncheckedCreateWithoutAgencyWorkspaceInput = {
   updatedAt?: Date | string
   ceremonies?: Prisma.CeremonyUncheckedCreateNestedManyWithoutEventInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedCreateNestedManyWithoutEventInput
 }
 
@@ -844,6 +871,7 @@ export type EventCreateWithoutAgencyClientEventsInput = {
   ceremonies?: Prisma.CeremonyCreateNestedManyWithoutEventInput
   agencyWorkspace?: Prisma.AgencyWorkspaceCreateNestedOneWithoutEventsInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutEventInput
 }
 
 export type EventUncheckedCreateWithoutAgencyClientEventsInput = {
@@ -863,6 +891,7 @@ export type EventUncheckedCreateWithoutAgencyClientEventsInput = {
   agencyWorkspaceId?: string | null
   ceremonies?: Prisma.CeremonyUncheckedCreateNestedManyWithoutEventInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutEventInput
 }
 
 export type EventCreateOrConnectWithoutAgencyClientEventsInput = {
@@ -898,6 +927,7 @@ export type EventUpdateWithoutAgencyClientEventsInput = {
   ceremonies?: Prisma.CeremonyUpdateManyWithoutEventNestedInput
   agencyWorkspace?: Prisma.AgencyWorkspaceUpdateOneWithoutEventsNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutEventNestedInput
 }
 
 export type EventUncheckedUpdateWithoutAgencyClientEventsInput = {
@@ -917,6 +947,103 @@ export type EventUncheckedUpdateWithoutAgencyClientEventsInput = {
   agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ceremonies?: Prisma.CeremonyUncheckedUpdateManyWithoutEventNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutEventNestedInput
+}
+
+export type EventCreateWithoutCheckInActivationsInput = {
+  id?: string
+  ownerSubject: string
+  name: string
+  description?: string | null
+  coupleNames?: string | null
+  invitationText?: string | null
+  eventType: string
+  status?: $Enums.EventStatus
+  startAt?: Date | string | null
+  endAt?: Date | string | null
+  timezone?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ceremonies?: Prisma.CeremonyCreateNestedManyWithoutEventInput
+  agencyWorkspace?: Prisma.AgencyWorkspaceCreateNestedOneWithoutEventsInput
+  agencyUsageReservations?: Prisma.AgencyQuotaReservationCreateNestedManyWithoutEventInput
+  agencyClientEvents?: Prisma.AgencyClientEventCreateNestedManyWithoutEventInput
+}
+
+export type EventUncheckedCreateWithoutCheckInActivationsInput = {
+  id?: string
+  ownerSubject: string
+  name: string
+  description?: string | null
+  coupleNames?: string | null
+  invitationText?: string | null
+  eventType: string
+  status?: $Enums.EventStatus
+  startAt?: Date | string | null
+  endAt?: Date | string | null
+  timezone?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  agencyWorkspaceId?: string | null
+  ceremonies?: Prisma.CeremonyUncheckedCreateNestedManyWithoutEventInput
+  agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedCreateNestedManyWithoutEventInput
+  agencyClientEvents?: Prisma.AgencyClientEventUncheckedCreateNestedManyWithoutEventInput
+}
+
+export type EventCreateOrConnectWithoutCheckInActivationsInput = {
+  where: Prisma.EventWhereUniqueInput
+  create: Prisma.XOR<Prisma.EventCreateWithoutCheckInActivationsInput, Prisma.EventUncheckedCreateWithoutCheckInActivationsInput>
+}
+
+export type EventUpsertWithoutCheckInActivationsInput = {
+  update: Prisma.XOR<Prisma.EventUpdateWithoutCheckInActivationsInput, Prisma.EventUncheckedUpdateWithoutCheckInActivationsInput>
+  create: Prisma.XOR<Prisma.EventCreateWithoutCheckInActivationsInput, Prisma.EventUncheckedCreateWithoutCheckInActivationsInput>
+  where?: Prisma.EventWhereInput
+}
+
+export type EventUpdateToOneWithWhereWithoutCheckInActivationsInput = {
+  where?: Prisma.EventWhereInput
+  data: Prisma.XOR<Prisma.EventUpdateWithoutCheckInActivationsInput, Prisma.EventUncheckedUpdateWithoutCheckInActivationsInput>
+}
+
+export type EventUpdateWithoutCheckInActivationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coupleNames?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitationText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  eventType?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus
+  startAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ceremonies?: Prisma.CeremonyUpdateManyWithoutEventNestedInput
+  agencyWorkspace?: Prisma.AgencyWorkspaceUpdateOneWithoutEventsNestedInput
+  agencyUsageReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutEventNestedInput
+  agencyClientEvents?: Prisma.AgencyClientEventUpdateManyWithoutEventNestedInput
+}
+
+export type EventUncheckedUpdateWithoutCheckInActivationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  coupleNames?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitationText?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  eventType?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumEventStatusFieldUpdateOperationsInput | $Enums.EventStatus
+  startAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ceremonies?: Prisma.CeremonyUncheckedUpdateManyWithoutEventNestedInput
+  agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutEventNestedInput
+  agencyClientEvents?: Prisma.AgencyClientEventUncheckedUpdateManyWithoutEventNestedInput
 }
 
 export type EventCreateWithoutAgencyUsageReservationsInput = {
@@ -935,6 +1062,7 @@ export type EventCreateWithoutAgencyUsageReservationsInput = {
   updatedAt?: Date | string
   ceremonies?: Prisma.CeremonyCreateNestedManyWithoutEventInput
   agencyWorkspace?: Prisma.AgencyWorkspaceCreateNestedOneWithoutEventsInput
+  checkInActivations?: Prisma.AgencyCheckInActivationCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventCreateNestedManyWithoutEventInput
 }
 
@@ -954,6 +1082,7 @@ export type EventUncheckedCreateWithoutAgencyUsageReservationsInput = {
   updatedAt?: Date | string
   agencyWorkspaceId?: string | null
   ceremonies?: Prisma.CeremonyUncheckedCreateNestedManyWithoutEventInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedCreateNestedManyWithoutEventInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedCreateNestedManyWithoutEventInput
 }
 
@@ -989,6 +1118,7 @@ export type EventUpdateWithoutAgencyUsageReservationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ceremonies?: Prisma.CeremonyUpdateManyWithoutEventNestedInput
   agencyWorkspace?: Prisma.AgencyWorkspaceUpdateOneWithoutEventsNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUpdateManyWithoutEventNestedInput
 }
 
@@ -1008,6 +1138,7 @@ export type EventUncheckedUpdateWithoutAgencyUsageReservationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   agencyWorkspaceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ceremonies?: Prisma.CeremonyUncheckedUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedUpdateManyWithoutEventNestedInput
 }
 
@@ -1043,6 +1174,7 @@ export type EventUpdateWithoutAgencyWorkspaceInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ceremonies?: Prisma.CeremonyUpdateManyWithoutEventNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUpdateManyWithoutEventNestedInput
 }
 
@@ -1062,6 +1194,7 @@ export type EventUncheckedUpdateWithoutAgencyWorkspaceInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   ceremonies?: Prisma.CeremonyUncheckedUpdateManyWithoutEventNestedInput
   agencyUsageReservations?: Prisma.AgencyQuotaReservationUncheckedUpdateManyWithoutEventNestedInput
+  checkInActivations?: Prisma.AgencyCheckInActivationUncheckedUpdateManyWithoutEventNestedInput
   agencyClientEvents?: Prisma.AgencyClientEventUncheckedUpdateManyWithoutEventNestedInput
 }
 
@@ -1089,12 +1222,14 @@ export type EventUncheckedUpdateManyWithoutAgencyWorkspaceInput = {
 export type EventCountOutputType = {
   ceremonies: number
   agencyUsageReservations: number
+  checkInActivations: number
   agencyClientEvents: number
 }
 
 export type EventCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ceremonies?: boolean | EventCountOutputTypeCountCeremoniesArgs
   agencyUsageReservations?: boolean | EventCountOutputTypeCountAgencyUsageReservationsArgs
+  checkInActivations?: boolean | EventCountOutputTypeCountCheckInActivationsArgs
   agencyClientEvents?: boolean | EventCountOutputTypeCountAgencyClientEventsArgs
 }
 
@@ -1125,6 +1260,13 @@ export type EventCountOutputTypeCountAgencyUsageReservationsArgs<ExtArgs extends
 /**
  * EventCountOutputType without action
  */
+export type EventCountOutputTypeCountCheckInActivationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.AgencyCheckInActivationWhereInput
+}
+
+/**
+ * EventCountOutputType without action
+ */
 export type EventCountOutputTypeCountAgencyClientEventsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.AgencyClientEventWhereInput
 }
@@ -1148,6 +1290,7 @@ export type EventSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   ceremonies?: boolean | Prisma.Event$ceremoniesArgs<ExtArgs>
   agencyWorkspace?: boolean | Prisma.Event$agencyWorkspaceArgs<ExtArgs>
   agencyUsageReservations?: boolean | Prisma.Event$agencyUsageReservationsArgs<ExtArgs>
+  checkInActivations?: boolean | Prisma.Event$checkInActivationsArgs<ExtArgs>
   agencyClientEvents?: boolean | Prisma.Event$agencyClientEventsArgs<ExtArgs>
   _count?: boolean | Prisma.EventCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["event"]>
@@ -1210,6 +1353,7 @@ export type EventInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   ceremonies?: boolean | Prisma.Event$ceremoniesArgs<ExtArgs>
   agencyWorkspace?: boolean | Prisma.Event$agencyWorkspaceArgs<ExtArgs>
   agencyUsageReservations?: boolean | Prisma.Event$agencyUsageReservationsArgs<ExtArgs>
+  checkInActivations?: boolean | Prisma.Event$checkInActivationsArgs<ExtArgs>
   agencyClientEvents?: boolean | Prisma.Event$agencyClientEventsArgs<ExtArgs>
   _count?: boolean | Prisma.EventCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -1226,6 +1370,7 @@ export type $EventPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
     ceremonies: Prisma.$CeremonyPayload<ExtArgs>[]
     agencyWorkspace: Prisma.$AgencyWorkspacePayload<ExtArgs> | null
     agencyUsageReservations: Prisma.$AgencyQuotaReservationPayload<ExtArgs>[]
+    checkInActivations: Prisma.$AgencyCheckInActivationPayload<ExtArgs>[]
     agencyClientEvents: Prisma.$AgencyClientEventPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1640,6 +1785,7 @@ export interface Prisma__EventClient<T, Null = never, ExtArgs extends runtime.Ty
   ceremonies<T extends Prisma.Event$ceremoniesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Event$ceremoniesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CeremonyPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agencyWorkspace<T extends Prisma.Event$agencyWorkspaceArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Event$agencyWorkspaceArgs<ExtArgs>>): Prisma.Prisma__AgencyWorkspaceClient<runtime.Types.Result.GetResult<Prisma.$AgencyWorkspacePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   agencyUsageReservations<T extends Prisma.Event$agencyUsageReservationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Event$agencyUsageReservationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencyQuotaReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  checkInActivations<T extends Prisma.Event$checkInActivationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Event$checkInActivationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencyCheckInActivationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   agencyClientEvents<T extends Prisma.Event$agencyClientEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Event$agencyClientEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AgencyClientEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2149,6 +2295,30 @@ export type Event$agencyUsageReservationsArgs<ExtArgs extends runtime.Types.Exte
   take?: number
   skip?: number
   distinct?: Prisma.AgencyQuotaReservationScalarFieldEnum | Prisma.AgencyQuotaReservationScalarFieldEnum[]
+}
+
+/**
+ * Event.checkInActivations
+ */
+export type Event$checkInActivationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the AgencyCheckInActivation
+   */
+  select?: Prisma.AgencyCheckInActivationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the AgencyCheckInActivation
+   */
+  omit?: Prisma.AgencyCheckInActivationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.AgencyCheckInActivationInclude<ExtArgs> | null
+  where?: Prisma.AgencyCheckInActivationWhereInput
+  orderBy?: Prisma.AgencyCheckInActivationOrderByWithRelationInput | Prisma.AgencyCheckInActivationOrderByWithRelationInput[]
+  cursor?: Prisma.AgencyCheckInActivationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.AgencyCheckInActivationScalarFieldEnum | Prisma.AgencyCheckInActivationScalarFieldEnum[]
 }
 
 /**

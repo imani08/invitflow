@@ -1,11 +1,12 @@
 import { BadRequestException, ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { CheckInLinkStatus } from '../generated/prisma/client.js';
 import { AccessService } from './access.service.js';
 import { ceremonyCheckInExpiry, linkExpiry } from './checkin-link-expiry.js';
 import { EventsClient } from './events-client.js';
-import { isUuid } from './env.js';
+import { isUuid, requiredEnv } from './env.js';
 import { PrismaService } from './prisma.service.js';
+import { CheckInLicenseService } from './checkin-license.service.js';
 
 type LinkInput = { label?: unknown; ceremonyIds?: unknown };
 type ScanInput = { token?: unknown; ceremonyId?: unknown; companionCount?: unknown };
@@ -13,6 +14,23 @@ type CeremonyScope = { id: string; name: string; startAt: Date; endAt: Date | nu
 const opaqueToken = /^[A-Za-z0-9_-]{43}$/;
 
 function tokenHash(token: string) { return createHash('sha256').update(token).digest('hex'); }
+function tokenCipherKey() { return createHash('sha256').update(`invitaflow-checkin-link\0${requiredEnv('INVITATIONS_INTERNAL_TOKEN')}`).digest(); }
+function encryptToken(token: string) {
+  const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', tokenCipherKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+  return `v1.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
+}
+function decryptToken(value: string | null) {
+  if (!value) return null;
+  try {
+    const [version, ivText, tagText, encryptedText] = value.split('.');
+    if (version !== 'v1' || !ivText || !tagText || !encryptedText) return null;
+    const decipher = createDecipheriv('aes-256-gcm', tokenCipherKey(), Buffer.from(ivText, 'base64url'));
+    decipher.setAuthTag(Buffer.from(tagText, 'base64url'));
+    const token = Buffer.concat([decipher.update(Buffer.from(encryptedText, 'base64url')), decipher.final()]).toString('utf8');
+    return opaqueToken.test(token) ? token : null;
+  } catch { return null; }
+}
 function safeLabel(value: unknown) {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value !== 'string' || value.trim().length > 120 || /[\u0000-\u001f\u007f]/.test(value)) throw new BadRequestException('Le repère de l’accès est invalide.');
@@ -31,7 +49,7 @@ function ceremonyFrom(value: unknown): CeremonyScope | null {
 export class CheckInLinkService {
   private readonly attempts = new Map<string, { count: number; resetAt: number }>();
 
-  constructor(private readonly prisma: PrismaService, private readonly events: EventsClient, private readonly access: AccessService) {}
+  constructor(private readonly prisma: PrismaService, private readonly events: EventsClient, private readonly access: AccessService, private readonly licenses?: CheckInLicenseService) {}
 
   async list(owner: string, eventId: string, authorization: string) {
     this.assertEventId(eventId);
@@ -41,31 +59,31 @@ export class CheckInLinkService {
       where: { eventId }, orderBy: { createdAt: 'desc' },
       include: { ceremonies: { orderBy: { startAt: 'asc' }, select: { ceremonyId: true, ceremonyName: true, startAt: true, expiresAt: true } } },
     });
-    return { items: links.map((link) => ({
-      id: link.id, label: link.label, reference: link.reference, status: link.status === CheckInLinkStatus.REVOKED ? 'REVOKED' : link.expiresAt <= now ? 'EXPIRED' : 'ACTIVE',
+    return { items: links.map((link) => {
+      const status = link.status === CheckInLinkStatus.REVOKED ? 'REVOKED' : link.expiresAt <= now ? 'EXPIRED' : 'ACTIVE';
+      return {
+      id: link.id, label: link.label, reference: link.reference, status,
       createdAt: link.createdAt, expiresAt: link.expiresAt, lastUsedAt: link.lastUsedAt,
       ceremonies: link.ceremonies,
-    })) };
+      // Only an authorized organiser receives the decrypted token, and only while it is active.
+      token: status === 'ACTIVE' ? decryptToken(link.tokenCiphertext) : null,
+    }; }) };
   }
 
   async create(owner: string, eventId: string, input: LinkInput, authorization: string) {
     this.assertEventId(eventId);
     const label = safeLabel(input.label);
+    const license = this.licenses ? await this.licenses.entitlementForEvent(owner, eventId, authorization) : null;
     const { event, ceremonies } = await this.scopeFromEvent(eventId, input.ceremonyIds, authorization);
     const timezone = typeof event['timezone'] === 'string' ? event['timezone'] : '';
-    const eventTiming = {
-      startAt: typeof event['startAt'] === 'string' ? new Date(event['startAt']) : new Date(),
-      endAt: typeof event['endAt'] === 'string' ? new Date(event['endAt']) : null,
-      timezone,
-    };
-    const expiresAt = linkExpiry(ceremonies, timezone, eventTiming);
+    const expiresAt = linkExpiry(ceremonies, timezone);
     if (expiresAt <= new Date()) throw new BadRequestException('La période de pointage de ce moment est déjà expirée. Modifiez sa date avant de créer un lien.');
     const token = randomBytes(32).toString('base64url');
     const ownerSubject = typeof event['ownerSubject'] === 'string' ? event['ownerSubject'] : owner;
     const sequence = await this.prisma.checkInLink.count({ where: { eventId } }) + 1;
     const reference = label ?? `Accès accueil ${String(sequence).padStart(2, '0')}`;
     const link = await this.prisma.checkInLink.create({ data: {
-      ownerSubject, eventId, eventName: String(event['name'] ?? 'Événement'), timezone, label, reference, tokenHash: tokenHash(token), expiresAt,
+      ownerSubject, eventId, ...(license ? { licenseId: license.id } : {}), eventName: String(event['name'] ?? 'Événement'), timezone, label, reference, tokenHash: tokenHash(token), tokenCiphertext: encryptToken(token), expiresAt,
       ceremonies: { create: ceremonies.map((ceremony: CeremonyScope) => ({ ceremonyId: ceremony.id, ceremonyName: ceremony.name, startAt: ceremony.startAt, expiresAt: ceremonyCheckInExpiry(ceremony, timezone) })) },
     }, include: { ceremonies: { orderBy: { startAt: 'asc' } } } });
     return { id: link.id, token, reference: link.reference, expiresAt: link.expiresAt, ceremonies: link.ceremonies.map(({ ceremonyId, ceremonyName, startAt, expiresAt: ceremonyExpiresAt }) => ({ ceremonyId, ceremonyName, startAt, expiresAt: ceremonyExpiresAt })) };
@@ -79,16 +97,23 @@ export class CheckInLinkService {
     return { id, status: 'REVOKED' };
   }
 
+  async replace(owner: string, eventId: string, id: string, authorization: string) {
+    this.assertEventId(eventId); if (!isUuid(id)) throw new BadRequestException('Identifiant d’accès invalide.');
+    await this.events.assertManageableCeremonies(eventId, [], authorization);
+    const current = await this.prisma.checkInLink.findUnique({ where: { id } });
+    if (!current || current.eventId !== eventId || current.status !== CheckInLinkStatus.ACTIVE)
+      throw new NotFoundException('Accès de pointage introuvable ou déjà révoqué.');
+    if (current.expiresAt <= new Date()) throw new GoneException('Ce lien de pointage est expiré et ne peut pas être remplacé.');
+    const token = randomBytes(32).toString('base64url');
+    await this.prisma.checkInLink.updateMany({ where: { id, eventId, status: CheckInLinkStatus.ACTIVE }, data: { tokenHash: tokenHash(token), tokenCiphertext: encryptToken(token) } });
+    return { id, token, reference: current.reference, expiresAt: current.expiresAt };
+  }
+
   async refreshScope(owner: string, eventId: string, id: string, input: LinkInput, authorization: string) {
     this.assertEventId(eventId); if (!isUuid(id)) throw new BadRequestException('Identifiant d’accès invalide.');
     const { event, ceremonies } = await this.scopeFromEvent(eventId, input.ceremonyIds, authorization);
     const timezone = typeof event['timezone'] === 'string' ? event['timezone'] : '';
-    const eventTiming = {
-      startAt: typeof event['startAt'] === 'string' ? new Date(event['startAt']) : new Date(),
-      endAt: typeof event['endAt'] === 'string' ? new Date(event['endAt']) : null,
-      timezone,
-    };
-    const expiresAt = linkExpiry(ceremonies, timezone, eventTiming);
+    const expiresAt = linkExpiry(ceremonies, timezone);
     const link = await this.prisma.$transaction(async (tx) => {
       const current = await tx.checkInLink.findFirst({ where: { id, eventId, status: CheckInLinkStatus.ACTIVE } });
       if (!current) throw new NotFoundException('Accès de pointage introuvable ou révoqué.');
@@ -111,6 +136,7 @@ export class CheckInLinkService {
 
   async publicScan(token: string, input: ScanInput, deviceId?: string, userAgent?: string) {
     const link = await this.activeLink(token);
+    if (this.licenses) await this.licenses.ensureActive(link.licenseId);
     this.limit(`scan:${link.tokenHash}`);
     if (typeof input?.token !== 'string' || typeof input.ceremonyId !== 'string' || !isUuid(input.ceremonyId) || (input.companionCount !== undefined && (typeof input.companionCount !== 'number' || !Number.isInteger(input.companionCount) || input.companionCount < 0 || input.companionCount > 20))) throw new BadRequestException('Données de scan invalides.');
     const grant = link.ceremonies.find((ceremony) => ceremony.ceremonyId === input.ceremonyId);
@@ -136,12 +162,14 @@ export class CheckInLinkService {
     const selected = rawIds === undefined ? all : all.filter((ceremony: CeremonyScope) => (rawIds as string[]).includes(ceremony.id));
     if (!selected.length) {
       if (all.length === 0 && rawIds === undefined) {
-        const startAt = typeof event['startAt'] === 'string' ? new Date(event['startAt']) : new Date();
+        const startAt = typeof event['startAt'] === 'string' ? new Date(event['startAt']) : null;
         const endAt = typeof event['endAt'] === 'string' ? new Date(event['endAt']) : null;
+        if (!startAt || Number.isNaN(startAt.getTime()))
+          throw new BadRequestException('Ajoutez la date de début de l’événement avant de créer un lien de pointage global.');
         const globalScope: CeremonyScope = {
           id: eventId,
           name: String(event['name'] ?? 'Événement complet'),
-          startAt: Number.isNaN(startAt.getTime()) ? new Date() : startAt,
+          startAt,
           endAt: endAt && !Number.isNaN(endAt.getTime()) ? endAt : null,
           timezone: typeof event['timezone'] === 'string' ? event['timezone'] : '',
         };

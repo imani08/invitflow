@@ -31,6 +31,7 @@ export function NotificationInbox({ initial, initialEnabled }: { initial: Inbox;
       if (!response.ok) throw new Error();
       setItems((current) => current.map((item) => item.id === id && !item.readAt ? { ...item, readAt: new Date().toISOString() } : item));
       setUnread((current) => Math.max(0, current - (items.find((item) => item.id === id && !item.readAt) ? 1 : 0)));
+      window.dispatchEvent(new Event('invitaflow:notifications-updated'));
     } catch { setMessage('La notification n’a pas pu être mise à jour.'); }
     finally { setBusy(false); }
   }
@@ -41,6 +42,7 @@ export function NotificationInbox({ initial, initialEnabled }: { initial: Inbox;
       const response = await fetch('/api/notifications/read-all', { method: 'POST' });
       if (!response.ok) throw new Error();
       const readAt = new Date().toISOString(); setItems((current) => current.map((item) => item.readAt ? item : { ...item, readAt })); setUnread(0);
+      window.dispatchEvent(new Event('invitaflow:notifications-updated'));
     } catch { setMessage('Les notifications n’ont pas pu être mises à jour.'); }
     finally { setBusy(false); }
   }
@@ -63,6 +65,6 @@ export function NotificationInbox({ initial, initialEnabled }: { initial: Inbox;
     <div className="notification-controls"><span>{unread} non lue{unread === 1 ? '' : 's'}</span><button type="button" disabled={busy || unread === 0} onClick={() => void markAllRead()}>Tout marquer comme lu</button></div>
     <div className="notification-preference"><div><strong>Notifications dans l’application</strong><small>Confirmations de paiement, événements et imports d’invités</small></div><button type="button" role="switch" aria-checked={enabled} disabled={busy} onClick={() => void setPreference(!enabled)}>{enabled ? 'Activées' : 'Désactivées'}</button></div>
     {message && <p className="notification-status" role="status">{message}</p>}
-    {items.length ? <><div className="notification-list">{items.map((item) => <article key={item.id} className={item.readAt ? 'notification-item is-read' : 'notification-item'}><div className="notification-copy"><span className="notification-category">{item.category === 'billing' ? 'PORTEFEUILLE' : item.category === 'guests' ? 'INVITÉS' : 'ÉVÉNEMENT'}</span><h2>{item.title}</h2><p>{item.message}</p><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time></div>{!item.readAt && <button className="notification-read" type="button" disabled={busy} onClick={() => void markRead(item.id)}>Marquer comme lue</button>}</article>)}</div>{cursor && <button className="notification-load-more" type="button" disabled={busy} onClick={() => void loadMore()}>{busy ? 'Chargement…' : 'Charger les notifications précédentes'}</button>}</> : <div className="notification-empty">Aucune notification pour le moment.</div>}
+    {items.length ? <><div className="notification-list">{items.map((item) => <article key={item.id} className={item.readAt ? 'notification-item is-read' : 'notification-item'}><div className="notification-copy"><span className="notification-category">{item.category === 'billing' ? 'PORTEFEUILLE' : item.category === 'guests' ? 'INVITÉS' : item.category === 'announcement' ? 'ANNONCE' : 'ÉVÉNEMENT'}</span><h2>{item.title}</h2><p>{item.message}</p><time dateTime={item.createdAt}>{formatDateTime(item.createdAt)}</time></div>{!item.readAt && <button className="notification-read" type="button" disabled={busy} onClick={() => void markRead(item.id)}>Marquer comme lue</button>}</article>)}</div>{cursor && <button className="notification-load-more" type="button" disabled={busy} onClick={() => void loadMore()}>{busy ? 'Chargement…' : 'Charger les notifications précédentes'}</button>}</> : <div className="notification-empty">Aucune notification pour le moment.</div>}
   </section>;
 }

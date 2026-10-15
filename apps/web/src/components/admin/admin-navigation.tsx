@@ -10,6 +10,7 @@ const modules = [
   { href: '/admin', label: 'Vue générale', section: 'Administration', roles: ['SUPPORT_ADMIN', 'SUPER_ADMIN'] },
   { href: '/admin#moderation', label: 'Modération', section: 'Administration', roles: ['SUPPORT_ADMIN', 'SUPER_ADMIN'] },
   { href: '/admin#audit', label: 'Audit & sécurité', section: 'Administration', roles: ['SUPPORT_ADMIN', 'SUPER_ADMIN'] },
+  { href: '/admin/announcements', label: 'Annonces e-mail', section: 'Administration', roles: ['SUPER_ADMIN'] },
   { href: '/admin/analytics', label: 'Indicateurs', section: 'Finance', roles: ['FINANCE_ADMIN', 'SUPER_ADMIN'] },
   { href: '/admin/finance', label: 'Paiements', section: 'Finance', roles: ['FINANCE_ADMIN', 'SUPER_ADMIN'] },
   { href: '/admin/pricing', label: 'Tarifs', section: 'Finance', roles: ['FINANCE_ADMIN', 'SUPER_ADMIN'] },

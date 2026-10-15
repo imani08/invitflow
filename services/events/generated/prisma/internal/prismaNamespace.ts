@@ -407,6 +407,7 @@ export const ModelName = {
   AgencyClient: 'AgencyClient',
   AgencyClientEvent: 'AgencyClientEvent',
   AgencySubscription: 'AgencySubscription',
+  AgencyCheckInActivation: 'AgencyCheckInActivation',
   AgencyQuotaReservation: 'AgencyQuotaReservation'
 } as const
 
@@ -423,7 +424,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "event" | "ceremony" | "ceremonyProgramItem" | "outboxMessage" | "agencyWorkspace" | "agencyMembership" | "agencyAuditEntry" | "agencyClient" | "agencyClientEvent" | "agencySubscription" | "agencyQuotaReservation"
+    modelProps: "event" | "ceremony" | "ceremonyProgramItem" | "outboxMessage" | "agencyWorkspace" | "agencyMembership" | "agencyAuditEntry" | "agencyClient" | "agencyClientEvent" | "agencySubscription" | "agencyCheckInActivation" | "agencyQuotaReservation"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1167,6 +1168,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    AgencyCheckInActivation: {
+      payload: Prisma.$AgencyCheckInActivationPayload<ExtArgs>
+      fields: Prisma.AgencyCheckInActivationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.AgencyCheckInActivationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.AgencyCheckInActivationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        findFirst: {
+          args: Prisma.AgencyCheckInActivationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.AgencyCheckInActivationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        findMany: {
+          args: Prisma.AgencyCheckInActivationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>[]
+        }
+        create: {
+          args: Prisma.AgencyCheckInActivationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        createMany: {
+          args: Prisma.AgencyCheckInActivationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.AgencyCheckInActivationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>[]
+        }
+        delete: {
+          args: Prisma.AgencyCheckInActivationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        update: {
+          args: Prisma.AgencyCheckInActivationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        deleteMany: {
+          args: Prisma.AgencyCheckInActivationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.AgencyCheckInActivationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.AgencyCheckInActivationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>[]
+        }
+        upsert: {
+          args: Prisma.AgencyCheckInActivationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$AgencyCheckInActivationPayload>
+        }
+        aggregate: {
+          args: Prisma.AgencyCheckInActivationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAgencyCheckInActivation>
+        }
+        groupBy: {
+          args: Prisma.AgencyCheckInActivationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgencyCheckInActivationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.AgencyCheckInActivationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgencyCheckInActivationCountAggregateOutputType> | number
+        }
+      }
+    }
     AgencyQuotaReservation: {
       payload: Prisma.$AgencyQuotaReservationPayload<ExtArgs>
       fields: Prisma.AgencyQuotaReservationFieldRefs
@@ -1425,6 +1500,8 @@ export const AgencySubscriptionScalarFieldEnum = {
   planKey: 'planKey',
   planName: 'planName',
   quotaCredits: 'quotaCredits',
+  checkInEventLimit: 'checkInEventLimit',
+  checkInGuestCapacity: 'checkInGuestCapacity',
   priceMinor: 'priceMinor',
   currency: 'currency',
   priceScheduleId: 'priceScheduleId',
@@ -1443,6 +1520,19 @@ export const AgencySubscriptionScalarFieldEnum = {
 } as const
 
 export type AgencySubscriptionScalarFieldEnum = (typeof AgencySubscriptionScalarFieldEnum)[keyof typeof AgencySubscriptionScalarFieldEnum]
+
+
+export const AgencyCheckInActivationScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  eventId: 'eventId',
+  subscriptionId: 'subscriptionId',
+  guestCapacity: 'guestCapacity',
+  activatedBy: 'activatedBy',
+  activatedAt: 'activatedAt'
+} as const
+
+export type AgencyCheckInActivationScalarFieldEnum = (typeof AgencyCheckInActivationScalarFieldEnum)[keyof typeof AgencyCheckInActivationScalarFieldEnum]
 
 
 export const AgencyQuotaReservationScalarFieldEnum = {
@@ -1842,6 +1932,7 @@ export type GlobalOmitConfig = {
   agencyClient?: Prisma.AgencyClientOmit
   agencyClientEvent?: Prisma.AgencyClientEventOmit
   agencySubscription?: Prisma.AgencySubscriptionOmit
+  agencyCheckInActivation?: Prisma.AgencyCheckInActivationOmit
   agencyQuotaReservation?: Prisma.AgencyQuotaReservationOmit
 }
 

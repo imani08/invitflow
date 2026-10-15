@@ -267,6 +267,40 @@ export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
 }
 
+export type EnumCheckInLicenseSourceFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseSource | Prisma.EnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel> | $Enums.CheckInLicenseSource
+}
+
+export type EnumCheckInLicenseStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseStatus | Prisma.EnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel> | $Enums.CheckInLicenseStatus
+}
+
+export type EnumCheckInLicenseSourceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseSource | Prisma.EnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseSourceWithAggregatesFilter<$PrismaModel> | $Enums.CheckInLicenseSource
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel>
+}
+
+export type EnumCheckInLicenseStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseStatus | Prisma.EnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseStatusWithAggregatesFilter<$PrismaModel> | $Enums.CheckInLicenseStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel>
+}
+
 export type JsonFilter<$PrismaModel = never> =
 | Prisma.PatchUndefined<
     Prisma.Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
@@ -578,6 +612,40 @@ export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
   _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
   _min?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
   _max?: Prisma.NestedDateTimeNullableFilter<$PrismaModel>
+}
+
+export type NestedEnumCheckInLicenseSourceFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseSource | Prisma.EnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel> | $Enums.CheckInLicenseSource
+}
+
+export type NestedEnumCheckInLicenseStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseStatus | Prisma.EnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel> | $Enums.CheckInLicenseStatus
+}
+
+export type NestedEnumCheckInLicenseSourceWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseSource | Prisma.EnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseSource[] | Prisma.ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseSourceWithAggregatesFilter<$PrismaModel> | $Enums.CheckInLicenseSource
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCheckInLicenseSourceFilter<$PrismaModel>
+}
+
+export type NestedEnumCheckInLicenseStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.CheckInLicenseStatus | Prisma.EnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.CheckInLicenseStatus[] | Prisma.ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumCheckInLicenseStatusWithAggregatesFilter<$PrismaModel> | $Enums.CheckInLicenseStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumCheckInLicenseStatusFilter<$PrismaModel>
 }
 
 export type NestedJsonFilter<$PrismaModel = never> =

@@ -61,6 +61,7 @@ export const ModelName = {
   AgencyClient: 'AgencyClient',
   AgencyClientEvent: 'AgencyClientEvent',
   AgencySubscription: 'AgencySubscription',
+  AgencyCheckInActivation: 'AgencyCheckInActivation',
   AgencyQuotaReservation: 'AgencyQuotaReservation'
 } as const
 
@@ -225,6 +226,8 @@ export const AgencySubscriptionScalarFieldEnum = {
   planKey: 'planKey',
   planName: 'planName',
   quotaCredits: 'quotaCredits',
+  checkInEventLimit: 'checkInEventLimit',
+  checkInGuestCapacity: 'checkInGuestCapacity',
   priceMinor: 'priceMinor',
   currency: 'currency',
   priceScheduleId: 'priceScheduleId',
@@ -243,6 +246,19 @@ export const AgencySubscriptionScalarFieldEnum = {
 } as const
 
 export type AgencySubscriptionScalarFieldEnum = (typeof AgencySubscriptionScalarFieldEnum)[keyof typeof AgencySubscriptionScalarFieldEnum]
+
+
+export const AgencyCheckInActivationScalarFieldEnum = {
+  id: 'id',
+  workspaceId: 'workspaceId',
+  eventId: 'eventId',
+  subscriptionId: 'subscriptionId',
+  guestCapacity: 'guestCapacity',
+  activatedBy: 'activatedBy',
+  activatedAt: 'activatedAt'
+} as const
+
+export type AgencyCheckInActivationScalarFieldEnum = (typeof AgencyCheckInActivationScalarFieldEnum)[keyof typeof AgencyCheckInActivationScalarFieldEnum]
 
 
 export const AgencyQuotaReservationScalarFieldEnum = {

@@ -27,3 +27,8 @@ export type Notification = Prisma.NotificationModel
  * 
  */
 export type NotificationPreference = Prisma.NotificationPreferenceModel
+/**
+ * Model EmailDelivery
+ * 
+ */
+export type EmailDelivery = Prisma.EmailDeliveryModel

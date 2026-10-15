@@ -67,6 +67,8 @@ model PaymentOrder {
   packName          String        @map("pack_name") @db.VarChar(100)
   credits           Int
   unitCredits       Int           @map("unit_credits")
+  checkInEvents     Int           @default(0) @map("checkin_events")
+  checkInGuestCapacity Int        @default(0) @map("checkin_guest_capacity")
   quantity          Int           @default(1)
   unitPriceMinor    Int           @map("unit_price_minor")
   discountMinor     Int           @default(0) @map("discount_minor")

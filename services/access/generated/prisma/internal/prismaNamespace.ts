@@ -401,6 +401,8 @@ export const ModelName = {
   AgentCeremonyGrant: 'AgentCeremonyGrant',
   AccessScanAttempt: 'AccessScanAttempt',
   CheckInLink: 'CheckInLink',
+  CheckInLicense: 'CheckInLicense',
+  CheckInLicenseGuest: 'CheckInLicenseGuest',
   CheckInLinkCeremonyGrant: 'CheckInLinkCeremonyGrant',
   OutboxMessage: 'OutboxMessage'
 } as const
@@ -418,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "checkInAgent" | "agentCeremonyGrant" | "accessScanAttempt" | "checkInLink" | "checkInLinkCeremonyGrant" | "outboxMessage"
+    modelProps: "checkInAgent" | "agentCeremonyGrant" | "accessScanAttempt" | "checkInLink" | "checkInLicense" | "checkInLicenseGuest" | "checkInLinkCeremonyGrant" | "outboxMessage"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -718,6 +720,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    CheckInLicense: {
+      payload: Prisma.$CheckInLicensePayload<ExtArgs>
+      fields: Prisma.CheckInLicenseFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CheckInLicenseFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CheckInLicenseFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        findFirst: {
+          args: Prisma.CheckInLicenseFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CheckInLicenseFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        findMany: {
+          args: Prisma.CheckInLicenseFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>[]
+        }
+        create: {
+          args: Prisma.CheckInLicenseCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        createMany: {
+          args: Prisma.CheckInLicenseCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CheckInLicenseCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>[]
+        }
+        delete: {
+          args: Prisma.CheckInLicenseDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        update: {
+          args: Prisma.CheckInLicenseUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        deleteMany: {
+          args: Prisma.CheckInLicenseDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CheckInLicenseUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CheckInLicenseUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>[]
+        }
+        upsert: {
+          args: Prisma.CheckInLicenseUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicensePayload>
+        }
+        aggregate: {
+          args: Prisma.CheckInLicenseAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCheckInLicense>
+        }
+        groupBy: {
+          args: Prisma.CheckInLicenseGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLicenseGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CheckInLicenseCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLicenseCountAggregateOutputType> | number
+        }
+      }
+    }
+    CheckInLicenseGuest: {
+      payload: Prisma.$CheckInLicenseGuestPayload<ExtArgs>
+      fields: Prisma.CheckInLicenseGuestFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.CheckInLicenseGuestFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.CheckInLicenseGuestFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        findFirst: {
+          args: Prisma.CheckInLicenseGuestFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.CheckInLicenseGuestFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        findMany: {
+          args: Prisma.CheckInLicenseGuestFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>[]
+        }
+        create: {
+          args: Prisma.CheckInLicenseGuestCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        createMany: {
+          args: Prisma.CheckInLicenseGuestCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.CheckInLicenseGuestCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>[]
+        }
+        delete: {
+          args: Prisma.CheckInLicenseGuestDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        update: {
+          args: Prisma.CheckInLicenseGuestUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        deleteMany: {
+          args: Prisma.CheckInLicenseGuestDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.CheckInLicenseGuestUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.CheckInLicenseGuestUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>[]
+        }
+        upsert: {
+          args: Prisma.CheckInLicenseGuestUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$CheckInLicenseGuestPayload>
+        }
+        aggregate: {
+          args: Prisma.CheckInLicenseGuestAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCheckInLicenseGuest>
+        }
+        groupBy: {
+          args: Prisma.CheckInLicenseGuestGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLicenseGuestGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.CheckInLicenseGuestCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CheckInLicenseGuestCountAggregateOutputType> | number
+        }
+      }
+    }
     CheckInLinkCeremonyGrant: {
       payload: Prisma.$CheckInLinkCeremonyGrantPayload<ExtArgs>
       fields: Prisma.CheckInLinkCeremonyGrantFieldRefs
@@ -957,14 +1107,41 @@ export const CheckInLinkScalarFieldEnum = {
   label: 'label',
   reference: 'reference',
   tokenHash: 'tokenHash',
+  tokenCiphertext: 'tokenCiphertext',
   status: 'status',
   expiresAt: 'expiresAt',
   lastUsedAt: 'lastUsedAt',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  licenseId: 'licenseId'
 } as const
 
 export type CheckInLinkScalarFieldEnum = (typeof CheckInLinkScalarFieldEnum)[keyof typeof CheckInLinkScalarFieldEnum]
+
+
+export const CheckInLicenseScalarFieldEnum = {
+  id: 'id',
+  source: 'source',
+  status: 'status',
+  ownerSubject: 'ownerSubject',
+  sourceReference: 'sourceReference',
+  eventId: 'eventId',
+  guestCapacity: 'guestCapacity',
+  usedGuestCount: 'usedGuestCount',
+  createdAt: 'createdAt',
+  assignedAt: 'assignedAt'
+} as const
+
+export type CheckInLicenseScalarFieldEnum = (typeof CheckInLicenseScalarFieldEnum)[keyof typeof CheckInLicenseScalarFieldEnum]
+
+
+export const CheckInLicenseGuestScalarFieldEnum = {
+  licenseId: 'licenseId',
+  tokenHash: 'tokenHash',
+  createdAt: 'createdAt'
+} as const
+
+export type CheckInLicenseGuestScalarFieldEnum = (typeof CheckInLicenseGuestScalarFieldEnum)[keyof typeof CheckInLicenseGuestScalarFieldEnum]
 
 
 export const CheckInLinkCeremonyGrantScalarFieldEnum = {
@@ -1120,6 +1297,34 @@ export type EnumCheckInLinkStatusFieldRefInput<$PrismaModel> = FieldRefInputType
  * Reference to a field of type 'CheckInLinkStatus[]'
  */
 export type ListEnumCheckInLinkStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLinkStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLicenseSource'
+ */
+export type EnumCheckInLicenseSourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLicenseSource'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLicenseSource[]'
+ */
+export type ListEnumCheckInLicenseSourceFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLicenseSource[]'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLicenseStatus'
+ */
+export type EnumCheckInLicenseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLicenseStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'CheckInLicenseStatus[]'
+ */
+export type ListEnumCheckInLicenseStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'CheckInLicenseStatus[]'>
     
 
 
@@ -1305,6 +1510,8 @@ export type GlobalOmitConfig = {
   agentCeremonyGrant?: Prisma.AgentCeremonyGrantOmit
   accessScanAttempt?: Prisma.AccessScanAttemptOmit
   checkInLink?: Prisma.CheckInLinkOmit
+  checkInLicense?: Prisma.CheckInLicenseOmit
+  checkInLicenseGuest?: Prisma.CheckInLicenseGuestOmit
   checkInLinkCeremonyGrant?: Prisma.CheckInLinkCeremonyGrantOmit
   outboxMessage?: Prisma.OutboxMessageOmit
 }

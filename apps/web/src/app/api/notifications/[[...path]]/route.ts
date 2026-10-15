@@ -10,7 +10,8 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
   const isReadAll = request.method === 'POST' && path.length === 1 && path[0] === 'read-all';
   const isPreferences = (request.method === 'GET' || request.method === 'POST') && path.length === 1 && path[0] === 'preferences';
   const isReadOne = request.method === 'PATCH' && path.length === 2 && /^[0-9a-f-]{36}$/i.test(path[0] ?? '') && path[1] === 'read';
-  if (!isList && !isReadAll && !isPreferences && !isReadOne) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  const isAnnouncement = request.method === 'POST' && path.length === 2 && path[0] === 'admin' && path[1] === 'announcements';
+  if (!isList && !isReadAll && !isPreferences && !isReadOne && !isAnnouncement) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   if (request.method !== 'GET' && request.headers.get('origin') !== (process.env['WEB_ORIGIN'] ?? 'http://localhost:3000')) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   const store = await cookies();
   const session = await getSession(store.get(sessionCookieName())?.value);
@@ -19,7 +20,7 @@ async function forward(request: Request, context: { params: Promise<{ path?: str
   if (request.method === 'POST' && !isReadAll) {
     if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return NextResponse.json({ error: 'unsupported_media_type' }, { status: 415 });
     body = await request.text();
-    if (body.length > 4_096) return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
+    if (body.length > (isAnnouncement ? 6_000 : 4_096)) return NextResponse.json({ error: 'payload_too_large' }, { status: 413 });
     try { JSON.parse(body); } catch { return NextResponse.json({ error: 'invalid_json' }, { status: 400 }); }
   }
   const suffix = path.map((part) => encodeURIComponent(part)).join('/');

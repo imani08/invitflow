@@ -91,6 +91,8 @@ export const PaymentOrderScalarFieldEnum = {
   packName: 'packName',
   credits: 'credits',
   unitCredits: 'unitCredits',
+  checkInEvents: 'checkInEvents',
+  checkInGuestCapacity: 'checkInGuestCapacity',
   quantity: 'quantity',
   unitPriceMinor: 'unitPriceMinor',
   discountMinor: 'discountMinor',

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BrandLogo } from '@/components/brand-logo';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { NotificationBadge } from '@/components/notification-badge';
 import { notificationMobileItem, uniqueNavigationItems } from './app-navbar-items.mjs';
 import type { MobileNavigationItem } from './app-navbar-items.mjs';
 
@@ -95,7 +96,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
       <Link className="app-create-link" href={area === 'agency' ? '/agencies#create-event' : area === 'partner' ? '/partners#attributions' : '/events#create-event'}><Icon name={area === 'partner' ? 'partner' : 'create'} />{area === 'agency' ? 'Créer un événement client' : area === 'partner' ? 'Lien partenaire' : 'Créer un événement'}</Link>
       <nav className="app-sidebar-links" aria-label="Principale">
         <p className="app-nav-caption">ESPACE</p>
-        {mainLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined} className={active(item.href) ? 'is-active' : ''}><Icon name={item.icon} /><span>{item.label}</span></Link>)}
+        {mainLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined} className={active(item.href) ? 'is-active' : ''}><span className="app-nav-icon"><Icon name={item.icon} />{item.href === '/account/notifications' && <NotificationBadge />}</span><span>{item.label}</span></Link>)}
         {agencyLinks.length > 0 && <><p className="app-nav-caption app-event-caption">AGENCE</p>{agencyLinks.map((item) => <Link key={item.href} href={item.href}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</>}
         {partnerLinks.length > 0 && <><p className="app-nav-caption app-event-caption">PARTENARIAT</p>{partnerLinks.map((item) => <Link key={item.href} href={item.href}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</>}
         {eventLinks.length > 0 && <>
@@ -105,8 +106,8 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
       </nav>
       <div className="app-sidebar-bottom"><ThemeToggle/><form className="app-sidebar-logout" action="/api/auth/logout" method="post"><button type="submit">Déconnexion</button></form></div>
     </aside>
-    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/dashboard" /><ThemeToggle/></div>
+    <div className="app-mobile-topbar"><BrandLogo variant="compact" href="/dashboard" /><div className="app-mobile-actions"><Link className="app-mobile-notifications" href="/account/notifications" aria-label="Notifications"><Icon name="bell" /><NotificationBadge /></Link><ThemeToggle/></div></div>
     {eventId && <nav className="event-subnav" aria-label="Sections de l’événement">{eventLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined}>{item.label}</Link>)}</nav>}
-    <nav className="app-mobile-nav" aria-label="Navigation mobile principale" style={{ gridTemplateColumns: `repeat(${visibleMobileItems.length}, minmax(0, 1fr))` }}>{visibleMobileItems.map((item) => <Link key={`${item.href}:${item.label}`} href={item.href} aria-current={mobileActive(item.href) ? 'page' : undefined} className={`${mobileActive(item.href) ? 'is-active' : ''}${'primary' in item && item.primary ? ' app-mobile-create' : ''}`}><Icon name={item.icon} /><span>{item.label}</span></Link>)}</nav>
+    <nav className="app-mobile-nav" aria-label="Navigation mobile principale" style={{ gridTemplateColumns: `repeat(${visibleMobileItems.length}, minmax(0, 1fr))` }}>{visibleMobileItems.map((item) => <Link key={`${item.href}:${item.label}`} href={item.href} aria-current={mobileActive(item.href) ? 'page' : undefined} className={`${mobileActive(item.href) ? 'is-active' : ''}${'primary' in item && item.primary ? ' app-mobile-create' : ''}`}><span className="app-nav-icon"><Icon name={item.icon} />{item.href === '/account/notifications' && <NotificationBadge />}</span><span>{item.label}</span></Link>)}</nav>
   </>;
 }

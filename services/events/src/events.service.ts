@@ -4,6 +4,7 @@ import { PrismaService } from './prisma.service.js';
 import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFields } from './events.types.js';
 import { createHash } from 'node:crypto';
 import { eventLifecycleAction } from './event-lifecycle.js';
+import { isEventDueForAutomaticCompletion } from './event-auto-completion.js';
 
 const eventSelect = {
   id: true, ownerSubject: true, name: true, description: true, coupleNames: true, invitationText: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
@@ -13,6 +14,33 @@ const eventSelect = {
 @Injectable()
 export class EventsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async completeDueEvents(now = new Date()) {
+    const candidates = await this.prisma.event.findMany({
+      where: { status: EventStatus.PUBLISHED },
+      orderBy: { updatedAt: 'asc' },
+      take: 500,
+      select: {
+        id: true, ownerSubject: true, status: true, timezone: true, startAt: true, endAt: true,
+        ceremonies: { select: { status: true, startAt: true, endAt: true } },
+      },
+    });
+    let completed = 0;
+    for (const event of candidates) {
+      if (!isEventDueForAutomaticCompletion(event, now)) continue;
+      const changed = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.event.updateMany({ where: { id: event.id, status: EventStatus.PUBLISHED }, data: { status: EventStatus.COMPLETED } });
+        if (!result.count) return false;
+        await tx.outboxMessage.create({ data: {
+          eventType: 'events.completed.v1', aggregateId: event.id,
+          payload: { id: event.id, ownerSubject: event.ownerSubject, from: EventStatus.PUBLISHED, to: EventStatus.COMPLETED, action: 'auto_complete', occurredAt: now.toISOString(), schemaVersion: 1 },
+        } });
+        return true;
+      });
+      if (changed) completed += 1;
+    }
+    return { completed };
+  }
 
   async agencyDashboard(subject: string) {
     await this.prisma.agencySubscription.updateMany({ where: { status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
@@ -120,7 +148,7 @@ export class EventsService {
     const member = await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']);
     if (member.role !== 'OWNER') throw new ForbiddenException('Only the agency owner can change its plan');
     if (!catalog || typeof catalog !== 'object' || !('scheduleId' in catalog) || !('version' in catalog) || !('packs' in catalog) || !Array.isArray(catalog.packs)) throw new BadRequestException('Agency pricing catalog is unavailable');
-    const value = catalog as { scheduleId: string; version: number; packs: Array<{ id: string; key: string; name: string; credits: number; periodDays: number | null; priceMinor: number; currency: string; segment: string }> };
+    const value = catalog as { scheduleId: string; version: number; packs: Array<{ id: string; key: string; name: string; credits: number; periodDays: number | null; checkInEvents: number; checkInGuestCapacity: number; priceMinor: number; currency: string; segment: string }> };
     const pack = value.packs.find((candidate) => candidate.key === planKey && candidate.segment === 'AGENCY');
     if (!pack || pack.periodDays !== null && pack.periodDays !== 30 || !Number.isSafeInteger(value.version) || !/^[0-9a-f-]{36}$/i.test(value.scheduleId)) throw new BadRequestException('Select a valid agency plan');
     return this.prisma.$transaction(async (tx) => {
@@ -128,7 +156,8 @@ export class EventsService {
       const existing = await tx.agencySubscription.findFirst({ where: { workspaceId, planPackId: pack.id, priceScheduleId: value.scheduleId, renewalOfId: previous?.id ?? null, status: 'PENDING', paymentId: null }, orderBy: { createdAt: 'desc' } });
       if (existing) return existing;
       await tx.agencySubscription.updateMany({ where: { workspaceId, status: 'PENDING' }, data: { status: 'CANCELLED', endsAt: new Date() } });
-      return tx.agencySubscription.create({ data: { workspaceId, planPackId: pack.id, planKey: pack.key, planName: pack.name, quotaCredits: pack.credits, priceMinor: pack.priceMinor, currency: pack.currency, priceScheduleId: value.scheduleId, priceScheduleVersion: value.version, currentPlanVersion: value.version, periodDays: 30, renewalOfId: previous?.id ?? null, status: 'PENDING' } });
+      if (!Number.isSafeInteger(pack.checkInEvents) || !Number.isSafeInteger(pack.checkInGuestCapacity) || pack.checkInEvents < 0 || pack.checkInGuestCapacity < 0 || (pack.checkInEvents === 0) !== (pack.checkInGuestCapacity === 0)) throw new BadRequestException('Agency plan check-in configuration is invalid');
+      return tx.agencySubscription.create({ data: { workspaceId, planPackId: pack.id, planKey: pack.key, planName: pack.name, quotaCredits: pack.credits, checkInEventLimit: pack.checkInEvents, checkInGuestCapacity: pack.checkInGuestCapacity, priceMinor: pack.priceMinor, currency: pack.currency, priceScheduleId: value.scheduleId, priceScheduleVersion: value.version, currentPlanVersion: value.version, periodDays: 30, renewalOfId: previous?.id ?? null, status: 'PENDING' } });
     });
   }
 
@@ -187,14 +216,40 @@ export class EventsService {
     await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     await this.prisma.agencySubscription.updateMany({ where: { workspaceId, status: 'ACTIVE', billingPeriodEnd: { lte: new Date() } }, data: { status: 'PAST_DUE' } });
     const subscription = await this.prisma.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', startsAt: { lte: new Date() }, billingPeriodEnd: { gt: new Date() } }, orderBy: { createdAt: 'desc' } });
-    if (!subscription) return { subscriptionId: null, includedQuota: 0, consumed: 0, reserved: 0, remaining: 0 };
+    if (!subscription) return { subscriptionId: null, includedQuota: 0, consumed: 0, reserved: 0, remaining: 0, checkInEventLimit: 0, checkInActivationsRemaining: 0, checkInGuestCapacity: 0 };
     const [consumed, reserved] = await Promise.all([
       this.prisma.agencyQuotaReservation.aggregate({ where: { subscriptionId: subscription.id, status: 'CONSUMED' }, _sum: { credits: true } }),
       this.prisma.agencyQuotaReservation.aggregate({ where: { subscriptionId: subscription.id, status: 'RESERVED' }, _sum: { credits: true } }),
     ]);
     const consumedCredits = consumed._sum.credits ?? 0;
     const reservedCredits = reserved._sum.credits ?? 0;
-    return { subscriptionId: subscription.id, includedQuota: subscription.quotaCredits, consumed: consumedCredits, reserved: reservedCredits, remaining: Math.max(0, subscription.quotaCredits - consumedCredits - reservedCredits) };
+    // The optional branch keeps historical unit-test adapters (which predate
+    // V4 activations) read-compatible; production Prisma always provides it.
+    const activationRepository = (this.prisma as unknown as { agencyCheckInActivation?: { count(args: unknown): Promise<number> } }).agencyCheckInActivation;
+    const activations = activationRepository ? await activationRepository.count({ where: { subscriptionId: subscription.id } }) : 0;
+    return { subscriptionId: subscription.id, includedQuota: subscription.quotaCredits, consumed: consumedCredits, reserved: reservedCredits, remaining: Math.max(0, subscription.quotaCredits - consumedCredits - reservedCredits), checkInEventLimit: subscription.checkInEventLimit, checkInActivationsRemaining: Math.max(0, subscription.checkInEventLimit - activations), checkInGuestCapacity: subscription.checkInGuestCapacity };
+  }
+
+  async activateAgencyCheckIn(subject: string, workspaceId: string, eventId: string) {
+    await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']); this.assertUuid(eventId);
+    return this.prisma.$transaction(async (tx) => {
+      const event = await tx.event.findFirst({ where: { id: eventId, agencyWorkspaceId: workspaceId }, select: { id: true } });
+      if (!event) throw new NotFoundException('Agency event not found');
+      const existing = await tx.agencyCheckInActivation.findUnique({ where: { eventId } });
+      if (existing) return existing;
+      const subscription = await tx.agencySubscription.findFirst({ where: { workspaceId, status: 'ACTIVE', billingPeriodEnd: { gt: new Date() }, checkInEventLimit: { gt: 0 } }, orderBy: { createdAt: 'desc' } });
+      if (!subscription || subscription.checkInGuestCapacity < 1) throw new BadRequestException('Aucune activation de pointage agence disponible pour cette période.');
+      const used = await tx.agencyCheckInActivation.count({ where: { subscriptionId: subscription.id } });
+      if (used >= subscription.checkInEventLimit) throw new BadRequestException('La limite d’événements avec pointage de ce plan est atteinte.');
+      return tx.agencyCheckInActivation.create({ data: { workspaceId, eventId, subscriptionId: subscription.id, guestCapacity: subscription.checkInGuestCapacity, activatedBy: subject } });
+    });
+  }
+
+  async agencyCheckInEntitlement(eventId: string) {
+    this.assertUuid(eventId);
+    const activation = await this.prisma.agencyCheckInActivation.findUnique({ where: { eventId }, include: { event: { select: { agencyWorkspaceId: true, ownerSubject: true } } } });
+    if (!activation) return null;
+    return { id: activation.id, source: 'AGENCY', eventId: activation.eventId, workspaceId: activation.workspaceId, ownerSubject: activation.event.ownerSubject, guestCapacity: activation.guestCapacity };
   }
 
   async finalizeAgencyQuotaReservation(subject: string, workspaceId: string, referenceKey: string, finalStatus: 'CONSUMED' | 'RELEASED', consumedCredits?: number, internal = false, releaseEventId?: string) {

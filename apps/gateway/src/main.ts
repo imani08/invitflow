@@ -858,6 +858,9 @@ class NotificationsProxyController {
   @All('/preferences') preferences(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
+  @All('/admin/announcements') announcements(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    return this.proxy(request, reply);
+  }
   @All('/:notificationId/read') readOne(
     @Req() request: FastifyRequest,
     @Res() reply: FastifyReply,
@@ -1074,6 +1077,8 @@ class AccessProxyController {
   links(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/check-in-links/:linkId')
   link(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
+  @All('/events/:eventId/check-in-links/:linkId/replace')
+  replaceLink(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/access-agents')
   agents(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/ceremonies/:ceremonyId/access-agents')

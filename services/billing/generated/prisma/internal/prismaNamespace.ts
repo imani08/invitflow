@@ -778,6 +778,8 @@ export const CreditPackScalarFieldEnum = {
   name: 'name',
   credits: 'credits',
   periodDays: 'periodDays',
+  checkInEvents: 'checkInEvents',
+  checkInGuestCapacity: 'checkInGuestCapacity',
   priceMinor: 'priceMinor',
   currency: 'currency',
   description: 'description',

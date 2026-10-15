@@ -92,6 +92,11 @@ export type AgencyClientEvent = Prisma.AgencyClientEventModel
  */
 export type AgencySubscription = Prisma.AgencySubscriptionModel
 /**
+ * Model AgencyCheckInActivation
+ * 
+ */
+export type AgencyCheckInActivation = Prisma.AgencyCheckInActivationModel
+/**
  * Model AgencyQuotaReservation
  * 
  */

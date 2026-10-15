@@ -60,6 +60,7 @@ export default function EventJourney({
 }) {
   const [facts, setFacts] = useState<Facts>({ guestCount: null, designCount: null, hasCompletedBatch: null });
   const [revision, setRevision] = useState(0);
+  const [lifecycleBusy, setLifecycleBusy] = useState(false);
   useEffect(() => {
     const update = (event: Event) => { if (event instanceof CustomEvent && event.detail === eventId) setRevision(value => value + 1); };
     window.addEventListener('invitaflow:journey-updated', update);
@@ -98,8 +99,27 @@ export default function EventJourney({
   }, [eventId, loadFacts, revision]);
 
   const ceremonyRequired = eventType === 'WEDDING';
-  const statuses = deriveEventJourneyStatuses({ ceremonyCount, ceremonyRequired, ...facts });
+  const baseStatuses = deriveEventJourneyStatuses({ ceremonyCount, ceremonyRequired, ...facts });
+  const statuses = eventStatus === 'COMPLETED'
+    ? Object.fromEntries(Object.keys(baseStatuses).map((step) => [step, 'COMPLETED'])) as typeof baseStatuses
+    : baseStatuses;
   const activeIndex = EVENT_JOURNEY_STEPS.findIndex((step) => step.id === activeStep);
+  const updateLifecycle = async (action: 'complete' | 'cancel') => {
+    const message = action === 'complete'
+      ? 'Terminer cet événement ? Les données et les téléchargements resteront disponibles.'
+      : 'Annuler cet événement ? Cette action arrête le programme et ne peut pas être annulée.';
+    if (!window.confirm(message)) return;
+    setLifecycleBusy(true);
+    try {
+      const response = await fetch(`/api/events/${encodeURIComponent(eventId)}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+      if (!response.ok) throw new Error();
+      window.dispatchEvent(new CustomEvent('invitaflow:journey-updated', { detail: eventId }));
+      window.location.reload();
+    } catch {
+      window.alert(action === 'complete' ? 'La clôture a échoué. Réessayez dans un instant.' : 'L’annulation a échoué. Réessayez dans un instant.');
+      setLifecycleBusy(false);
+    }
+  };
   const nextAction = nextActionOverride ?? (() => {
     if (activeStep === 'ceremonies') return ceremonyCount > 0
       ? { href: urls.designs, label: 'Découvrir mes propositions', note: `${ceremonyCount} cérémonie(s) enregistrée(s).` }
@@ -123,8 +143,9 @@ export default function EventJourney({
     if (activeStep === 'invitations' && facts.designCount === 0) return { href: urls.designs, label: 'Choisir un modèle', note: 'Créez un design avant de préparer un lot.' };
     if (activeStep === 'invitations' && (facts.guestCount === null || facts.designCount === null)) return { href: undefined, label: 'Vérification des prérequis en cours', note: 'Les invités, le design, les accès et les crédits seront vérifiés avant toute génération.' };
     if (activeStep === 'invitations') return facts.hasCompletedBatch
-      ? { href: urls.thanks, label: 'Terminer → Merci', note: 'Retrouvez votre événement et vos téléchargements.' }
+      ? { href: urls.checkin, label: 'Préparer le pointage', note: 'Créez les liens sécurisés pour l’accueil le jour J.' }
       : { href: '#invitation-generation', label: 'Préparer la génération', note: facts.hasCompletedBatch === null ? 'Chargement des lots réels…' : 'Le service vérifiera le design, les accès et les crédits avant la génération.' };
+    if (activeStep === 'checkin') return { href: urls.thanks, label: 'Continuer vers Merci', note: 'Le pointage est prêt : vous pourrez scanner les QR le jour J.' };
     if (activeStep === 'thanks') return { href: urls.event, label: 'Revenir à mon événement', note: 'Vos données enregistrées restent disponibles.' };
     if (activeStep === 'event') return { href: urls.ceremonies, label: ceremonyRequired ? 'Configurer les cérémonies' : 'Configurer le programme (facultatif)', note: ceremonyRequired ? 'Ajoutez les horaires, lieux et informations utiles.' : 'Ajoutez des moments seulement si votre événement en a besoin.' };
     return { href: undefined, label: 'Votre parcours est prêt pour le jour J', note: 'Scannez les QR et consultez le statut transmis par le service Access.' };
@@ -136,7 +157,7 @@ export default function EventJourney({
     <div className="event-journey-heading"><div><p className="eyebrow">VOTRE PARCOURS</p><h2 id="event-journey-title">{activeIndex < 0 ? 'Outil complémentaire' : `Étape ${activeIndex + 1} sur ${EVENT_JOURNEY_STEPS.length}`}</h2></div>{eventStatusLabel && <span className="event-journey-event-status">{eventStatusLabel}</span>}</div>
     <p className="event-journey-help">Avancez à votre rythme. Les données enregistrées restent disponibles en revenant à une étape.</p>
     <nav aria-label="Étapes de préparation de l’événement"><ol ref={stepList} className="event-journey-steps">{EVENT_JOURNEY_STEPS.map((step, index) => {
-      const status = step.id === 'event' && activeStep === 'event' ? 'IN_PROGRESS' : statuses[step.id as keyof typeof statuses];
+      const status = step.id === 'event' && activeStep === 'event' && eventStatus !== 'COMPLETED' ? 'IN_PROGRESS' : statuses[step.id as keyof typeof statuses];
       const title = step.id === 'invitations' && status === 'BLOCKED'
         ? ceremonyRequired ? 'Configurez une cérémonie, ajoutez des invités et choisissez un design.' : 'Ajoutez des invités et choisissez un design.'
         : step.id === 'checkin' && status === 'BLOCKED'
@@ -151,6 +172,7 @@ export default function EventJourney({
       </li>;
     })}</ol></nav>
     <div className="event-journey-next"><div><strong>{nextAction.label}</strong><p>{nextAction.note}</p></div>{nextAction.href && <Link href={nextAction.href}>{nextAction.label}<span aria-hidden="true"> →</span></Link>}</div>
-    <nav className="event-journey-secondary" aria-label="Retour et outils complémentaires"><Link href={activeIndex > 0 ? urls[EVENT_JOURNEY_STEPS[activeIndex - 1]!.id as keyof typeof urls] : '/events'}>← {activeIndex > 0 ? 'Étape précédente' : 'Tous mes événements'}</Link><Link href={urls.seating}>Placement (facultatif)</Link><Link href={urls.checkin}>Pointage le jour J</Link></nav>
+    {['DRAFT', 'PUBLISHED'].includes(eventStatus ?? '') && <div className="event-journey-lifecycle"><span>Disponible à chaque étape</span><button type="button" disabled={lifecycleBusy} onClick={() => void updateLifecycle('complete')}>{lifecycleBusy ? 'Mise à jour…' : 'Terminer l’événement'}</button><button type="button" disabled={lifecycleBusy} onClick={() => void updateLifecycle('cancel')}>Annuler l’événement</button></div>}
+    <nav className="event-journey-secondary" aria-label="Retour et outils complémentaires"><Link href={activeIndex > 0 ? urls[EVENT_JOURNEY_STEPS[activeIndex - 1]!.id as keyof typeof urls] : '/events'}>← {activeIndex > 0 ? 'Étape précédente' : 'Tous mes événements'}</Link><Link href={urls.seating}>Placement (facultatif)</Link></nav>
   </section>;
 }

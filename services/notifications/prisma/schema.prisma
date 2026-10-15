@@ -31,3 +31,18 @@ model NotificationPreference {
 
   @@map("notification_preferences")
 }
+
+model EmailDelivery {
+  id             String    @id @default(uuid()) @db.Uuid
+  notificationId String?   @unique @map("notification_id") @db.Uuid
+  recipientEmail String    @map("recipient_email") @db.VarChar(320)
+  subject        String    @db.VarChar(200)
+  text           String    @db.Text
+  attempts       Int       @default(0)
+  claimedAt      DateTime? @map("claimed_at") @db.Timestamptz(3)
+  sentAt         DateTime? @map("sent_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([sentAt, claimedAt, createdAt], map: "email_deliveries_pending_idx")
+  @@map("email_deliveries")
+}

@@ -10,7 +10,7 @@ const keyPattern = /^[A-Za-z0-9._:@/-]{1,200}$/;
 const POSTGRES_INT_MAX = 2_147_483_647;
 type CheckoutQuote = {
   orderType: 'CREDIT_PURCHASE' | 'AGENCY_SUBSCRIPTION';
-    packId: string; packKey: string; packName: string; periodDays: number | null; quantity: number; unitCredits: number; credits: number;
+  packId: string; packKey: string; packName: string; periodDays: number | null; quantity: number; unitCredits: number; credits: number; checkInEvents?: number; checkInGuestCapacity?: number;
   currency: string; unitPriceMinor: number; discountMinor: number; discountRule: string | null;
   taxEnabled: boolean; taxRule: string | null; taxRateBps: number; taxMinor: number;
   subtotalMinor: number; totalMinor: number; priceScheduleId: string; priceScheduleVersion: number;
@@ -51,12 +51,15 @@ export class PaymentsService {
     if (!response.ok) throw new BadGatewayException('Billing n’a pas pu établir le devis de commande.');
     if (!result || typeof result !== 'object' || Array.isArray(result)) throw new BadGatewayException('Le devis Billing est invalide.');
     const quote = result as CheckoutQuote;
-    const integerFields = [quote.quantity, quote.unitCredits, quote.credits, quote.unitPriceMinor, quote.discountMinor, quote.taxRateBps, quote.taxMinor, quote.subtotalMinor, quote.totalMinor, quote.priceScheduleVersion];
+    // Historical Billing snapshots predate V4 and carry no pointage fields.
+    // Treat them explicitly as zero rights, never as an implicit entitlement.
+    quote.checkInEvents ??= 0; quote.checkInGuestCapacity ??= 0;
+    const integerFields = [quote.quantity, quote.unitCredits, quote.credits, quote.checkInEvents, quote.checkInGuestCapacity, quote.unitPriceMinor, quote.discountMinor, quote.taxRateBps, quote.taxMinor, quote.subtotalMinor, quote.totalMinor, quote.priceScheduleVersion];
     const expectedTax = quote.taxEnabled ? Math.round(quote.subtotalMinor * quote.taxRateBps / 10_000) : 0;
     if (
       quote.orderType !== orderType || quote.packId !== packId || quote.quantity !== quantity || !integerFields.every(Number.isSafeInteger) ||
       (orderType === 'AGENCY_SUBSCRIPTION' && quote.periodDays !== 30) ||
-      quote.unitCredits < 1 || quote.credits !== quote.unitCredits * quote.quantity ||
+      quote.unitCredits < 1 || quote.credits !== quote.unitCredits * quote.quantity || quote.checkInEvents < 0 || quote.checkInGuestCapacity < 0 || (quote.checkInEvents === 0) !== (quote.checkInGuestCapacity === 0) ||
       quote.unitPriceMinor < 1 || quote.discountMinor < 0 || quote.discountMinor > quote.unitPriceMinor * quote.quantity ||
       quote.subtotalMinor !== quote.unitPriceMinor * quote.quantity - quote.discountMinor ||
       quote.taxMinor !== expectedTax || quote.totalMinor !== quote.subtotalMinor + quote.taxMinor ||
@@ -98,8 +101,8 @@ export class PaymentsService {
       try {
         order = await this.prisma.$transaction(async (tx) => {
           const createdOrder = await tx.paymentOrder.create({ data: {
-            orderType, businessReference: businessReference ?? null, ownerSubject, packId, packKey: quote.packKey, packName: quote.packName, credits: quote.credits,
-            metadata: { packId: quote.packId, packKey: quote.packKey, orderType, periodDays: quote.periodDays, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion, paymentChannel: channel },
+            orderType, businessReference: businessReference ?? null, ownerSubject, packId, packKey: quote.packKey, packName: quote.packName, credits: quote.credits, checkInEvents: quote.checkInEvents ?? 0, checkInGuestCapacity: quote.checkInGuestCapacity ?? 0,
+            metadata: { packId: quote.packId, packKey: quote.packKey, orderType, periodDays: quote.periodDays, checkInEvents: quote.checkInEvents, checkInGuestCapacity: quote.checkInGuestCapacity, priceScheduleId: quote.priceScheduleId, priceScheduleVersion: quote.priceScheduleVersion, paymentChannel: channel },
             unitCredits: quote.unitCredits, quantity: quote.quantity, unitPriceMinor: quote.unitPriceMinor,
             discountMinor: quote.discountMinor, discountRule: quote.discountRule,
             taxEnabled: quote.taxEnabled, taxRule: quote.taxRule, taxRateBps: quote.taxRateBps, taxMinor: quote.taxMinor,
@@ -350,7 +353,7 @@ export class PaymentsService {
               rateBpsSnapshot: attribution.partner.commissionRateBps, currency: payment.order.currency,
             }], skipDuplicates: true });
           }
-          const payload = { paymentId: payment.id, orderId: payment.orderId, orderType: payment.order.orderType, businessReference: payment.order.businessReference, ownerSubject: payment.order.ownerSubject, customerSubject: payment.order.ownerSubject, credits: payment.order.credits, amountMinor: payment.order.amountMinor, currency: payment.order.currency, provider: providerName, providerTransactionId: confirmation.transactionId, metadata: payment.order.metadata };
+          const payload = { paymentId: payment.id, orderId: payment.orderId, orderType: payment.order.orderType, businessReference: payment.order.businessReference, ownerSubject: payment.order.ownerSubject, customerSubject: payment.order.ownerSubject, credits: payment.order.credits, checkInEvents: payment.order.checkInEvents, checkInGuestCapacity: payment.order.checkInGuestCapacity, amountMinor: payment.order.amountMinor, currency: payment.order.currency, provider: providerName, providerTransactionId: confirmation.transactionId, metadata: payment.order.metadata };
           if (payment.order.orderType === 'CREDIT_PURCHASE') await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v1', aggregateId: payment.id, payload } });
           await tx.outboxMessage.create({ data: { eventType: 'payment.succeeded.v2', aggregateId: payment.id, payload } });
         } else if (newStatus === 'FAILED') {

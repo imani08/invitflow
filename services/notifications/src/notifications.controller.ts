@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { IdentityGuard, type VerifiedIdentity } from './identity.guard.js';
 import { NotificationsService } from './notifications.service.js';
@@ -20,4 +20,8 @@ export class NotificationsController {
   @Patch('/:notificationId/read') markRead(@Req() request: AuthenticatedRequest, @Param('notificationId') id: string) { return this.notifications.markRead(request.identity.subject, id); }
   @Get('/preferences') preferences(@Req() request: AuthenticatedRequest) { return this.notifications.preferences(request.identity.subject); }
   @Post('/preferences') updatePreferences(@Req() request: AuthenticatedRequest, @Body() body: unknown) { return this.notifications.updatePreferences(request.identity.subject, body); }
+  @Post('/admin/announcements') announce(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    if (!request.identity.roles.includes('SUPER_ADMIN')) throw new ForbiddenException('Permission Super Admin requise.');
+    return this.notifications.announce(request.identity.subject, body);
+  }
 }

@@ -94,6 +94,23 @@
       }
     },
     {
+      "name": "access.payment-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "invitaflow.dlx",
+        "x-dead-letter-routing-key": "access.payment-events.dead"
+      }
+    },
+    {
+      "name": "access.payment-events.dead",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "agencies.payment-events.retry",
       "vhost": "/",
       "durable": true,
@@ -330,6 +347,14 @@
       "source": "invitaflow.events",
       "vhost": "/",
       "destination": "agencies.payment-events",
+      "destination_type": "queue",
+      "routing_key": "payment.succeeded.v2",
+      "arguments": {}
+    },
+    {
+      "source": "invitaflow.events",
+      "vhost": "/",
+      "destination": "access.payment-events",
       "destination_type": "queue",
       "routing_key": "payment.succeeded.v2",
       "arguments": {}

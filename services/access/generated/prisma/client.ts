@@ -62,6 +62,16 @@ export type AccessScanAttempt = Prisma.AccessScanAttemptModel
  */
 export type CheckInLink = Prisma.CheckInLinkModel
 /**
+ * Model CheckInLicense
+ * 
+ */
+export type CheckInLicense = Prisma.CheckInLicenseModel
+/**
+ * Model CheckInLicenseGuest
+ * 
+ */
+export type CheckInLicenseGuest = Prisma.CheckInLicenseGuestModel
+/**
  * Model CheckInLinkCeremonyGrant
  * 
  */

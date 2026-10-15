@@ -33,11 +33,13 @@ export type CheckInLinkMinAggregateOutputType = {
   label: string | null
   reference: string | null
   tokenHash: string | null
+  tokenCiphertext: string | null
   status: $Enums.CheckInLinkStatus | null
   expiresAt: Date | null
   lastUsedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  licenseId: string | null
 }
 
 export type CheckInLinkMaxAggregateOutputType = {
@@ -49,11 +51,13 @@ export type CheckInLinkMaxAggregateOutputType = {
   label: string | null
   reference: string | null
   tokenHash: string | null
+  tokenCiphertext: string | null
   status: $Enums.CheckInLinkStatus | null
   expiresAt: Date | null
   lastUsedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
+  licenseId: string | null
 }
 
 export type CheckInLinkCountAggregateOutputType = {
@@ -65,11 +69,13 @@ export type CheckInLinkCountAggregateOutputType = {
   label: number
   reference: number
   tokenHash: number
+  tokenCiphertext: number
   status: number
   expiresAt: number
   lastUsedAt: number
   createdAt: number
   updatedAt: number
+  licenseId: number
   _all: number
 }
 
@@ -83,11 +89,13 @@ export type CheckInLinkMinAggregateInputType = {
   label?: true
   reference?: true
   tokenHash?: true
+  tokenCiphertext?: true
   status?: true
   expiresAt?: true
   lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
+  licenseId?: true
 }
 
 export type CheckInLinkMaxAggregateInputType = {
@@ -99,11 +107,13 @@ export type CheckInLinkMaxAggregateInputType = {
   label?: true
   reference?: true
   tokenHash?: true
+  tokenCiphertext?: true
   status?: true
   expiresAt?: true
   lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
+  licenseId?: true
 }
 
 export type CheckInLinkCountAggregateInputType = {
@@ -115,11 +125,13 @@ export type CheckInLinkCountAggregateInputType = {
   label?: true
   reference?: true
   tokenHash?: true
+  tokenCiphertext?: true
   status?: true
   expiresAt?: true
   lastUsedAt?: true
   createdAt?: true
   updatedAt?: true
+  licenseId?: true
   _all?: true
 }
 
@@ -204,11 +216,13 @@ export type CheckInLinkGroupByOutputType = {
   label: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext: string | null
   status: $Enums.CheckInLinkStatus
   expiresAt: Date
   lastUsedAt: Date | null
   createdAt: Date
   updatedAt: Date
+  licenseId: string | null
   _count: CheckInLinkCountAggregateOutputType | null
   _min: CheckInLinkMinAggregateOutputType | null
   _max: CheckInLinkMaxAggregateOutputType | null
@@ -241,11 +255,14 @@ export type CheckInLinkWhereInput = {
   label?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
   reference?: Prisma.StringFilter<"CheckInLink"> | string
   tokenHash?: Prisma.StringFilter<"CheckInLink"> | string
+  tokenCiphertext?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
   status?: Prisma.EnumCheckInLinkStatusFilter<"CheckInLink"> | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
   lastUsedAt?: Prisma.DateTimeNullableFilter<"CheckInLink"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
+  licenseId?: Prisma.UuidNullableFilter<"CheckInLink"> | string | null
+  license?: Prisma.XOR<Prisma.CheckInLicenseNullableScalarRelationFilter, Prisma.CheckInLicenseWhereInput> | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantListRelationFilter
   scans?: Prisma.AccessScanAttemptListRelationFilter
 }
@@ -259,11 +276,14 @@ export type CheckInLinkOrderByWithRelationInput = {
   label?: Prisma.SortOrderInput | Prisma.SortOrder
   reference?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  tokenCiphertext?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  licenseId?: Prisma.SortOrderInput | Prisma.SortOrder
+  license?: Prisma.CheckInLicenseOrderByWithRelationInput
   ceremonies?: Prisma.CheckInLinkCeremonyGrantOrderByRelationAggregateInput
   scans?: Prisma.AccessScanAttemptOrderByRelationAggregateInput
 }
@@ -280,11 +300,14 @@ export type CheckInLinkWhereUniqueInput = Prisma.AtLeast<{
   timezone?: Prisma.StringFilter<"CheckInLink"> | string
   label?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
   reference?: Prisma.StringFilter<"CheckInLink"> | string
+  tokenCiphertext?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
   status?: Prisma.EnumCheckInLinkStatusFilter<"CheckInLink"> | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
   lastUsedAt?: Prisma.DateTimeNullableFilter<"CheckInLink"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
+  licenseId?: Prisma.UuidNullableFilter<"CheckInLink"> | string | null
+  license?: Prisma.XOR<Prisma.CheckInLicenseNullableScalarRelationFilter, Prisma.CheckInLicenseWhereInput> | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantListRelationFilter
   scans?: Prisma.AccessScanAttemptListRelationFilter
 }, "id" | "tokenHash">
@@ -298,11 +321,13 @@ export type CheckInLinkOrderByWithAggregationInput = {
   label?: Prisma.SortOrderInput | Prisma.SortOrder
   reference?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  tokenCiphertext?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  licenseId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.CheckInLinkCountOrderByAggregateInput
   _max?: Prisma.CheckInLinkMaxOrderByAggregateInput
   _min?: Prisma.CheckInLinkMinOrderByAggregateInput
@@ -320,11 +345,13 @@ export type CheckInLinkScalarWhereWithAggregatesInput = {
   label?: Prisma.StringNullableWithAggregatesFilter<"CheckInLink"> | string | null
   reference?: Prisma.StringWithAggregatesFilter<"CheckInLink"> | string
   tokenHash?: Prisma.StringWithAggregatesFilter<"CheckInLink"> | string
+  tokenCiphertext?: Prisma.StringNullableWithAggregatesFilter<"CheckInLink"> | string | null
   status?: Prisma.EnumCheckInLinkStatusWithAggregatesFilter<"CheckInLink"> | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"CheckInLink"> | Date | string
   lastUsedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"CheckInLink"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"CheckInLink"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"CheckInLink"> | Date | string
+  licenseId?: Prisma.UuidNullableWithAggregatesFilter<"CheckInLink"> | string | null
 }
 
 export type CheckInLinkCreateInput = {
@@ -336,11 +363,13 @@ export type CheckInLinkCreateInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  license?: Prisma.CheckInLicenseCreateNestedOneWithoutLinksInput
   ceremonies?: Prisma.CheckInLinkCeremonyGrantCreateNestedManyWithoutLinkInput
   scans?: Prisma.AccessScanAttemptCreateNestedManyWithoutLinkInput
 }
@@ -354,11 +383,13 @@ export type CheckInLinkUncheckedCreateInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  licenseId?: string | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedCreateNestedManyWithoutLinkInput
   scans?: Prisma.AccessScanAttemptUncheckedCreateNestedManyWithoutLinkInput
 }
@@ -372,11 +403,13 @@ export type CheckInLinkUpdateInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  license?: Prisma.CheckInLicenseUpdateOneWithoutLinksNestedInput
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUpdateManyWithoutLinkNestedInput
   scans?: Prisma.AccessScanAttemptUpdateManyWithoutLinkNestedInput
 }
@@ -390,11 +423,13 @@ export type CheckInLinkUncheckedUpdateInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  licenseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedUpdateManyWithoutLinkNestedInput
   scans?: Prisma.AccessScanAttemptUncheckedUpdateManyWithoutLinkNestedInput
 }
@@ -408,11 +443,13 @@ export type CheckInLinkCreateManyInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  licenseId?: string | null
 }
 
 export type CheckInLinkUpdateManyMutationInput = {
@@ -424,6 +461,7 @@ export type CheckInLinkUpdateManyMutationInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -440,11 +478,13 @@ export type CheckInLinkUncheckedUpdateManyInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  licenseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CheckInLinkNullableScalarRelationFilter = {
@@ -461,11 +501,13 @@ export type CheckInLinkCountOrderByAggregateInput = {
   label?: Prisma.SortOrder
   reference?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  tokenCiphertext?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  licenseId?: Prisma.SortOrder
 }
 
 export type CheckInLinkMaxOrderByAggregateInput = {
@@ -477,11 +519,13 @@ export type CheckInLinkMaxOrderByAggregateInput = {
   label?: Prisma.SortOrder
   reference?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  tokenCiphertext?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  licenseId?: Prisma.SortOrder
 }
 
 export type CheckInLinkMinOrderByAggregateInput = {
@@ -493,11 +537,23 @@ export type CheckInLinkMinOrderByAggregateInput = {
   label?: Prisma.SortOrder
   reference?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
+  tokenCiphertext?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   lastUsedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  licenseId?: Prisma.SortOrder
+}
+
+export type CheckInLinkListRelationFilter = {
+  every?: Prisma.CheckInLinkWhereInput
+  some?: Prisma.CheckInLinkWhereInput
+  none?: Prisma.CheckInLinkWhereInput
+}
+
+export type CheckInLinkOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type CheckInLinkScalarRelationFilter = {
@@ -529,6 +585,48 @@ export type NullableDateTimeFieldUpdateOperationsInput = {
   set?: Date | string | null
 }
 
+export type CheckInLinkCreateNestedManyWithoutLicenseInput = {
+  create?: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput> | Prisma.CheckInLinkCreateWithoutLicenseInput[] | Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput[]
+  connectOrCreate?: Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput | Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput[]
+  createMany?: Prisma.CheckInLinkCreateManyLicenseInputEnvelope
+  connect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+}
+
+export type CheckInLinkUncheckedCreateNestedManyWithoutLicenseInput = {
+  create?: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput> | Prisma.CheckInLinkCreateWithoutLicenseInput[] | Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput[]
+  connectOrCreate?: Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput | Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput[]
+  createMany?: Prisma.CheckInLinkCreateManyLicenseInputEnvelope
+  connect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+}
+
+export type CheckInLinkUpdateManyWithoutLicenseNestedInput = {
+  create?: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput> | Prisma.CheckInLinkCreateWithoutLicenseInput[] | Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput[]
+  connectOrCreate?: Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput | Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput[]
+  upsert?: Prisma.CheckInLinkUpsertWithWhereUniqueWithoutLicenseInput | Prisma.CheckInLinkUpsertWithWhereUniqueWithoutLicenseInput[]
+  createMany?: Prisma.CheckInLinkCreateManyLicenseInputEnvelope
+  set?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  disconnect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  delete?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  connect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  update?: Prisma.CheckInLinkUpdateWithWhereUniqueWithoutLicenseInput | Prisma.CheckInLinkUpdateWithWhereUniqueWithoutLicenseInput[]
+  updateMany?: Prisma.CheckInLinkUpdateManyWithWhereWithoutLicenseInput | Prisma.CheckInLinkUpdateManyWithWhereWithoutLicenseInput[]
+  deleteMany?: Prisma.CheckInLinkScalarWhereInput | Prisma.CheckInLinkScalarWhereInput[]
+}
+
+export type CheckInLinkUncheckedUpdateManyWithoutLicenseNestedInput = {
+  create?: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput> | Prisma.CheckInLinkCreateWithoutLicenseInput[] | Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput[]
+  connectOrCreate?: Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput | Prisma.CheckInLinkCreateOrConnectWithoutLicenseInput[]
+  upsert?: Prisma.CheckInLinkUpsertWithWhereUniqueWithoutLicenseInput | Prisma.CheckInLinkUpsertWithWhereUniqueWithoutLicenseInput[]
+  createMany?: Prisma.CheckInLinkCreateManyLicenseInputEnvelope
+  set?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  disconnect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  delete?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  connect?: Prisma.CheckInLinkWhereUniqueInput | Prisma.CheckInLinkWhereUniqueInput[]
+  update?: Prisma.CheckInLinkUpdateWithWhereUniqueWithoutLicenseInput | Prisma.CheckInLinkUpdateWithWhereUniqueWithoutLicenseInput[]
+  updateMany?: Prisma.CheckInLinkUpdateManyWithWhereWithoutLicenseInput | Prisma.CheckInLinkUpdateManyWithWhereWithoutLicenseInput[]
+  deleteMany?: Prisma.CheckInLinkScalarWhereInput | Prisma.CheckInLinkScalarWhereInput[]
+}
+
 export type CheckInLinkCreateNestedOneWithoutCeremoniesInput = {
   create?: Prisma.XOR<Prisma.CheckInLinkCreateWithoutCeremoniesInput, Prisma.CheckInLinkUncheckedCreateWithoutCeremoniesInput>
   connectOrCreate?: Prisma.CheckInLinkCreateOrConnectWithoutCeremoniesInput
@@ -552,11 +650,13 @@ export type CheckInLinkCreateWithoutScansInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  license?: Prisma.CheckInLicenseCreateNestedOneWithoutLinksInput
   ceremonies?: Prisma.CheckInLinkCeremonyGrantCreateNestedManyWithoutLinkInput
 }
 
@@ -569,11 +669,13 @@ export type CheckInLinkUncheckedCreateWithoutScansInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  licenseId?: string | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedCreateNestedManyWithoutLinkInput
 }
 
@@ -602,11 +704,13 @@ export type CheckInLinkUpdateWithoutScansInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  license?: Prisma.CheckInLicenseUpdateOneWithoutLinksNestedInput
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUpdateManyWithoutLinkNestedInput
 }
 
@@ -619,12 +723,99 @@ export type CheckInLinkUncheckedUpdateWithoutScansInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  licenseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedUpdateManyWithoutLinkNestedInput
+}
+
+export type CheckInLinkCreateWithoutLicenseInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  eventName: string
+  timezone: string
+  label?: string | null
+  reference: string
+  tokenHash: string
+  tokenCiphertext?: string | null
+  status?: $Enums.CheckInLinkStatus
+  expiresAt: Date | string
+  lastUsedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ceremonies?: Prisma.CheckInLinkCeremonyGrantCreateNestedManyWithoutLinkInput
+  scans?: Prisma.AccessScanAttemptCreateNestedManyWithoutLinkInput
+}
+
+export type CheckInLinkUncheckedCreateWithoutLicenseInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  eventName: string
+  timezone: string
+  label?: string | null
+  reference: string
+  tokenHash: string
+  tokenCiphertext?: string | null
+  status?: $Enums.CheckInLinkStatus
+  expiresAt: Date | string
+  lastUsedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedCreateNestedManyWithoutLinkInput
+  scans?: Prisma.AccessScanAttemptUncheckedCreateNestedManyWithoutLinkInput
+}
+
+export type CheckInLinkCreateOrConnectWithoutLicenseInput = {
+  where: Prisma.CheckInLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput>
+}
+
+export type CheckInLinkCreateManyLicenseInputEnvelope = {
+  data: Prisma.CheckInLinkCreateManyLicenseInput | Prisma.CheckInLinkCreateManyLicenseInput[]
+  skipDuplicates?: boolean
+}
+
+export type CheckInLinkUpsertWithWhereUniqueWithoutLicenseInput = {
+  where: Prisma.CheckInLinkWhereUniqueInput
+  update: Prisma.XOR<Prisma.CheckInLinkUpdateWithoutLicenseInput, Prisma.CheckInLinkUncheckedUpdateWithoutLicenseInput>
+  create: Prisma.XOR<Prisma.CheckInLinkCreateWithoutLicenseInput, Prisma.CheckInLinkUncheckedCreateWithoutLicenseInput>
+}
+
+export type CheckInLinkUpdateWithWhereUniqueWithoutLicenseInput = {
+  where: Prisma.CheckInLinkWhereUniqueInput
+  data: Prisma.XOR<Prisma.CheckInLinkUpdateWithoutLicenseInput, Prisma.CheckInLinkUncheckedUpdateWithoutLicenseInput>
+}
+
+export type CheckInLinkUpdateManyWithWhereWithoutLicenseInput = {
+  where: Prisma.CheckInLinkScalarWhereInput
+  data: Prisma.XOR<Prisma.CheckInLinkUpdateManyMutationInput, Prisma.CheckInLinkUncheckedUpdateManyWithoutLicenseInput>
+}
+
+export type CheckInLinkScalarWhereInput = {
+  AND?: Prisma.CheckInLinkScalarWhereInput | Prisma.CheckInLinkScalarWhereInput[]
+  OR?: Prisma.CheckInLinkScalarWhereInput[]
+  NOT?: Prisma.CheckInLinkScalarWhereInput | Prisma.CheckInLinkScalarWhereInput[]
+  id?: Prisma.UuidFilter<"CheckInLink"> | string
+  ownerSubject?: Prisma.StringFilter<"CheckInLink"> | string
+  eventId?: Prisma.UuidFilter<"CheckInLink"> | string
+  eventName?: Prisma.StringFilter<"CheckInLink"> | string
+  timezone?: Prisma.StringFilter<"CheckInLink"> | string
+  label?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
+  reference?: Prisma.StringFilter<"CheckInLink"> | string
+  tokenHash?: Prisma.StringFilter<"CheckInLink"> | string
+  tokenCiphertext?: Prisma.StringNullableFilter<"CheckInLink"> | string | null
+  status?: Prisma.EnumCheckInLinkStatusFilter<"CheckInLink"> | $Enums.CheckInLinkStatus
+  expiresAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
+  lastUsedAt?: Prisma.DateTimeNullableFilter<"CheckInLink"> | Date | string | null
+  createdAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"CheckInLink"> | Date | string
+  licenseId?: Prisma.UuidNullableFilter<"CheckInLink"> | string | null
 }
 
 export type CheckInLinkCreateWithoutCeremoniesInput = {
@@ -636,11 +827,13 @@ export type CheckInLinkCreateWithoutCeremoniesInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  license?: Prisma.CheckInLicenseCreateNestedOneWithoutLinksInput
   scans?: Prisma.AccessScanAttemptCreateNestedManyWithoutLinkInput
 }
 
@@ -653,11 +846,13 @@ export type CheckInLinkUncheckedCreateWithoutCeremoniesInput = {
   label?: string | null
   reference: string
   tokenHash: string
+  tokenCiphertext?: string | null
   status?: $Enums.CheckInLinkStatus
   expiresAt: Date | string
   lastUsedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  licenseId?: string | null
   scans?: Prisma.AccessScanAttemptUncheckedCreateNestedManyWithoutLinkInput
 }
 
@@ -686,11 +881,13 @@ export type CheckInLinkUpdateWithoutCeremoniesInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  license?: Prisma.CheckInLicenseUpdateOneWithoutLinksNestedInput
   scans?: Prisma.AccessScanAttemptUpdateManyWithoutLinkNestedInput
 }
 
@@ -703,12 +900,86 @@ export type CheckInLinkUncheckedUpdateWithoutCeremoniesInput = {
   label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reference?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  licenseId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   scans?: Prisma.AccessScanAttemptUncheckedUpdateManyWithoutLinkNestedInput
+}
+
+export type CheckInLinkCreateManyLicenseInput = {
+  id?: string
+  ownerSubject: string
+  eventId: string
+  eventName: string
+  timezone: string
+  label?: string | null
+  reference: string
+  tokenHash: string
+  tokenCiphertext?: string | null
+  status?: $Enums.CheckInLinkStatus
+  expiresAt: Date | string
+  lastUsedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type CheckInLinkUpdateWithoutLicenseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  eventName?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reference?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ceremonies?: Prisma.CheckInLinkCeremonyGrantUpdateManyWithoutLinkNestedInput
+  scans?: Prisma.AccessScanAttemptUpdateManyWithoutLinkNestedInput
+}
+
+export type CheckInLinkUncheckedUpdateWithoutLicenseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  eventName?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reference?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  ceremonies?: Prisma.CheckInLinkCeremonyGrantUncheckedUpdateManyWithoutLinkNestedInput
+  scans?: Prisma.AccessScanAttemptUncheckedUpdateManyWithoutLinkNestedInput
+}
+
+export type CheckInLinkUncheckedUpdateManyWithoutLicenseInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerSubject?: Prisma.StringFieldUpdateOperationsInput | string
+  eventId?: Prisma.StringFieldUpdateOperationsInput | string
+  eventName?: Prisma.StringFieldUpdateOperationsInput | string
+  timezone?: Prisma.StringFieldUpdateOperationsInput | string
+  label?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reference?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenCiphertext?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.EnumCheckInLinkStatusFieldUpdateOperationsInput | $Enums.CheckInLinkStatus
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastUsedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -760,11 +1031,14 @@ export type CheckInLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   label?: boolean
   reference?: boolean
   tokenHash?: boolean
+  tokenCiphertext?: boolean
   status?: boolean
   expiresAt?: boolean
   lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  licenseId?: boolean
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
   ceremonies?: boolean | Prisma.CheckInLink$ceremoniesArgs<ExtArgs>
   scans?: boolean | Prisma.CheckInLink$scansArgs<ExtArgs>
   _count?: boolean | Prisma.CheckInLinkCountOutputTypeDefaultArgs<ExtArgs>
@@ -779,11 +1053,14 @@ export type CheckInLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   label?: boolean
   reference?: boolean
   tokenHash?: boolean
+  tokenCiphertext?: boolean
   status?: boolean
   expiresAt?: boolean
   lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  licenseId?: boolean
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
 }, ExtArgs["result"]["checkInLink"]>
 
 export type CheckInLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -795,11 +1072,14 @@ export type CheckInLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   label?: boolean
   reference?: boolean
   tokenHash?: boolean
+  tokenCiphertext?: boolean
   status?: boolean
   expiresAt?: boolean
   lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  licenseId?: boolean
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
 }, ExtArgs["result"]["checkInLink"]>
 
 export type CheckInLinkSelectScalar = {
@@ -811,25 +1091,33 @@ export type CheckInLinkSelectScalar = {
   label?: boolean
   reference?: boolean
   tokenHash?: boolean
+  tokenCiphertext?: boolean
   status?: boolean
   expiresAt?: boolean
   lastUsedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  licenseId?: boolean
 }
 
-export type CheckInLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "eventName" | "timezone" | "label" | "reference" | "tokenHash" | "status" | "expiresAt" | "lastUsedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["checkInLink"]>
+export type CheckInLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerSubject" | "eventId" | "eventName" | "timezone" | "label" | "reference" | "tokenHash" | "tokenCiphertext" | "status" | "expiresAt" | "lastUsedAt" | "createdAt" | "updatedAt" | "licenseId", ExtArgs["result"]["checkInLink"]>
 export type CheckInLinkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
   ceremonies?: boolean | Prisma.CheckInLink$ceremoniesArgs<ExtArgs>
   scans?: boolean | Prisma.CheckInLink$scansArgs<ExtArgs>
   _count?: boolean | Prisma.CheckInLinkCountOutputTypeDefaultArgs<ExtArgs>
 }
-export type CheckInLinkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
-export type CheckInLinkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type CheckInLinkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
+}
+export type CheckInLinkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  license?: boolean | Prisma.CheckInLink$licenseArgs<ExtArgs>
+}
 
 export type $CheckInLinkPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "CheckInLink"
   objects: {
+    license: Prisma.$CheckInLicensePayload<ExtArgs> | null
     ceremonies: Prisma.$CheckInLinkCeremonyGrantPayload<ExtArgs>[]
     scans: Prisma.$AccessScanAttemptPayload<ExtArgs>[]
   }
@@ -842,11 +1130,13 @@ export type $CheckInLinkPayload<ExtArgs extends runtime.Types.Extensions.Interna
     label: string | null
     reference: string
     tokenHash: string
+    tokenCiphertext: string | null
     status: $Enums.CheckInLinkStatus
     expiresAt: Date
     lastUsedAt: Date | null
     createdAt: Date
     updatedAt: Date
+    licenseId: string | null
   }, ExtArgs["result"]["checkInLink"]>
   composites: {}
 }
@@ -1241,6 +1531,7 @@ readonly fields: CheckInLinkFieldRefs;
  */
 export interface Prisma__CheckInLinkClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  license<T extends Prisma.CheckInLink$licenseArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CheckInLink$licenseArgs<ExtArgs>>): Prisma.Prisma__CheckInLicenseClient<runtime.Types.Result.GetResult<Prisma.$CheckInLicensePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   ceremonies<T extends Prisma.CheckInLink$ceremoniesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CheckInLink$ceremoniesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CheckInLinkCeremonyGrantPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   scans<T extends Prisma.CheckInLink$scansArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.CheckInLink$scansArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AccessScanAttemptPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
@@ -1280,11 +1571,13 @@ export interface CheckInLinkFieldRefs {
   readonly label: Prisma.FieldRef<"CheckInLink", 'String'>
   readonly reference: Prisma.FieldRef<"CheckInLink", 'String'>
   readonly tokenHash: Prisma.FieldRef<"CheckInLink", 'String'>
+  readonly tokenCiphertext: Prisma.FieldRef<"CheckInLink", 'String'>
   readonly status: Prisma.FieldRef<"CheckInLink", 'CheckInLinkStatus'>
   readonly expiresAt: Prisma.FieldRef<"CheckInLink", 'DateTime'>
   readonly lastUsedAt: Prisma.FieldRef<"CheckInLink", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"CheckInLink", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"CheckInLink", 'DateTime'>
+  readonly licenseId: Prisma.FieldRef<"CheckInLink", 'String'>
 }
     
 
@@ -1539,6 +1832,10 @@ export type CheckInLinkCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Ext
    */
   data: Prisma.CheckInLinkCreateManyInput | Prisma.CheckInLinkCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckInLinkIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1609,6 +1906,10 @@ export type CheckInLinkUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Ext
    * Limit how many CheckInLinks to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckInLinkIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1675,6 +1976,25 @@ export type CheckInLinkDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Limit how many CheckInLinks to delete.
    */
   limit?: number
+}
+
+/**
+ * CheckInLink.license
+ */
+export type CheckInLink$licenseArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the CheckInLicense
+   */
+  select?: Prisma.CheckInLicenseSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the CheckInLicense
+   */
+  omit?: Prisma.CheckInLicenseOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CheckInLicenseInclude<ExtArgs> | null
+  where?: Prisma.CheckInLicenseWhereInput
 }
 
 /**

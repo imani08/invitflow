@@ -5,6 +5,8 @@ import { BadRequestException, ForbiddenException, GoneException, NotFoundExcepti
 import { CheckInLinkService } from './checkin-link.service.js';
 import { CheckInLinkStatus } from '../generated/prisma/client.js';
 
+process.env['INVITATIONS_INTERNAL_TOKEN'] ??= 'test-invitations-internal-token-that-is-long-enough';
+
 function makePrismaMock() {
   const links: any[] = [];
   return {
@@ -104,6 +106,8 @@ test('CheckInLinkService: creation with ceremony scopes sets sha256 token hash a
   assert.equal(context.reference, 'Accueil Entrée Nord');
   assert.equal(context.ceremonies.length, 1);
   assert.equal(context.ceremonies[0]?.name, 'Cérémonie Religieuse');
+  const listed = await service.list('owner-sub', eventId, 'Bearer auth');
+  assert.equal(listed.items[0]?.token, created.token);
 });
 
 test('CheckInLinkService: global event scope for event with NO ceremonies', async () => {
@@ -133,6 +137,16 @@ test('CheckInLinkService: global event scope for event with NO ceremonies', asyn
   assert.equal(context.eventName, 'Conférence Tech 2026');
   assert.equal(context.ceremonies.length, 1);
   assert.equal(context.ceremonies[0]?.id, eventId);
+});
+
+test('CheckInLinkService: a global scope requires the event date', async () => {
+  const { prisma } = makePrismaMock();
+  const eventId = '45444444-4444-4444-8444-444444444444';
+  const events = {
+    assertManageableCeremonies: async () => ({ id: eventId, name: 'Conférence sans date', timezone: 'Africa/Kinshasa', ownerSubject: 'owner-sub', ceremonies: [] }),
+  };
+  const service = new CheckInLinkService(prisma as any, events as any, { scanDelegated: async () => ({}) } as any);
+  await assert.rejects(() => service.create('owner-sub', eventId, {}, 'Bearer auth'), /date de début/);
 });
 
 test('CheckInLinkService: revocation immediately invalidates public access', async () => {

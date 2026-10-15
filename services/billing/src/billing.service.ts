@@ -8,7 +8,7 @@ const operationPattern = /^[a-z][a-z0-9._-]{1,119}$/;
 const currencyPattern = /^[A-Z]{3}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type PackInput = {
-  key: string; name: string; credits: number; periodDays: number | null; priceMinor: number; currency: string;
+  key: string; name: string; credits: number; periodDays: number | null; checkInEvents: number; checkInGuestCapacity: number; priceMinor: number; currency: string;
   description: string; segment: string; displayOrder: number; badge: string | null;
   validFrom: Date | null; validUntil: Date | null; visible: boolean;
 };
@@ -23,7 +23,7 @@ function duplicate(error: unknown) { return !!error && typeof error === 'object'
 function sameScheduleDefinition(existing: { packs: PackInput[]; rules: RuleInput[] }, packs: PackInput[], rules: RuleInput[]) {
   const packFields = (items: PackInput[]) => [...items]
     .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-    .map(({ key, name, credits, periodDays, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }) => ({ key, name, credits, periodDays: periodDays ?? null, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }));
+    .map(({ key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }) => ({ key, name, credits, periodDays: periodDays ?? null, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }));
   const ruleFields = (items: RuleInput[]) => [...items]
     .sort((a, b) => (a.operation < b.operation ? -1 : a.operation > b.operation ? 1 : 0))
     .map(({ operation, creditCost, unit }) => ({ operation, creditCost, unit }));
@@ -59,7 +59,7 @@ export class BillingService {
     const packs = schedule.packs
       .filter((pack) => pack.visible && (pack.segment === segment || pack.segment === 'ALL') && (!pack.validFrom || pack.validFrom <= now) && (!pack.validUntil || pack.validUntil > now))
       .sort((a, b) => a.displayOrder - b.displayOrder || a.credits - b.credits)
-      .map(({ id, key, name, credits, periodDays, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }) => ({ id, key, name, credits, periodDays: segment === 'AGENCY' ? 30 : periodDays, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }));
+      .map(({ id, key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }) => ({ id, key, name, credits, periodDays: segment === 'AGENCY' ? 30 : periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }));
     return { scheduleId: schedule.id, version: schedule.version, effectiveAt: schedule.effectiveAt, taxPolicy: { enabled: schedule.taxPolicyEnabled, ruleCode: schedule.taxRuleCode, rateBps: schedule.taxRateBps }, packs, rules: schedule.rules.map(({ operation, creditCost, unit }) => ({ operation, creditCost, unit })) };
   }
 
@@ -95,7 +95,7 @@ export class BillingService {
     if (![credits, subtotalMinor, taxMinor, totalMinor].every(Number.isSafeInteger) || totalMinor < 1) throw new BadRequestException('Le total de commande dépasse les limites autorisées.');
     if (orderType === 'AGENCY_SUBSCRIPTION' && pack.periodDays !== null && pack.periodDays !== 30) throw new ConflictException('Les offres agence doivent être configurées à 30 jours. Publiez une nouvelle grille corrigée.');
     return {
-      orderType, packId: pack.id, packKey: pack.key, packName: pack.name, periodDays: orderType === 'AGENCY_SUBSCRIPTION' ? 30 : pack.periodDays ?? null, quantity, unitCredits, credits,
+      orderType, packId: pack.id, packKey: pack.key, packName: pack.name, periodDays: orderType === 'AGENCY_SUBSCRIPTION' ? 30 : pack.periodDays ?? null, quantity, unitCredits, credits, checkInEvents: pack.checkInEvents, checkInGuestCapacity: pack.checkInGuestCapacity,
       currency: pack.currency, unitPriceMinor, discountMinor, discountRule: null,
       taxEnabled: schedule.taxPolicyEnabled, taxRule: schedule.taxPolicyEnabled ? schedule.taxRuleCode : null,
       taxRateBps: schedule.taxPolicyEnabled ? schedule.taxRateBps : 0, taxMinor,
@@ -140,7 +140,7 @@ export class BillingService {
     if (!Array.isArray(input['rules']) || input['rules'].length < 1 || input['rules'].length > 100) throw new BadRequestException('La grille doit contenir entre 1 et 100 règles.');
     const packs = (input['packs'] as unknown[]).map((raw): PackInput => {
       const value = object(raw);
-      if (Object.keys(value).some((key) => !['key', 'name', 'credits', 'periodDays', 'priceMinor', 'currency', 'description', 'segment', 'displayOrder', 'badge', 'validFrom', 'validUntil', 'visible'].includes(key))) throw new BadRequestException('Champs de pack non autorisés.');
+      if (Object.keys(value).some((key) => !['key', 'name', 'credits', 'periodDays', 'checkInEvents', 'checkInGuestCapacity', 'priceMinor', 'currency', 'description', 'segment', 'displayOrder', 'badge', 'validFrom', 'validUntil', 'visible'].includes(key))) throw new BadRequestException('Champs de pack non autorisés.');
       const key = text(value['key'], 'La clé du pack', 60);
       const currency = text(value['currency'], 'La devise', 3);
       if (!packPattern.test(key) || !currencyPattern.test(currency)) throw new BadRequestException('La clé ou la devise du pack est invalide.');
@@ -164,8 +164,11 @@ export class BillingService {
       if (typeof description !== 'string' || description.length > 1000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(description)) throw new BadRequestException('La description du pack est invalide.');
       const visible = value['visible'] === undefined ? true : value['visible'];
       if (typeof visible !== 'boolean') throw new BadRequestException('La visibilité du pack est invalide.');
+      const checkInEvents = positive(value['checkInEvents'] ?? 0, 'Le nombre d’événements de pointage', true);
+      const checkInGuestCapacity = positive(value['checkInGuestCapacity'] ?? 0, 'La capacité de pointage', true);
+      if ((checkInEvents === 0) !== (checkInGuestCapacity === 0)) throw new BadRequestException('Les droits de pointage doivent inclure un nombre d’événements et une capacité d’invités.');
       return {
-        key, name: text(value['name'], 'Le nom du pack', 100), credits: positive(value['credits'], 'Les crédits du pack'),
+        key, name: text(value['name'], 'Le nom du pack', 100), credits: positive(value['credits'], 'Les crédits du pack'), checkInEvents, checkInGuestCapacity,
         priceMinor: positive(value['priceMinor'], 'Le prix en unité mineure'), currency, description: description.trim(), segment,
         displayOrder: positive(value['displayOrder'] ?? 0, 'L’ordre d’affichage', true), badge, periodDays, validFrom, validUntil, visible,
       };

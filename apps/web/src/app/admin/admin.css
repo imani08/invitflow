@@ -66,6 +66,7 @@
 .admin-app td code,.moderation-list code { overflow-wrap: anywhere; color: var(--text-secondary); font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
 .admin-app td small { display: block; margin-top: 5px; color: var(--text-muted); }
 .admin-empty { margin: 0; padding: 18px 2px 4px; color: var(--text-secondary); line-height: 1.6; }
+.announcement-form{display:grid;gap:16px;max-width:800px}.announcement-form label{display:grid;gap:7px}.announcement-form textarea{resize:vertical}.announcement-form>button{width:fit-content;min-width:250px}.announcement-status{margin:0;padding:12px 14px;border:1px solid var(--text-success);border-radius:10px;color:var(--text-success);background:var(--surface-success)}
 .admin-denied { max-width: 760px; margin: 36px auto; }
 .admin-unavailable { margin: 0 0 20px; padding: 13px 16px; border: 1px solid var(--text-warning); border-radius: 10px; color: var(--text-warning); background: var(--surface-warning); line-height: 1.55; }
 .admin-denied h1 { margin: 8px 0; }

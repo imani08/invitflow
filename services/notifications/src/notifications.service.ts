@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { Prisma } from '../generated/prisma/client.js';
+import { KeycloakDirectory } from './keycloak-directory.js';
 import { PrismaService } from './prisma.service.js';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -18,6 +19,7 @@ function content(eventType: string, payload: Record<string, unknown>): Notificat
   switch (eventType) {
     case 'events.published.v1': return { category: 'events', title: 'Événement publié', message: eventName ? `« ${eventName} » est maintenant publié.` : 'Votre événement est maintenant publié.' };
     case 'events.cancelled.v1': return { category: 'events', title: 'Événement annulé', message: eventName ? `« ${eventName} » a été annulé.` : 'Un de vos événements a été annulé.' };
+    case 'events.completed.v1': return { category: 'events', title: 'Événement terminé', message: eventName ? `« ${eventName} » est maintenant terminé.` : 'Votre événement est maintenant terminé.' };
     case 'guest.import.completed.v1': {
       const imported = Number.isSafeInteger(payload['importedCount']) ? payload['importedCount'] as number : 0;
       const skipped = Number.isSafeInteger(payload['skippedCount']) ? payload['skippedCount'] as number : 0;
@@ -39,6 +41,7 @@ function content(eventType: string, payload: Record<string, unknown>): Notificat
 
 @Injectable()
 export class NotificationsService {
+  private readonly directory = new KeycloakDirectory();
   constructor(private readonly prisma: PrismaService) {}
 
   async list(ownerSubject: string, rawLimit?: string, cursor?: string, unreadOnly = false) {
@@ -99,6 +102,8 @@ export class NotificationsService {
     if (typeof payload['ownerSubject'] !== 'string' || !ownerPattern.test(payload['ownerSubject'])) return;
     const contentToSave = content(envelope.eventType, payload);
     if (!contentToSave) return;
+    let recipientEmail: string | null = null;
+    try { recipientEmail = await this.directory.emailForSubject(payload['ownerSubject']); } catch { console.warn(JSON.stringify({ level: 'warn', event: 'notification_recipient_lookup_failed' })); }
     const data: Record<string, string> = {};
     for (const field of ['id', 'eventId', 'paymentId', 'orderId', 'importJobId'] as const) {
       const value = payload[field];
@@ -107,8 +112,30 @@ export class NotificationsService {
     await this.prisma.$transaction(async (tx) => {
       const preference = await tx.notificationPreference.findUnique({ where: { ownerSubject: payload['ownerSubject'] as string } });
       if (preference?.enabled === false) return;
-      await tx.notification.createMany({ data: [{ ownerSubject: payload['ownerSubject'] as string, sourceEventId, eventType: envelope.eventType as string, category: contentToSave.category, title: contentToSave.title, message: contentToSave.message, data: data as Prisma.InputJsonValue }], skipDuplicates: true });
+      const notification = await tx.notification.upsert({ where: { sourceEventId }, create: { ownerSubject: payload['ownerSubject'] as string, sourceEventId, eventType: envelope.eventType as string, category: contentToSave.category, title: contentToSave.title, message: contentToSave.message, data: data as Prisma.InputJsonValue }, update: {} });
+      if (recipientEmail) await tx.emailDelivery.upsert({ where: { notificationId: notification.id }, create: { notificationId: notification.id, recipientEmail, subject: `InvitaFlow — ${contentToSave.title}`, text: `${contentToSave.message}\n\nRetrouvez cette notification dans votre espace InvitaFlow.` }, update: {} });
     });
+  }
+
+  async announce(authorSubject: string, body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw new BadRequestException('Annonce invalide.');
+    const input = body as Record<string, unknown>;
+    if (Object.keys(input).some((key) => key !== 'title' && key !== 'message') || typeof input['title'] !== 'string' || typeof input['message'] !== 'string') throw new BadRequestException('Annonce invalide.');
+    const title = input['title'].trim(); const message = input['message'].trim();
+    if (title.length < 3 || title.length > 160 || message.length < 3 || message.length > 5_000) throw new BadRequestException('Le titre doit contenir 3 à 160 caractères et le message 3 à 5 000 caractères.');
+    const recipients = await this.directory.allVerifiedUsers();
+    const announcementId = randomUUID();
+    for (let offset = 0; offset < recipients.length; offset += 100) {
+      const batch = recipients.slice(offset, offset + 100);
+      await this.prisma.$transaction(async (tx) => {
+        for (const recipient of batch) {
+          const sourceEventId = createHash('sha256').update(`announcement:${announcementId}:${recipient.subject}`).digest('hex');
+          const notification = await tx.notification.create({ data: { ownerSubject: recipient.subject, sourceEventId, eventType: 'announcements.sent.v1', category: 'announcement', title, message, data: { announcementId, authorSubject } } });
+          await tx.emailDelivery.create({ data: { notificationId: notification.id, recipientEmail: recipient.email, subject: `InvitaFlow — ${title}`, text: `${message}\n\nCette annonce est également disponible dans vos notifications InvitaFlow.` } });
+        }
+      });
+    }
+    return { announcementId, recipients: recipients.length, queued: recipients.length };
   }
 
   sourceFallback(payload: string) { return createHash('sha256').update(payload).digest('hex'); }
