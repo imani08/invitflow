@@ -131,7 +131,7 @@ test('pending reservation release is retried idempotently and only cleared after
   }
 });
 
-test('settlement consumes agency quota first and only charges Wallet for the remainder', async () => {
+test('an agency settlement never falls back to the personal Wallet', async () => {
   const originalFetch = globalThis.fetch;
   const originalEventsUrl = process.env['EVENTS_SERVICE_URL'];
   const originalWalletUrl = process.env['WALLET_SERVICE_URL'];
@@ -144,16 +144,13 @@ test('settlement consumes agency quota first and only charges Wallet for the rem
     calls.push(String(url));
     const body = JSON.parse(String(init?.body));
     if (String(url).startsWith('http://events.test')) assert.deepEqual(body, { consumedCredits: 2 });
-    else assert.deepEqual(body, { consumedCredits: 1 });
     return new Response(null, { status: 200 });
   };
   try {
     const service = new InvitationService({} as PrismaService, {} as InvitationStorage);
     const settle = service as unknown as { settle(batch: { ownerSubject: string; reservationReference: string; agencyWorkspaceId: string | null; agencyReservationReference: string | null; agencyReservedCredits: number; walletReservedCredits: number }, consumed: number): Promise<void> };
-    await settle.settle({ ownerSubject: 'owner', reservationReference: 'wallet-ref', agencyWorkspaceId: 'agency-id', agencyReservationReference: 'agency-ref', agencyReservedCredits: 2, walletReservedCredits: 3 }, 3);
-    assert.equal(calls.length, 2);
-    assert.match(calls[0]!, /events\.test/);
-    assert.match(calls[1]!, /wallet\.test/);
+    await assert.rejects(() => settle.settle({ ownerSubject: 'owner', reservationReference: 'wallet-ref', agencyWorkspaceId: 'agency-id', agencyReservationReference: 'agency-ref', agencyReservedCredits: 2, walletReservedCredits: 3 }, 3), /cannot settle against a personal Wallet/);
+    assert.equal(calls.length, 0);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalEventsUrl === undefined) delete process.env['EVENTS_SERVICE_URL']; else process.env['EVENTS_SERVICE_URL'] = originalEventsUrl;

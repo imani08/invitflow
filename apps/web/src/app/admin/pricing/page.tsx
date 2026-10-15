@@ -20,7 +20,7 @@ export default async function PricingAdminPage() {
     const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/admin/price-schedules`, { headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(6_000) });
     if (!response.ok) throw new Error('catalog_unavailable');
     const catalog = await response.json() as Catalog;
-    return <main className="admin-shell"><header><span>BACK-OFFICE · TARIFICATION</span><h1>Grilles de crédits</h1><p>La version {catalog.version} est en vigueur depuis le {new Date(catalog.effectiveAt).toLocaleString('fr-FR')}. Publiez une nouvelle version à une date future ; les anciennes grilles restent immuables.</p></header><p className="admin-context-link"><a href="/account/wallet">Voir les packs visibles par les clients</a></p><PriceScheduleForm catalog={catalog} /></main>;
+    return <main className="admin-shell"><header><span>BACK-OFFICE · TARIFICATION</span><h1>Grilles de crédits et de pointage</h1><p>La version {catalog.version} est en vigueur depuis le {new Date(catalog.effectiveAt).toLocaleString('fr-FR')}. Prix, crédits et droits de pointage publiés ici restent figés sur les commandes existantes.</p></header><p className="admin-context-link"><a href="/account/wallet">Voir les packs visibles dans l’espace particulier</a></p><PriceScheduleForm catalog={catalog} /></main>;
   } catch {
     return <main className="admin-shell"><section className="admin-denied"><span>BACK-OFFICE · TARIFICATION</span><h1>La grille tarifaire est indisponible</h1><p>Le service Billing n’a pas pu charger ses données persistées.</p></section></main>;
   }

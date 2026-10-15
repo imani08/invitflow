@@ -154,8 +154,8 @@ export class EventsController {
     const limit = rawLimit === undefined ? 20 : Number(rawLimit);
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new BadRequestException('limit must be from 1 to 100');
     if (cursor && !/^[0-9a-f-]{36}$/i.test(cursor)) throw new BadRequestException('cursor must be an event UUID');
-    if (scope !== undefined && scope !== 'agency') throw new BadRequestException('scope must be agency when specified');
-    return this.events.list(request.identity.subject, limit, cursor, scope === 'agency');
+    if (scope !== undefined && scope !== 'agency' && scope !== 'personal') throw new BadRequestException('scope must be agency or personal when specified');
+    return this.events.list(request.identity.subject, limit, cursor, scope === 'agency' ? 'agency' : 'personal');
   }
 
   @Get('/:eventId') get(@Req() request: AuthRequest, @Param('eventId') eventId: string) { return this.events.get(request.identity.subject, eventId, true); }

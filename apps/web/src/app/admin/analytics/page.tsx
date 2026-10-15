@@ -23,7 +23,7 @@ const labels: Record<string, string> = {
   payments_refunded: 'Paiements remboursés',
   credits_sold: 'Crédits vendus',
   credits_consumed: 'Crédits consommés',
-  rsvp_responses: 'Réponses RSVP',
+  rsvp_responses: 'Réponses historiques',
   checkins: 'Pointages',
 };
 

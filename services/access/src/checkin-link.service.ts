@@ -136,12 +136,15 @@ export class CheckInLinkService {
 
   async publicScan(token: string, input: ScanInput, deviceId?: string, userAgent?: string) {
     const link = await this.activeLink(token);
-    if (this.licenses) await this.licenses.ensureActive(link.licenseId);
     this.limit(`scan:${link.tokenHash}`);
     if (typeof input?.token !== 'string' || typeof input.ceremonyId !== 'string' || !isUuid(input.ceremonyId) || (input.companionCount !== undefined && (typeof input.companionCount !== 'number' || !Number.isInteger(input.companionCount) || input.companionCount < 0 || input.companionCount > 20))) throw new BadRequestException('Données de scan invalides.');
-    const grant = link.ceremonies.find((ceremony) => ceremony.ceremonyId === input.ceremonyId);
+    const validInput = input as { token: string; ceremonyId: string; companionCount?: number };
+    const grant = link.ceremonies.find((ceremony) => ceremony.ceremonyId === validInput.ceremonyId);
     if (!grant || grant.expiresAt <= new Date()) throw new ForbiddenException('Ce moment n’est pas autorisé ou sa période de pointage est terminée.');
-    const result = await this.access.scanDelegated(link.ownerSubject, link.eventId, { token: input.token, ceremonyId: input.ceremonyId, ...(typeof input.companionCount === 'number' ? { companionCount: input.companionCount } : {}) }, link.id, deviceId, userAgent);
+    const delegatedScan = () => this.access.scanDelegated(link.ownerSubject, link.eventId, { token: validInput.token, ceremonyId: validInput.ceremonyId, ...(typeof validInput.companionCount === 'number' ? { companionCount: validInput.companionCount } : {}) }, link.id, deviceId, userAgent) as Promise<{ alreadyCheckedIn?: unknown }>;
+    const result = this.licenses
+      ? await this.licenses.scanWithinCapacity(link.licenseId, validInput.token, delegatedScan)
+      : await delegatedScan();
     await this.prisma.checkInLink.updateMany({ where: { id: link.id, status: CheckInLinkStatus.ACTIVE }, data: { lastUsedAt: new Date() } });
     return result;
   }

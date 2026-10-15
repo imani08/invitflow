@@ -11,7 +11,10 @@ export class CheckInLicensePaymentConsumer implements OnModuleInit, OnModuleDest
   onModuleInit() { void this.run(); } onModuleDestroy() { this.stopped = true; if (this.timer) clearTimeout(this.timer); }
   private async run() { if (this.stopped || this.busy) return; this.busy = true; try { await this.consume(); } catch { /* retry on the next poll */ } finally { this.busy = false; if (!this.stopped) this.timer = setTimeout(() => void this.run(), 1_000); } }
   private async consume() {
-    const response = await fetch(`${this.api.replace(/\/$/, '')}/api/queues/%2F/access.payment-events/get`, { method: 'POST', headers: { authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`, 'content-type': 'application/json' }, body: JSON.stringify({ count: 1, ackmode: 'ack_requeue_true', encoding: 'auto', truncate: 250_000 }), signal: AbortSignal.timeout(4_000) });
+    // The management API's ack_requeue_true never consumes the message: it
+    // causes an endless poll loop.  Creation is idempotent by payment/index,
+    // so a successfully handled event can safely be acknowledged once.
+    const response = await fetch(`${this.api.replace(/\/$/, '')}/api/queues/%2F/access.payment-events/get`, { method: 'POST', headers: { authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`, 'content-type': 'application/json' }, body: JSON.stringify({ count: 1, ackmode: 'ack_requeue_false', encoding: 'auto', truncate: 250_000 }), signal: AbortSignal.timeout(4_000) });
     if (!response.ok) return; const messages: unknown = await response.json(); if (!Array.isArray(messages)) return;
     for (const message of messages as Array<{ payload?: unknown }>) {
       if (typeof message.payload !== 'string') continue; let envelope: Envelope; try { envelope = JSON.parse(message.payload) as Envelope; } catch { continue; }

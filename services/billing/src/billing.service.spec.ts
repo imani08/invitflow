@@ -74,11 +74,11 @@ test('credit quote uses the current persisted rule and rejects client-supplied p
 
 test('checkout quote snapshots unit price, quantity, credits, discount and disabled tax from Billing', async () => {
   const packId = '8e7fa4c2-bd22-4c5a-9847-920cd0ea9101';
-  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[0]!, id: packId, key: 'starter', credits: 50, priceMinor: 1500, currency: 'USD', visible: true, segment: 'INDIVIDUAL' }] };
+  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[0]!, id: packId, key: 'starter', credits: 50, checkInEvents: 2, checkInGuestCapacity: 120, priceMinor: 1500, currency: 'USD', visible: true, segment: 'INDIVIDUAL' }] };
   const prisma = { priceSchedule: { findFirst: async () => selectedSchedule } } as unknown as PrismaService;
   const quote = await new BillingService(prisma).checkoutQuote({ packId, quantity: 2 });
   assert.deepEqual(quote, {
-    orderType: 'CREDIT_PURCHASE', packId, packKey: 'starter', packName: 'Hidden', periodDays: null, quantity: 2, unitCredits: 50, credits: 100,
+    orderType: 'CREDIT_PURCHASE', packId, packKey: 'starter', packName: 'Hidden', periodDays: null, quantity: 2, unitCredits: 50, credits: 100, checkInEvents: 2, checkInGuestCapacity: 120,
     currency: 'USD', unitPriceMinor: 1500, discountMinor: 0, discountRule: null,
     taxEnabled: false, taxRule: null, taxRateBps: 0, taxMinor: 0, subtotalMinor: 3000,
     totalMinor: 3000, priceScheduleId: schedule.id, priceScheduleVersion: schedule.version,
@@ -87,12 +87,14 @@ test('checkout quote snapshots unit price, quantity, credits, discount and disab
 
 test('agency subscription quote requires agency pack and snapshots its configured quota and price', async () => {
   const packId = '8e7fa4c2-bd22-4c5a-9847-920cd0ea9101';
-  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[3]!, id: packId, key: 'agency-pro', name: 'Agency Pro', credits: 1500, periodDays: 30, priceMinor: 5900, currency: 'USD', visible: true }] };
+  const selectedSchedule = { ...schedule, packs: [{ ...schedule.packs[3]!, id: packId, key: 'agency-pro', name: 'Agency Pro', credits: 1500, checkInEvents: 3, checkInGuestCapacity: 500, periodDays: 30, priceMinor: 5900, currency: 'USD', visible: true }] };
   const prisma = { priceSchedule: { findFirst: async () => selectedSchedule } } as unknown as PrismaService;
   const quote = await new BillingService(prisma).checkoutQuote({ packId, orderType: 'AGENCY_SUBSCRIPTION' });
   assert.equal(quote.orderType, 'AGENCY_SUBSCRIPTION');
   assert.equal(quote.credits, 1500);
   assert.equal(quote.periodDays, 30);
+  assert.equal(quote.checkInEvents, 3);
+  assert.equal(quote.checkInGuestCapacity, 500);
   assert.equal(quote.totalMinor, 5900);
   const wrongSegment = { priceSchedule: { findFirst: async () => ({ ...selectedSchedule, packs: [{ ...selectedSchedule.packs[0]!, segment: 'INDIVIDUAL' }] }) } } as unknown as PrismaService;
   await assert.rejects(new BillingService(wrongSegment).checkoutQuote({ packId, orderType: 'AGENCY_SUBSCRIPTION' }));

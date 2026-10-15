@@ -19,7 +19,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
   let unavailable = false;
   let unauthorized = false;
   try {
-    const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/events?limit=50`, {
+    const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/events?limit=50&scope=personal`, {
       headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(5_000),
     });
     if (response.status === 401) unauthorized = true;
@@ -34,7 +34,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
 
   return <main className="events-shell">
     <AppNavbar />
-    <header className="events-heading"><p className="eyebrow">ESPACE ÉVÉNEMENTS</p><h1>Vos événements,<br /><em>vos moments.</em></h1><p>Organisez mariages, anniversaires, conférences et rencontres au même endroit.</p></header>
+    <header className="events-heading"><p className="eyebrow">ESPACE PARTICULIER</p><h1>Vos événements,<br /><em>vos moments.</em></h1><p>Organisez vos événements personnels ici. Les événements clients et leurs quotas restent dans l’espace Agence.</p></header>
     {unavailable ? <section className="events-notice"><h2>Les événements sont momentanément indisponibles</h2><p>La plateforme n’a pas pu joindre son service. Vérifiez que les dépendances et la base sont démarrées, puis réessayez.</p><Link href="/events">Réessayer</Link></section> : <EventsWorkspace initialEvents={initialEvents} expandedEventId={expandedEventId} />}
   </main>;
 }

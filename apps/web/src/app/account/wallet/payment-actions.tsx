@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { formatDateTime } from '@/lib/date-format.mjs';
 import Link from 'next/link';
 
-type Pack = { id: string; key: string; name: string; credits: number; priceMinor: number; currency: string };
+type Pack = { id: string; key: string; name: string; credits: number; checkInEvents: number; checkInGuestCapacity: number; priceMinor: number; currency: string };
 type Payment = { id: string; status: string; provider: string; checkoutUrl: string | null; failureCode: string | null; createdAt: string; mockConfirmationAvailable: boolean; order: { packName: string; credits: number; amountMinor: number; currency: string; priceScheduleVersion: number } };
 type PaymentChannel = 'CARD_ONLY' | 'MOBILE_MONEY_ONLY' | 'CARD_AND_MOBILE_MONEY';
 
@@ -76,14 +76,14 @@ export function PaymentActions({ packs, payments, scheduleVersion }: { packs: Pa
     {message && <p className="wallet-payment-message" role="status">{message}</p>}
     {pollError && <p className="wallet-payment-message wallet-payment-warning" role="status">{pollError}</p>}
     <div className="wallet-packs">{packs.map((pack) => <article className="wallet-pack" key={pack.id}>
-      <span>{pack.name}</span><strong>{pack.credits.toLocaleString('fr-FR')} crédits</strong><b>{formatMoney(pack.priceMinor, pack.currency)}</b>
+      <span>{pack.name}</span><strong>{pack.credits.toLocaleString('fr-FR')} crédits</strong>{pack.checkInEvents > 0 && <small>{pack.checkInEvents} droit(s) de pointage · {pack.checkInGuestCapacity.toLocaleString('fr-FR')} invités distincts / droit</small>}<b>{formatMoney(pack.priceMinor, pack.currency)}</b>
       <small>Tarif version {scheduleVersion}</small>
       <button type="button" disabled={busy !== null} onClick={() => { setSelectedPack(pack); setChannel('CARD_AND_MOBILE_MONEY'); setLegalAccepted(false); setMessage(''); }}>{busy === pack.id ? 'Préparation…' : 'Choisir ce pack'}</button>
     </article>)}</div>
     {selectedPack && <div className="wallet-confirm-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && busy === null) setSelectedPack(null); }}>
       <section className="wallet-confirm" role="dialog" aria-modal="true" aria-labelledby="wallet-confirm-title">
         <span className="eyebrow">RÉCAPITULATIF</span><h2 id="wallet-confirm-title">Confirmer votre achat</h2>
-        <dl><div><dt>Pack</dt><dd>{selectedPack.name}</dd></div><div><dt>Crédits ajoutés après confirmation</dt><dd>{selectedPack.credits.toLocaleString('fr-FR')} crédits</dd></div><div><dt>Montant à payer</dt><dd>{formatMoney(selectedPack.priceMinor, selectedPack.currency)}</dd></div></dl>
+        <dl><div><dt>Pack</dt><dd>{selectedPack.name}</dd></div><div><dt>Crédits ajoutés après confirmation</dt><dd>{selectedPack.credits.toLocaleString('fr-FR')} crédits</dd></div>{selectedPack.checkInEvents > 0 && <><div><dt>Droits de pointage</dt><dd>{selectedPack.checkInEvents}</dd></div><div><dt>Capacité par droit</dt><dd>{selectedPack.checkInGuestCapacity.toLocaleString('fr-FR')} invités distincts</dd></div></>}<div><dt>Montant à payer</dt><dd>{formatMoney(selectedPack.priceMinor, selectedPack.currency)}</dd></div></dl>
         <fieldset className="wallet-payment-channels"><legend>Moyen de paiement</legend><label><input type="radio" name="payment-channel" checked={channel === 'CARD_AND_MOBILE_MONEY'} onChange={() => setChannel('CARD_AND_MOBILE_MONEY')} />Carte ou Mobile Money</label><label><input type="radio" name="payment-channel" checked={channel === 'CARD_ONLY'} onChange={() => setChannel('CARD_ONLY')} />Carte bancaire</label><label><input type="radio" name="payment-channel" checked={channel === 'MOBILE_MONEY_ONLY'} onChange={() => setChannel('MOBILE_MONEY_ONLY')} />Mobile Money</label></fieldset>
         <p>Les crédits seront ajoutés uniquement après confirmation du paiement par le serveur.</p>
         <p className="wallet-legal-consent"><label><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} />J’accepte les <Link href="/legal/cgv" target="_blank" rel="noreferrer">Conditions Générales de Vente</Link> et la <Link href="/legal/remboursements" target="_blank" rel="noreferrer">Politique de remboursement</Link>.</label></p>

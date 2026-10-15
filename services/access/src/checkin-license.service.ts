@@ -1,4 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { CheckInLicenseSource, CheckInLicenseStatus } from '../generated/prisma/client.js';
 import { EventsClient } from './events-client.js';
 import { PrismaService } from './prisma.service.js';
@@ -43,5 +44,37 @@ export class CheckInLicenseService {
     const license = await this.prisma.checkInLicense.findFirst({ where: { id: licenseId, status: CheckInLicenseStatus.ACTIVE } });
     if (!license) throw new ForbiddenException('Le droit de pointage de ce lien n’est plus actif.');
     return license;
+  }
+
+  /**
+   * Counts a guest once for the entire event, even when that guest is scanned
+   * at different moments.  The advisory lock is deliberately scoped to one
+   * licence: several phones may scan at the same time, but only one new guest
+   * can consume the last available place.
+   */
+  async scanWithinCapacity<T extends { alreadyCheckedIn?: unknown }>(licenseId: string | null, invitationToken: string, scan: () => Promise<T>) {
+    if (!licenseId) throw new ForbiddenException('Ce lien de pointage ne possède pas de droit actif.');
+    const invitationTokenHash = createHash('sha256').update(invitationToken).digest('hex');
+    return this.prisma.$transaction(async (tx) => {
+      // PostgreSQL releases this lock automatically when the transaction ends.
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${licenseId}))`;
+      const license = await tx.checkInLicense.findFirst({ where: { id: licenseId, status: CheckInLicenseStatus.ACTIVE } });
+      if (!license) throw new ForbiddenException('Le droit de pointage de ce lien n’est plus actif.');
+
+      const alreadyCounted = await tx.checkInLicenseGuest.findUnique({
+        where: { licenseId_tokenHash: { licenseId, tokenHash: invitationTokenHash } },
+        select: { licenseId: true },
+      });
+      if (!alreadyCounted && license.usedGuestCount >= license.guestCapacity)
+        throw new ForbiddenException('La capacité de pointage achetée pour cet événement est atteinte.');
+
+      const result = await scan();
+      // A duplicate upstream scan has not admitted a new distinct guest.
+      if (alreadyCounted || result.alreadyCheckedIn === true) return result;
+
+      await tx.checkInLicenseGuest.create({ data: { licenseId, tokenHash: invitationTokenHash } });
+      await tx.checkInLicense.update({ where: { id: licenseId }, data: { usedGuestCount: { increment: 1 } } });
+      return result;
+    }, { timeout: 15_000 });
   }
 }

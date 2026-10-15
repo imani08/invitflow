@@ -1,9 +1,8 @@
 import { cookies } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { getSession, sessionCookieName } from '@/lib/auth-session';
 import AppNavbar from '@/components/AppNavbar';
 import EventJourney from '@/components/event-journey';
-import { CheckInWorkspace } from './workspace';
 import { CheckInLinkManager } from './checkin-link-manager';
 import './check-in.css';
 import '../../journey.css';
@@ -16,18 +15,9 @@ export default async function CheckInPage({ params }: { params: Promise<{ eventI
   try {
     const gateway = process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002';
     const response = await fetch(`${gateway}/v1/events/${encodeURIComponent(eventId)}`, { headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(5000) });
-    const isOwner = response.ok;
-    let event: { id: string; name: string; eventType?: string; status?: string; ceremonies: { id: string; name: string; startAt?: string }[] };
-    if (response.ok) event = await response.json() as typeof event;
-    else {
-      if (response.status === 401) redirect(`/api/auth/login?returnTo=${encodeURIComponent(`/events/${eventId}/check-in`)}`);
-      const context = await fetch(`${gateway}/v1/check-in/events/${encodeURIComponent(eventId)}`, { headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(5000) });
-      if (context.status === 401) redirect(`/api/auth/login?returnTo=${encodeURIComponent(`/events/${eventId}/check-in`)}`);
-      if (context.status === 403 || context.status === 404) notFound();
-      if (!context.ok) throw new Error('event_unavailable');
-      const assignments = await context.json() as { name: string; ceremonies: { id: string; name: string; startAt?: string }[] };
-      event = { id: eventId, name: assignments.name || 'Pointage invité', ceremonies: assignments.ceremonies };
-    }
-    return <main className="check-shell"><AppNavbar eventId={eventId} />{isOwner && <EventJourney eventId={eventId} activeStep="checkin" ceremonyCount={event.ceremonies?.length ?? 0} eventType={event.eventType} {...(event.status ? { eventStatus: event.status } : {})} />}<header><p>ACCUEIL DES INVITÉS</p><h1>{event.name}</h1><span>Scannez le QR de l’invitation ou saisissez son code.</span></header><CheckInWorkspace eventId={eventId} ceremonies={event.ceremonies ?? []} isOwner={isOwner} />{isOwner && <CheckInLinkManager eventId={eventId} ceremonies={event.ceremonies ?? []} />}</main>;
+    if (response.status === 401) redirect(`/api/auth/login?returnTo=${encodeURIComponent(`/events/${eventId}/check-in`)}`);
+    if (!response.ok) throw new Error('event_unavailable');
+    const event = await response.json() as { id: string; name: string; eventType?: string; status?: string; ceremonies: { id: string; name: string; startAt?: string }[] };
+    return <main className="check-shell"><AppNavbar eventId={eventId} /><EventJourney eventId={eventId} activeStep="checkin" ceremonyCount={event.ceremonies?.length ?? 0} eventType={event.eventType} {...(event.status ? { eventStatus: event.status } : {})} /><header><p>POINTAGE PARTAGEABLE</p><h1>{event.name}</h1><span>Créez un lien sécurisé à utiliser simultanément sur les téléphones de l’accueil.</span></header><CheckInLinkManager eventId={eventId} ceremonies={event.ceremonies ?? []} /></main>;
   } catch (error) { if (error && typeof error === 'object' && 'digest' in error) throw error; return <main className="check-shell"><AppNavbar eventId={eventId} /><h1>Pointage indisponible</h1><p>Réessayez lorsque les services seront accessibles.</p></main>; }
 }

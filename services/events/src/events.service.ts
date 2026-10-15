@@ -340,10 +340,10 @@ export class EventsService {
     });
   }
 
-  async list(ownerSubject: string, limit: number, cursor?: string, workspaceOnly = false) {
-    const scope: Prisma.EventWhereInput = workspaceOnly
+  async list(ownerSubject: string, limit: number, cursor?: string, listScope: 'agency' | 'personal' = 'personal') {
+    const scope: Prisma.EventWhereInput = listScope === 'agency'
       ? { agencyWorkspace: { is: { status: AgencyWorkspaceStatus.ACTIVE, memberships: { some: { subject: ownerSubject, status: AgencyMemberStatus.ACTIVE } } } } }
-      : { ownerSubject };
+      : { ownerSubject, agencyWorkspaceId: null };
     if (cursor) {
       const ownedCursor = await this.prisma.event.findFirst({ where: { id: cursor, ...scope }, select: { id: true } });
       if (!ownedCursor) throw new NotFoundException('Event not found');

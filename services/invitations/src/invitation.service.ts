@@ -606,6 +606,8 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
   ) {
     const agencyReserved = batch.agencyReservedCredits ?? 0;
     const walletReserved = batch.walletReservedCredits ?? Math.max(0, consumedCredits);
+    if (batch.agencyWorkspaceId && walletReserved > 0)
+      throw new Error('An agency batch cannot settle against a personal Wallet.');
     const agencyConsumed = Math.min(consumedCredits, agencyReserved);
     if (batch.agencyWorkspaceId && batch.agencyReservationReference) {
       const agencyResponse = await fetch(`${requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '')}/v1/internal/agencies/${encodeURIComponent(batch.agencyWorkspaceId)}/quota/${encodeURIComponent(batch.agencyReservationReference)}/settle`, {

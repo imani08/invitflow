@@ -71,7 +71,7 @@ test('concurrent agency reservations serialize against one subscription quota', 
   assert.equal(attempts.filter((result) => result.status === 'rejected').length, 1);
 });
 
-test('partial reservation returns exactly the concurrently available agency quota for Wallet fallback', async () => {
+test('partial reservation reports exactly the concurrently available agency quota for reconciliation', async () => {
   const { events, reservations } = quotaHarness(5);
   await events.reserveAgencyQuota('owner', workspaceId, eventId, 'first', 4);
   const partial = await events.reserveAgencyQuota('owner', workspaceId, eventId, 'second', 4, true);

@@ -23,7 +23,7 @@ function duplicate(error: unknown) { return !!error && typeof error === 'object'
 function sameScheduleDefinition(existing: { packs: PackInput[]; rules: RuleInput[] }, packs: PackInput[], rules: RuleInput[]) {
   const packFields = (items: PackInput[]) => [...items]
     .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
-    .map(({ key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }) => ({ key, name, credits, periodDays: periodDays ?? null, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }));
+    .map(({ key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }) => ({ key, name, credits, periodDays: periodDays ?? null, checkInEvents: checkInEvents ?? 0, checkInGuestCapacity: checkInGuestCapacity ?? 0, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil, visible }));
   const ruleFields = (items: RuleInput[]) => [...items]
     .sort((a, b) => (a.operation < b.operation ? -1 : a.operation > b.operation ? 1 : 0))
     .map(({ operation, creditCost, unit }) => ({ operation, creditCost, unit }));
@@ -59,7 +59,7 @@ export class BillingService {
     const packs = schedule.packs
       .filter((pack) => pack.visible && (pack.segment === segment || pack.segment === 'ALL') && (!pack.validFrom || pack.validFrom <= now) && (!pack.validUntil || pack.validUntil > now))
       .sort((a, b) => a.displayOrder - b.displayOrder || a.credits - b.credits)
-      .map(({ id, key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }) => ({ id, key, name, credits, periodDays: segment === 'AGENCY' ? 30 : periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }));
+      .map(({ id, key, name, credits, periodDays, checkInEvents, checkInGuestCapacity, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }) => ({ id, key, name, credits, periodDays: segment === 'AGENCY' ? 30 : periodDays, checkInEvents: checkInEvents ?? 0, checkInGuestCapacity: checkInGuestCapacity ?? 0, priceMinor, currency, description, segment, displayOrder, badge, validFrom, validUntil }));
     return { scheduleId: schedule.id, version: schedule.version, effectiveAt: schedule.effectiveAt, taxPolicy: { enabled: schedule.taxPolicyEnabled, ruleCode: schedule.taxRuleCode, rateBps: schedule.taxRateBps }, packs, rules: schedule.rules.map(({ operation, creditCost, unit }) => ({ operation, creditCost, unit })) };
   }
 
@@ -95,7 +95,7 @@ export class BillingService {
     if (![credits, subtotalMinor, taxMinor, totalMinor].every(Number.isSafeInteger) || totalMinor < 1) throw new BadRequestException('Le total de commande dépasse les limites autorisées.');
     if (orderType === 'AGENCY_SUBSCRIPTION' && pack.periodDays !== null && pack.periodDays !== 30) throw new ConflictException('Les offres agence doivent être configurées à 30 jours. Publiez une nouvelle grille corrigée.');
     return {
-      orderType, packId: pack.id, packKey: pack.key, packName: pack.name, periodDays: orderType === 'AGENCY_SUBSCRIPTION' ? 30 : pack.periodDays ?? null, quantity, unitCredits, credits, checkInEvents: pack.checkInEvents, checkInGuestCapacity: pack.checkInGuestCapacity,
+      orderType, packId: pack.id, packKey: pack.key, packName: pack.name, periodDays: orderType === 'AGENCY_SUBSCRIPTION' ? 30 : pack.periodDays ?? null, quantity, unitCredits, credits, checkInEvents: pack.checkInEvents ?? 0, checkInGuestCapacity: pack.checkInGuestCapacity ?? 0,
       currency: pack.currency, unitPriceMinor, discountMinor, discountRule: null,
       taxEnabled: schedule.taxPolicyEnabled, taxRule: schedule.taxPolicyEnabled ? schedule.taxRuleCode : null,
       taxRateBps: schedule.taxPolicyEnabled ? schedule.taxRateBps : 0, taxMinor,

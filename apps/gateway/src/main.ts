@@ -157,6 +157,9 @@ class EventsProxyController {
   @All('/:eventId/cancel') cancel(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
+  @All('/:eventId/complete') complete(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
+    return this.proxy(request, reply);
+  }
   @All('/:eventId/ceremonies') ceremonies(
     @Req() request: FastifyRequest,
     @Res() reply: FastifyReply,
@@ -1073,6 +1076,8 @@ class InvitationsProxyController {
 
 @Controller('/v1')
 class AccessProxyController {
+  @All('/check-in/licenses')
+  licenses(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/check-in-links')
   links(@Req() request: FastifyRequest, @Res() reply: FastifyReply) { return this.proxy(request, reply); }
   @All('/events/:eventId/check-in-links/:linkId')
@@ -1149,8 +1154,8 @@ class PublicInvitationsProxyController {
   @All('/:token') get(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
     return this.proxy(request, reply);
   }
-  @All('/:token/rsvp') rsvp(@Req() request: FastifyRequest, @Res() reply: FastifyReply) {
-    return this.proxy(request, reply);
+  @All('/:token/rsvp') rsvp(@Res() reply: FastifyReply) {
+    return reply.code(410).send({ error: 'rsvp_retired', message: 'La confirmation RSVP n’est plus proposée. Les réponses historiques sont conservées.' });
   }
   private async proxy(request: FastifyRequest, reply: FastifyReply) {
     if (request.method !== 'GET' && request.method !== 'POST')

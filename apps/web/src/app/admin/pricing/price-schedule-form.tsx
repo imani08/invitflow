@@ -7,6 +7,8 @@ export type Pack = {
   key: string;
   name: string;
   credits: number;
+  checkInEvents: number;
+  checkInGuestCapacity: number;
   periodDays: number | null;
   priceMinor: number;
   currency: string;
@@ -45,6 +47,8 @@ function editablePack(pack: Pack): EditablePack {
     key: pack.key,
     name: pack.name,
     credits: pack.credits,
+    checkInEvents: pack.checkInEvents ?? 0,
+    checkInGuestCapacity: pack.checkInGuestCapacity ?? 0,
     periodDays: pack.segment === 'AGENCY' ? 30 : pack.periodDays,
     priceMinor: pack.priceMinor,
     currency: pack.currency,
@@ -78,6 +82,8 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
     event.preventDefault();
     setMessage(''); setError(''); setSaving(true);
     try {
+      if (packs.some((pack) => (pack.checkInEvents === 0) !== (pack.checkInGuestCapacity === 0)))
+        throw new Error('Pour chaque pack, les droits de pointage et leur capacité doivent être tous deux à 0, ou tous deux strictement positifs.');
       const response = await fetch('/api/billing/admin/price-schedules', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'idempotency-key': crypto.randomUUID() },
@@ -119,6 +125,7 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
       <div className="pricing-section-title"><div><span>PACKS DE CRÉDITS</span><h2>Prix client</h2></div>
         <button type="button" onClick={() => setPacks((current) => [...current, {
           key: `nouveau-pack-${current.length + 1}`, name: '', credits: 0, priceMinor: 0, currency: 'USD',
+          checkInEvents: 0, checkInGuestCapacity: 0,
           description: '', segment: 'INDIVIDUAL', periodDays: null, displayOrder: (current.length + 1) * 10,
           badge: null, validFrom: '', validUntil: '', visible: true,
         }])}>＋ Ajouter un pack</button>
@@ -129,6 +136,9 @@ export function PriceScheduleForm({ catalog }: { catalog: Catalog }) {
         <label>Description<input maxLength={1000} value={pack.description} onChange={(event) => updatePack(index, { description: event.target.value })} /></label>
         <label>Segment<select value={pack.segment} onChange={(event) => { const segment = event.target.value as EditablePack['segment']; updatePack(index, { segment, ...(segment === 'AGENCY' ? { periodDays: 30 } : {}) }); }}><option value="INDIVIDUAL">Particulier</option><option value="AGENCY">Agence</option><option value="ALL">Tous</option></select></label>
         <label>Crédits<input required type="number" min="1" max="1000000000" value={pack.credits || ''} onChange={(event) => updatePack(index, { credits: Number(event.target.value) })} /></label>
+        <label>Droits de pointage inclus<input required type="number" min="0" max="1000000" value={pack.checkInEvents} onChange={(event) => updatePack(index, { checkInEvents: Number(event.target.value) })} /></label>
+        <label>Capacité par droit de pointage<input required type="number" min="0" max="1000000000" value={pack.checkInGuestCapacity} onChange={(event) => updatePack(index, { checkInGuestCapacity: Number(event.target.value) })} /></label>
+        <p className="pricing-hint">Saisissez 0 dans les deux champs pour un pack sans pointage. Sinon, les deux valeurs doivent être strictement positives : la capacité compte des invités distincts, pas des téléphones.</p>
         {pack.segment === 'AGENCY' && <p>Durée fixe : <strong>30 jours</strong> à compter de l’activation après paiement.</p>}
         <label>Prix en centimes<input required type="number" min="1" max="1000000000" value={pack.priceMinor || ''} onChange={(event) => updatePack(index, { priceMinor: Number(event.target.value) })} /></label>
         <label>Devise<input required minLength={3} maxLength={3} pattern="[A-Z]{3}" value={pack.currency} onChange={(event) => updatePack(index, { currency: event.target.value.toUpperCase() })} /></label>
