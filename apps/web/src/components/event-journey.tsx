@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import { deriveEventJourneyStatuses, eventJourneyStatusLabel, EVENT_JOURNEY_STEPS } from '@/lib/event-journey.mjs';
 
@@ -9,16 +10,19 @@ type StepId = 'event' | 'ceremonies' | 'guests' | 'seating' | 'designs' | 'invit
 type Facts = { guestCount: number | null; designCount: number | null; hasCompletedBatch: boolean | null };
 type NextAction = { href?: string; label: string; note: string };
 
-const routes = (eventId: string) => ({
-  event: `/events/${encodeURIComponent(eventId)}`,
-  ceremonies: `/events?event=${encodeURIComponent(eventId)}#ceremony-${encodeURIComponent(eventId)}`,
-  guests: `/events/${encodeURIComponent(eventId)}/guests`,
-  seating: `/events/${encodeURIComponent(eventId)}/seating`,
-  designs: `/events/${encodeURIComponent(eventId)}/designs`,
-  invitations: `/events/${encodeURIComponent(eventId)}/invitations`,
-  thanks: `/events/${encodeURIComponent(eventId)}/invitations/merci`,
-  checkin: `/events/${encodeURIComponent(eventId)}/check-in`,
-});
+const routes = (eventId: string, scope: 'personal' | 'agency') => {
+  const query = scope === 'agency' ? '?scope=agency' : '';
+  return {
+  event: `/events/${encodeURIComponent(eventId)}${query}`,
+  ceremonies: `/events?event=${encodeURIComponent(eventId)}${scope === 'agency' ? '&scope=agency' : ''}#ceremony-${encodeURIComponent(eventId)}`,
+  guests: `/events/${encodeURIComponent(eventId)}/guests${query}`,
+  seating: `/events/${encodeURIComponent(eventId)}/seating${query}`,
+  designs: `/events/${encodeURIComponent(eventId)}/designs${query}`,
+  invitations: `/events/${encodeURIComponent(eventId)}/invitations${query}`,
+  thanks: `/events/${encodeURIComponent(eventId)}/invitations/merci${query}`,
+  checkin: `/events/${encodeURIComponent(eventId)}/check-in${query}`,
+};
+};
 
 async function readJson(url: string, signal: AbortSignal): Promise<unknown> {
   const response = await fetch(url, { cache: 'no-store', signal });
@@ -49,6 +53,7 @@ export default function EventJourney({
   eventStatus,
   loadFacts = true,
   nextActionOverride,
+  scope: suppliedScope,
 }: {
   eventId: string;
   activeStep: StepId;
@@ -57,7 +62,10 @@ export default function EventJourney({
   eventStatus?: string;
   loadFacts?: boolean;
   nextActionOverride?: NextAction;
+  scope?: 'personal' | 'agency';
 }) {
+  const searchParams = useSearchParams();
+  const scope = suppliedScope ?? (searchParams.get('scope') === 'agency' ? 'agency' : 'personal');
   const [facts, setFacts] = useState<Facts>({ guestCount: null, designCount: null, hasCompletedBatch: null });
   const [revision, setRevision] = useState(0);
   const [lifecycleBusy, setLifecycleBusy] = useState(false);
@@ -66,7 +74,7 @@ export default function EventJourney({
     window.addEventListener('invitaflow:journey-updated', update);
     return () => window.removeEventListener('invitaflow:journey-updated', update);
   }, [eventId]);
-  const urls = useMemo(() => routes(eventId), [eventId]);
+  const urls = useMemo(() => routes(eventId, scope), [eventId, scope]);
   const stepList = useRef<HTMLOListElement>(null);
   useEffect(() => {
     const list = stepList.current;
@@ -173,6 +181,6 @@ export default function EventJourney({
     })}</ol></nav>
     <div className="event-journey-next"><div><strong>{nextAction.label}</strong><p>{nextAction.note}</p></div>{nextAction.href && <Link href={nextAction.href}>{nextAction.label}<span aria-hidden="true"> →</span></Link>}</div>
     {['DRAFT', 'PUBLISHED'].includes(eventStatus ?? '') && <div className="event-journey-lifecycle"><span>Disponible à chaque étape</span><button type="button" disabled={lifecycleBusy} onClick={() => void updateLifecycle('complete')}>{lifecycleBusy ? 'Mise à jour…' : 'Terminer l’événement'}</button><button type="button" disabled={lifecycleBusy} onClick={() => void updateLifecycle('cancel')}>Annuler l’événement</button></div>}
-    <nav className="event-journey-secondary" aria-label="Retour et outils complémentaires"><Link href={activeIndex > 0 ? urls[EVENT_JOURNEY_STEPS[activeIndex - 1]!.id as keyof typeof urls] : '/events'}>← {activeIndex > 0 ? 'Étape précédente' : 'Tous mes événements'}</Link><Link href={urls.seating}>Placement (facultatif)</Link></nav>
+    <nav className="event-journey-secondary" aria-label="Retour et outils complémentaires"><Link href={activeIndex > 0 ? urls[EVENT_JOURNEY_STEPS[activeIndex - 1]!.id as keyof typeof urls] : `/events${scope === 'agency' ? '?scope=agency' : ''}`}>← {activeIndex > 0 ? 'Étape précédente' : scope === 'agency' ? 'Tous les événements clients' : 'Tous mes événements'}</Link><Link href={urls.seating}>Placement (facultatif)</Link></nav>
   </section>;
 }

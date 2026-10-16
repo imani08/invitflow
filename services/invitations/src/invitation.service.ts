@@ -502,16 +502,15 @@ export class InvitationService implements OnModuleInit, OnModuleDestroy {
     if (ids !== undefined && (!Array.isArray(ids) || ids.length < 1 || ids.length > 5000 || ids.some(id => typeof id !== 'string' || !uuid.test(id)))) throw new BadRequestException('Sélection d’invités invalide.');
     const snapshot = await this.snapshots(eventId, input.designId, (ids ?? []) as string[], authorization, false);
     if (input.expectedDesignVersion !== undefined && input.expectedDesignVersion !== snapshot.design.version) throw new ConflictException('Le design a changé. Actualisez son aperçu.');
-    const balance = await this.upstream(requiredEnv('WALLET_SERVICE_URL').replace(/\/$/, '') + '/v1/wallet/me', authorization);
-    if (!Number.isSafeInteger(balance.availableCredits) || balance.availableCredits < 0) throw new ServiceUnavailableException('Solde indisponible.');
-    let agencyAvailable = 0;
+    const count = snapshot.guests.length;
     if (typeof snapshot.event.agencyWorkspaceId === 'string') {
       const quota = await this.upstream(requiredEnv('EVENTS_SERVICE_URL').replace(/\/$/, '') + '/v1/agencies/' + snapshot.event.agencyWorkspaceId + '/quota', authorization);
       if (!Number.isSafeInteger(quota.remaining) || quota.remaining < 0) throw new ServiceUnavailableException('Quota agence indisponible.');
-      agencyAvailable = quota.remaining;
+      return { invitationCount: count, creditsRequired: count, availableCredits: quota.remaining, walletAvailableCredits: 0, agencyAvailableCredits: quota.remaining, missingCredits: Math.max(0, count - quota.remaining), guestIds: snapshot.guests.map(guest => guest.id), designVersion: snapshot.design.version, ownerSubject: owner };
     }
-    const count = snapshot.guests.length, available = balance.availableCredits + agencyAvailable;
-    return { invitationCount: count, creditsRequired: count, availableCredits: available, walletAvailableCredits: balance.availableCredits, agencyAvailableCredits: agencyAvailable, missingCredits: Math.max(0, count - available), guestIds: snapshot.guests.map(guest => guest.id), designVersion: snapshot.design.version, ownerSubject: owner };
+    const balance = await this.upstream(requiredEnv('WALLET_SERVICE_URL').replace(/\/$/, '') + '/v1/wallet/me', authorization);
+    if (!Number.isSafeInteger(balance.availableCredits) || balance.availableCredits < 0) throw new ServiceUnavailableException('Solde indisponible.');
+    return { invitationCount: count, creditsRequired: count, availableCredits: balance.availableCredits, walletAvailableCredits: balance.availableCredits, agencyAvailableCredits: 0, missingCredits: Math.max(0, count - balance.availableCredits), guestIds: snapshot.guests.map(guest => guest.id), designVersion: snapshot.design.version, ownerSubject: owner };
   }
   async list(owner: string, eventId?: string, rawLimit?: string, cursor?: string) {
     const where = { ownerSubject: owner, ...(eventId ? { eventId } : {}) };

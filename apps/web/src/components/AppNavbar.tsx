@@ -8,7 +8,7 @@ import { NotificationBadge } from '@/components/notification-badge';
 import { notificationMobileItem, uniqueNavigationItems } from './app-navbar-items.mjs';
 import type { MobileNavigationItem } from './app-navbar-items.mjs';
 
-type AppNavbarProps = { eventId?: string; showPricingAdmin?: boolean; area?: 'agency' | 'partner' };
+type AppNavbarProps = { eventId?: string; showPricingAdmin?: boolean; area?: 'agency' | 'partner'; scope?: 'personal' | 'agency' };
 
 const iconPaths: Record<string, string> = {
   home: 'M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6',
@@ -28,7 +28,7 @@ function Icon({ name }: { name: keyof typeof iconPaths }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={iconPaths[name]} /></svg>;
 }
 
-export default function AppNavbar({ eventId, showPricingAdmin = false, area }: AppNavbarProps) {
+export default function AppNavbar({ eventId, showPricingAdmin = false, area, scope = 'personal' }: AppNavbarProps) {
   const pathname = usePathname();
   const eventBase = eventId ? `/events/${encodeURIComponent(eventId)}` : null;
   const eventLinks = eventBase ? [
@@ -41,7 +41,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
   ] : [];
   const mainLinks = [
     { href: '/dashboard', label: 'Accueil', icon: 'events' as const },
-    { href: '/events', label: 'Mes événements', icon: 'events' as const },
+    { href: '/events', label: scope === 'agency' ? 'Événements clients' : 'Mes événements', icon: 'events' as const },
     { href: '/account/wallet', label: 'Crédits & tarifs', icon: 'wallet' as const },
     { href: '/account/notifications', label: 'Notifications', icon: 'bell' as const },
     { href: '/agencies', label: 'Espace agence', icon: 'agency' as const },
@@ -93,7 +93,7 @@ export default function AppNavbar({ eventId, showPricingAdmin = false, area }: A
   return <>
     <aside className="app-sidebar" aria-label="Navigation de l’application">
       <div className="app-sidebar-brand"><BrandLogo variant="compact" href="/dashboard" /></div>
-      <Link className="app-create-link" href={area === 'agency' ? '/agencies#create-event' : area === 'partner' ? '/partners#attributions' : '/events#create-event'}><Icon name={area === 'partner' ? 'partner' : 'create'} />{area === 'agency' ? 'Créer un événement client' : area === 'partner' ? 'Lien partenaire' : 'Créer un événement'}</Link>
+      <Link className="app-create-link" href={area === 'agency' || scope === 'agency' ? '/agencies#create-event' : area === 'partner' ? '/partners#attributions' : '/events#create-event'}><Icon name={area === 'partner' ? 'partner' : 'create'} />{area === 'agency' || scope === 'agency' ? 'Créer un événement client' : area === 'partner' ? 'Lien partenaire' : 'Créer un événement'}</Link>
       <nav className="app-sidebar-links" aria-label="Principale">
         <p className="app-nav-caption">ESPACE</p>
         {mainLinks.map((item) => <Link key={item.href} href={item.href} aria-current={active(item.href) ? 'page' : undefined} className={active(item.href) ? 'is-active' : ''}><span className="app-nav-icon"><Icon name={item.icon} />{item.href === '/account/notifications' && <NotificationBadge />}</span><span>{item.label}</span></Link>)}

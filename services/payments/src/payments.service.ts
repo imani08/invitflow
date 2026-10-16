@@ -200,7 +200,7 @@ export class PaymentsService {
     const confirmation = await this.provider.getStatus(payment.providerReference);
     if (!confirmation) return this.present(order, payment);
     if (!this.confirmationMatches(payment, order, confirmation)) {
-      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_MISMATCH:${confirmation.providerStatus}`);
+      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_MISMATCH:${confirmation.providerStatus}`, order.ownerSubject);
       return this.present(order, payment);
     }
     const eventHash = createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.transactionId}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex');
@@ -220,7 +220,7 @@ export class PaymentsService {
     const confirmation = await this.provider.getStatus(payment.providerReference);
     if (!confirmation) return { received: true, verified: false };
     if (!this.confirmationMatches(payment, payment.order, confirmation)) {
-      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_IPN_MISMATCH:${confirmation.providerStatus}`);
+      await this.recordAnomaly(payment.id, payment.status, `EASYPAY_IPN_MISMATCH:${confirmation.providerStatus}`, payment.order.ownerSubject);
       return { received: true, verified: false };
     }
     const eventHash = createHash('sha256').update(`ipn:${payment.id}:${confirmation.providerReference ?? confirmation.transactionId}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex');
@@ -399,11 +399,11 @@ export class PaymentsService {
       const isEasyPay = this.provider.name === 'easypay';
       const referenceMatches = isEasyPay ? (confirmation.providerReference ?? confirmation.reference) === payment.providerReference : confirmation.reference === payment.id;
       if (!referenceMatches || isEasyPay && payment.providerOrderRef && confirmation.providerOrderRef && confirmation.providerOrderRef !== payment.providerOrderRef) {
-        await this.recordAnomaly(payment.id, payment.status, `REFERENCE_MISMATCH:${confirmation.providerStatus}`);
+        await this.recordAnomaly(payment.id, payment.status, `REFERENCE_MISMATCH:${confirmation.providerStatus}`, payment.order.ownerSubject);
         continue;
       }
       if (payment.order.amountMinor !== confirmation.amountMinor || payment.order.currency !== confirmation.currency) {
-        await this.recordAnomaly(payment.id, payment.status, `AMOUNT_OR_CURRENCY_MISMATCH:${confirmation.providerStatus}`);
+        await this.recordAnomaly(payment.id, payment.status, `AMOUNT_OR_CURRENCY_MISMATCH:${confirmation.providerStatus}`, payment.order.ownerSubject);
         continue;
       }
       const internalPaid = payment.status === 'SUCCEEDED';
@@ -415,15 +415,15 @@ export class PaymentsService {
         (payment.status === 'EXPIRED' && confirmation.status === 'EXPIRED') ||
         (internalOpen && confirmation.status === 'PROCESSING');
       if (isAligned) {
-        await this.resolveAnomalies(payment.id);
+        await this.resolveAnomalies(payment.id, payment.order.ownerSubject);
       } else if ((internalOpen || internalFailed) && confirmation.status === 'SUCCEEDED') {
         await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.providerStatus}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex'), { ...confirmation, reference: payment.id });
-        await this.resolveAnomalies(payment.id);
+        await this.resolveAnomalies(payment.id, payment.order.ownerSubject);
       } else if (internalOpen && confirmation.status === 'FAILED') {
         await this.applyConfirmation(this.provider.name, createHash('sha256').update(`reconcile:${payment.id}:${confirmation.providerReference ?? confirmation.providerStatus}:${confirmation.providerStatus}:${confirmation.amountMinor}:${confirmation.currency}`).digest('hex'), { ...confirmation, reference: payment.id });
-        await this.resolveAnomalies(payment.id);
+        await this.resolveAnomalies(payment.id, payment.order.ownerSubject);
       } else {
-        await this.recordAnomaly(payment.id, payment.status, confirmation.providerStatus);
+        await this.recordAnomaly(payment.id, payment.status, confirmation.providerStatus, payment.order.ownerSubject);
       }
     }
   }
@@ -432,27 +432,27 @@ export class PaymentsService {
     return this.prisma.paymentReconciliationIssue.findMany({ where: { resolvedAt: null }, orderBy: { lastSeenAt: 'desc' }, take: 100, select: { id: true, paymentId: true, internalStatus: true, providerStatus: true, firstSeenAt: true, lastSeenAt: true, occurrences: true } });
   }
 
-  private async recordAnomaly(paymentId: string, internalStatus: string, providerStatus: string) {
+  private async recordAnomaly(paymentId: string, internalStatus: string, providerStatus: string, ownerSubject: string) {
     const normalizedProviderStatus = providerStatus.slice(0, 80);
     const fingerprint = createHash('sha256').update(`${paymentId}:${internalStatus}:${normalizedProviderStatus}`).digest('hex');
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.paymentReconciliationIssue.findUnique({ where: { fingerprint } });
       if (existing) {
         await tx.paymentReconciliationIssue.update({ where: { id: existing.id }, data: { lastSeenAt: new Date(), occurrences: { increment: 1 }, resolvedAt: null } });
-        if (existing.resolvedAt) await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-anomaly.v1', aggregateId: existing.id, payload: { issueId: existing.id, paymentId, internalStatus, providerStatus: normalizedProviderStatus, reopened: true } } });
+        if (existing.resolvedAt) await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-anomaly.v1', aggregateId: existing.id, payload: { issueId: existing.id, paymentId, ownerSubject, internalStatus, providerStatus: normalizedProviderStatus, reopened: true } } });
         return;
       }
       const issue = await tx.paymentReconciliationIssue.create({ data: { paymentId, fingerprint, internalStatus, providerStatus: normalizedProviderStatus } });
-      await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-anomaly.v1', aggregateId: issue.id, payload: { issueId: issue.id, paymentId, internalStatus, providerStatus: normalizedProviderStatus } } });
+      await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-anomaly.v1', aggregateId: issue.id, payload: { issueId: issue.id, paymentId, ownerSubject, internalStatus, providerStatus: normalizedProviderStatus } } });
     });
   }
 
-  private async resolveAnomalies(paymentId: string) {
+  private async resolveAnomalies(paymentId: string, ownerSubject: string) {
     const issues = await this.prisma.paymentReconciliationIssue.findMany({ where: { paymentId, resolvedAt: null }, select: { id: true, providerStatus: true } });
     for (const issue of issues) {
       await this.prisma.$transaction(async (tx) => {
         const updated = await tx.paymentReconciliationIssue.updateMany({ where: { id: issue.id, resolvedAt: null }, data: { resolvedAt: new Date() } });
-        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-resolved.v1', aggregateId: issue.id, payload: { issueId: issue.id, paymentId, previousProviderStatus: issue.providerStatus } } });
+        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'payment.reconciliation-resolved.v1', aggregateId: issue.id, payload: { issueId: issue.id, paymentId, ownerSubject, previousProviderStatus: issue.providerStatus } } });
       });
     }
   }

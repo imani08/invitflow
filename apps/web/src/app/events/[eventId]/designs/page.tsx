@@ -13,8 +13,9 @@ type Event = { id: string; name: string; eventType?: string; status: string; tim
 
 export const dynamic = 'force-dynamic';
 
-export default async function DesignsPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function DesignsPage({ params, searchParams }: { params: Promise<{ eventId: string }>; searchParams: Promise<{ scope?: string }> }) {
   const { eventId } = await params;
+  const { scope } = await searchParams;
   const cookiesStore = await cookies();
   const session = await getSession(cookiesStore.get(sessionCookieName())?.value);
   if (!session) redirect(`/api/auth/login?returnTo=${encodeURIComponent(`/events/${eventId}/designs`)}`);
@@ -32,5 +33,5 @@ export default async function DesignsPage({ params }: { params: Promise<{ eventI
     if (error && typeof error === 'object' && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_')) throw error;
     return <main className="events-shell design-page"><AppNavbar eventId={eventId} /><section className="design-unavailable"><span>ESPACE CRÉATION</span><h1>Le design n’a pas pu être chargé.</h1><p>Vérifiez la connexion aux services puis réessayez.</p><a href={`/events/${encodeURIComponent(eventId)}/designs`}>Réessayer</a></section></main>;
   }
-  return <DesignsWorkspace event={event} />;
+  return <DesignsWorkspace event={event} scope={scope === 'agency' ? 'agency' : 'personal'} />;
 }

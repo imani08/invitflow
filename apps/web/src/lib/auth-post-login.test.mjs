@@ -38,8 +38,8 @@ test('login keeps one-time state, PKCE, nonce and ID token claim validation', ()
   assert.match(callback, /response\.cookies\.set\(sessionCookieName\(\), sessionId, cookieOptions\(\)\)/);
 });
 
-test('successful callback uses the dashboard fallback and sets the session cookie on its redirect', () => {
-  assert.match(postLogin, /isSafeReturnTo\(returnTo\) \? returnTo : '\/dashboard'/);
-  assert.match(callback, /NextResponse\.redirect\(publicUrl\(getDefaultPostLoginDestination\(returnTo\)\)\)/);
-  assert.ok(callback.indexOf('NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo)))') < callback.indexOf('response.cookies.set(sessionCookieName(), sessionId, cookieOptions())'));
+test('successful callback uses the role-aware fallback and sets the session cookie on its redirect', () => {
+  assert.match(postLogin, /isSafeReturnTo\(returnTo\) && returnTo !== '\/dashboard'/);
+  assert.match(callback, /NextResponse\.redirect\(publicUrl\(getDefaultPostLoginDestination\(returnTo, roles\)\)\)/);
+  assert.ok(callback.indexOf('NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo, roles)))') < callback.indexOf('response.cookies.set(sessionCookieName(), sessionId, cookieOptions())'));
 });

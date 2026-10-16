@@ -159,6 +159,27 @@ test('an agency settlement never falls back to the personal Wallet', async () =>
   }
 });
 
+test('an agency quote reads only the agency quota and never the personal Wallet', async () => {
+  const originalEventsUrl = process.env['EVENTS_SERVICE_URL'];
+  process.env['EVENTS_SERVICE_URL'] = 'http://events.test';
+  const service = new InvitationService({} as PrismaService, {} as InvitationStorage);
+  const internal = service as unknown as {
+    snapshots(...args: unknown[]): Promise<unknown>;
+    upstream(url: string): Promise<unknown>;
+  };
+  internal.snapshots = async () => ({ event: { agencyWorkspaceId: 'agency-id' }, guests: [{ id: guestA }, { id: guestB }], design: { version: 4 } });
+  internal.upstream = async (url) => {
+    assert.equal(url, 'http://events.test/v1/agencies/agency-id/quota');
+    return { remaining: 1 };
+  };
+  try {
+    const quote = await service.quote('owner', eventId, 'Bearer token', { designId, guestIds: [guestA, guestB], expectedDesignVersion: 4 });
+    assert.deepEqual(quote, { invitationCount: 2, creditsRequired: 2, availableCredits: 1, walletAvailableCredits: 0, agencyAvailableCredits: 1, missingCredits: 1, guestIds: [guestA, guestB], designVersion: 4, ownerSubject: 'owner' });
+  } finally {
+    if (originalEventsUrl === undefined) delete process.env['EVENTS_SERVICE_URL']; else process.env['EVENTS_SERVICE_URL'] = originalEventsUrl;
+  }
+});
+
 test('legacy failed retry cannot reserve again before original zero settlement is confirmed', async () => {
   let created = false, settled = false;
   const source = { id: 'failed-batch', ownerSubject: 'owner', eventId, status: 'FAILED', settledAt: null, completedItems: 0, reservationReleasePending: false, items: [{ status: 'FAILED', errorCode: 'RENDER_FAILED' }] };

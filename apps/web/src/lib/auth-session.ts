@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { createClient } from 'redis';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
 import { getDefaultPostLoginDestination } from '@/components/app-navbar-items.mjs';
 import { deleteSessionIfUnchanged, REFRESH_LOCK_TTL_SECONDS, releaseRefreshLock, replaceSessionIfUnchanged, waitForSessionChange } from './session-refresh.mjs';
 
@@ -100,6 +100,17 @@ export type AuthSession = {
   user: OidcUser;
 };
 
+function realmRoles(accessToken: string): string[] {
+  try {
+    const access = decodeJwt(accessToken)['realm_access'];
+    return access && typeof access === 'object' && 'roles' in access && Array.isArray(access.roles)
+      ? access.roles.filter((role): role is string => typeof role === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 type LoginAttempt = { verifier: string; nonce: string; returnTo: string };
 type TokenSet = { access_token: string; refresh_token: string; expires_in: number; id_token?: string };
 
@@ -188,7 +199,7 @@ async function requestToken(form: URLSearchParams): Promise<TokenSet> {
   return parseTokenSet(await response.json());
 }
 
-export async function finishLogin(code: string, state: string): Promise<{ sessionId: string; returnTo: string }> {
+export async function finishLogin(code: string, state: string): Promise<{ sessionId: string; returnTo: string; roles: string[] }> {
   const client = await redis();
   const saved = await client.getDel(opaqueKey('oidc:state', state));
   if (!saved) throw new Error('Login state is missing or expired');
@@ -229,7 +240,7 @@ export async function finishLogin(code: string, state: string): Promise<{ sessio
   };
   const sessionId = randomOpaqueValue();
   await client.set(opaqueKey('auth:session', sessionId), encrypt(session), { EX: SESSION_TTL_SECONDS });
-  return { sessionId, returnTo: attempt.returnTo };
+  return { sessionId, returnTo: attempt.returnTo, roles: realmRoles(tokens.access_token) };
 }
 
 async function readSession(sessionId: string): Promise<AuthSession | null> {

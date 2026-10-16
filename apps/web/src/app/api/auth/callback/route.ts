@@ -17,13 +17,13 @@ export async function GET(request: Request) {
     if (!code || !state || code.length > 4096 || !/^[A-Za-z0-9_-]{30,100}$/.test(state)) {
       throw new Error('Callback code or state is missing or invalid');
     }
-    const { sessionId, returnTo } = await finishLogin(code, state);
+    const { sessionId, returnTo, roles } = await finishLogin(code, state);
     console.log('[AUTH SESSION CREATED]', {
   sessionIdLength: sessionId.length,
   cookieName: sessionCookieName(),
   returnTo,
 });
-    const response = NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo)));
+    const response = NextResponse.redirect(publicUrl(getDefaultPostLoginDestination(returnTo, roles)));
     response.cookies.set(sessionCookieName(), sessionId, cookieOptions());
     response.headers.set('Cache-Control', 'no-store');
     return response;

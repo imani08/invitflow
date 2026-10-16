@@ -62,14 +62,18 @@ export class AgenciesController {
     return this.events.createAgencyClient(request.identity.subject, workspaceId, { name: body.name, ...(body.email !== undefined ? { email: body.email } : {}), ...(body.phone !== undefined ? { phone: body.phone } : {}) });
   }
 
+  @Patch('/:workspaceId/clients/:clientId')
+  updateClient(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Param('clientId') clientId: string, @Body() body: { name?: unknown; email?: unknown; phone?: unknown }) {
+    const keys = body && typeof body === 'object' ? Object.keys(body) : [];
+    if (!/^[0-9a-f-]{36}$/i.test(clientId) || !keys.length || keys.some((key) => !['name', 'email', 'phone'].includes(key)) || (body.name !== undefined && typeof body.name !== 'string') || (body.email !== undefined && body.email !== null && typeof body.email !== 'string') || (body.phone !== undefined && body.phone !== null && typeof body.phone !== 'string')) throw new BadRequestException('Client details are invalid');
+    return this.events.updateAgencyClient(request.identity.subject, workspaceId, clientId, { ...(body.name !== undefined ? { name: body.name } : {}), ...(body.email !== undefined ? { email: body.email } : {}), ...(body.phone !== undefined ? { phone: body.phone } : {}) });
+  }
+
   @Delete('/:workspaceId/clients/:clientId')
   removeClient(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Param('clientId') clientId: string) { return this.events.removeAgencyClient(request.identity.subject, workspaceId, clientId); }
 
   @Get('/:workspaceId/events')
-  async agencyEvents(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string) {
-    const rows = await this.events.agencyEvents(request.identity.subject, workspaceId);
-    return Promise.all(rows.map((row) => this.events.agencyEventDetail(request.identity.subject, workspaceId, row.id)));
-  }
+  agencyEvents(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string) { return this.events.agencyEvents(request.identity.subject, workspaceId); }
 
   @Post('/:workspaceId/events')
   createEvent(@Req() request: AuthRequest, @Param('workspaceId') workspaceId: string, @Body() body: unknown) {

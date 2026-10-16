@@ -58,26 +58,26 @@ export class Worker implements OnModuleInit, OnModuleDestroy {
     this.sweepBusy = true;
     try {
       const now = new Date();
-      const expired = await this.prisma.aiDesignJob.findMany({ where: { status: AiDesignJobStatus.PROCESSING, startedAt: { lt: new Date(now.getTime() - 5 * 60_000) } }, take: 25, select: { id: true, eventId: true, designId: true, attempt: true, startedAt: true } });
+      const expired = await this.prisma.aiDesignJob.findMany({ where: { status: AiDesignJobStatus.PROCESSING, startedAt: { lt: new Date(now.getTime() - 5 * 60_000) } }, take: 25, select: { id: true, ownerSubject: true, eventId: true, designId: true, attempt: true, startedAt: true } });
       for (const job of expired) {
         if (job.attempt >= 3) {
           await this.prisma.$transaction(async (tx) => {
             const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt: job.startedAt }, data: { status: AiDesignJobStatus.FAILED, errorCode: 'worker_timeout', completedAt: now } });
-            if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-failed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, errorCode: 'worker_timeout' } } });
+            if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-failed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject, errorCode: 'worker_timeout' } } });
           });
           continue;
         }
         await this.prisma.$transaction(async (tx) => {
           const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt: job.startedAt }, data: { status: AiDesignJobStatus.QUEUED, startedAt: null, deliveryAfter: now, errorCode: null } });
-          if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId } } });
+          if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject } } });
         });
       }
 
-      const stranded = await this.prisma.aiDesignJob.findMany({ where: { status: AiDesignJobStatus.QUEUED, deliveryAfter: { lt: new Date(now.getTime() - 10_000) } }, orderBy: { deliveryAfter: 'asc' }, take: 10, select: { id: true, eventId: true, designId: true } });
+      const stranded = await this.prisma.aiDesignJob.findMany({ where: { status: AiDesignJobStatus.QUEUED, deliveryAfter: { lt: new Date(now.getTime() - 10_000) } }, orderBy: { deliveryAfter: 'asc' }, take: 10, select: { id: true, ownerSubject: true, eventId: true, designId: true } });
       for (const job of stranded) {
         await this.prisma.$transaction(async (tx) => {
           const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.QUEUED, deliveryAfter: { lt: new Date(now.getTime() - 10_000) } }, data: { deliveryAfter: new Date(now.getTime() + 30_000) } });
-          if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId } } });
+          if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject } } });
         });
       }
 

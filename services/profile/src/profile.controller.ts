@@ -190,26 +190,44 @@ export class ProfileController {
     }
 
     const identity = request.identity;
-    return this.prisma.profile.upsert({
-      where: { identitySubject: identity.subject },
-      create: {
-        identitySubject: identity.subject,
-        email: identity.email ?? null,
-        displayName: data.displayName ?? identity.name ?? null,
-        ...(data.locale ? { locale: data.locale } : {}),
-      },
-      update: {
-        ...data,
-        ...(identity.email ? { email: identity.email } : {}),
-      },
-      select: {
-        id: true,
-        email: true,
-        displayName: true,
-        locale: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const profile = await tx.profile.upsert({
+        where: { identitySubject: identity.subject },
+        create: {
+          identitySubject: identity.subject,
+          email: identity.email ?? null,
+          displayName: data.displayName ?? identity.name ?? null,
+          ...(data.locale ? { locale: data.locale } : {}),
+        },
+        update: {
+          ...data,
+          ...(identity.email ? { email: identity.email } : {}),
+        },
+        select: {
+          id: true,
+          email: true,
+          displayName: true,
+          locale: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      await tx.outboxMessage.create({
+        data: {
+          eventType: 'profile.updated.v1',
+          aggregateId: profile.id,
+          payload: {
+            profileId: profile.id,
+            ownerSubject: identity.subject,
+            changedFields: Object.keys(data),
+            displayName: profile.displayName,
+            locale: profile.locale,
+            occurredAt: profile.updatedAt.toISOString(),
+            schemaVersion: 1,
+          },
+        },
+      });
+      return profile;
     });
   }
 }

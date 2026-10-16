@@ -5,6 +5,7 @@ import type { CeremonyFields, CreateCeremonyFields, CreateEventFields, EventFiel
 import { createHash } from 'node:crypto';
 import { eventLifecycleAction } from './event-lifecycle.js';
 import { isEventDueForAutomaticCompletion } from './event-auto-completion.js';
+import { dateReminderKey, dateReminderKind } from './event-date-reminders.js';
 
 const eventSelect = {
   id: true, ownerSubject: true, name: true, description: true, coupleNames: true, invitationText: true, eventType: true, status: true, startAt: true, endAt: true, timezone: true, agencyWorkspaceId: true,
@@ -21,25 +22,50 @@ export class EventsService {
       orderBy: { updatedAt: 'asc' },
       take: 500,
       select: {
-        id: true, ownerSubject: true, status: true, timezone: true, startAt: true, endAt: true,
-        ceremonies: { select: { status: true, startAt: true, endAt: true } },
+        id: true, ownerSubject: true, name: true, eventType: true, agencyWorkspaceId: true, status: true, timezone: true, startAt: true, endAt: true,
+        ceremonies: { select: { id: true, name: true, ceremonyType: true, status: true, timezone: true, location: true, startAt: true, endAt: true } },
       },
     });
     let completed = 0;
     for (const event of candidates) {
+      await this.publishDateReminders(event, now);
       if (!isEventDueForAutomaticCompletion(event, now)) continue;
       const changed = await this.prisma.$transaction(async (tx) => {
         const result = await tx.event.updateMany({ where: { id: event.id, status: EventStatus.PUBLISHED }, data: { status: EventStatus.COMPLETED } });
         if (!result.count) return false;
-        await tx.outboxMessage.create({ data: {
+      await tx.outboxMessage.create({ data: {
           eventType: 'events.completed.v1', aggregateId: event.id,
-          payload: { id: event.id, ownerSubject: event.ownerSubject, from: EventStatus.PUBLISHED, to: EventStatus.COMPLETED, action: 'auto_complete', occurredAt: now.toISOString(), schemaVersion: 1 },
+          payload: { id: event.id, eventId: event.id, ownerSubject: event.ownerSubject, name: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, startAt: event.startAt?.toISOString() ?? null, endAt: event.endAt?.toISOString() ?? null, from: EventStatus.PUBLISHED, to: EventStatus.COMPLETED, action: 'auto_complete', occurredAt: now.toISOString(), schemaVersion: 1 },
         } });
         return true;
       });
       if (changed) completed += 1;
     }
     return { completed };
+  }
+
+  private async publishDateReminders(event: {
+    id: string; ownerSubject: string; name: string; eventType: string; agencyWorkspaceId: string | null; timezone: string; startAt: Date | null;
+    ceremonies: Array<{ id: string; name: string; ceremonyType: string; status: CeremonyStatus; timezone: string; location: string | null; startAt: Date; endAt: Date | null }>;
+  }, now: Date) {
+    const targets: Array<{ targetType: 'EVENT' | 'CEREMONY'; targetId: string; targetAt: Date; payload: Record<string, string | number | null> }> = [];
+    if (event.startAt) targets.push({ targetType: 'EVENT', targetId: event.id, targetAt: event.startAt, payload: { eventId: event.id, ownerSubject: event.ownerSubject, eventName: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, kind: 'EVENT', targetAt: event.startAt.toISOString() } });
+    for (const ceremony of event.ceremonies) {
+      if (ceremony.status === CeremonyStatus.CANCELLED) continue;
+      targets.push({ targetType: 'CEREMONY', targetId: ceremony.id, targetAt: ceremony.startAt, payload: { eventId: event.id, ownerSubject: event.ownerSubject, eventName: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, kind: 'CEREMONY', ceremonyId: ceremony.id, ceremonyName: ceremony.name, ceremonyType: ceremony.ceremonyType, ceremonyTimezone: ceremony.timezone, ceremonyStartAt: ceremony.startAt.toISOString(), location: ceremony.location, targetAt: ceremony.startAt.toISOString() } });
+    }
+    const pending = targets.map((target) => ({ target, reminder: dateReminderKind(target.targetAt, target.payload['ceremonyTimezone'] as string || event.timezone, now) })).filter((item): item is { target: (typeof targets)[number]; reminder: NonNullable<ReturnType<typeof dateReminderKind>> } => item.reminder !== null);
+    if (!pending.length) return;
+    const existing = await this.prisma.outboxMessage.findMany({ where: { eventType: 'events.date.reminder.v1', aggregateId: event.id }, select: { payload: true } });
+    const emitted = new Set(existing.map(({ payload }) => payload && typeof payload === 'object' && !Array.isArray(payload) && typeof (payload as { reminderKey?: unknown }).reminderKey === 'string' ? (payload as { reminderKey: string }).reminderKey : ''));
+    const newReminders = pending.filter(({ target, reminder }) => !emitted.has(dateReminderKey(target.targetType, target.targetId, reminder)));
+    if (!newReminders.length) return;
+    await this.prisma.$transaction(async (tx) => {
+      for (const { target, reminder } of newReminders) {
+        const reminderKey = dateReminderKey(target.targetType, target.targetId, reminder);
+        await tx.outboxMessage.create({ data: { eventType: 'events.date.reminder.v1', aggregateId: event.id, payload: { ...target.payload, reminder, reminderKey, occurredAt: now.toISOString(), schemaVersion: 1 } } });
+      }
+    });
   }
 
   async agencyDashboard(subject: string) {
@@ -118,6 +144,29 @@ export class EventsService {
     const name = input.name.trim();
     if (name.length < 2 || name.length > 120 || (input.email != null && (input.email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))) || (input.phone != null && input.phone.length > 40)) throw new BadRequestException('Client details are invalid');
     return this.prisma.agencyClient.create({ data: { workspaceId, name, email: input.email?.trim() || null, phone: input.phone?.trim() || null, createdBy: subject } });
+  }
+
+  async updateAgencyClient(subject: string, workspaceId: string, clientId: string, input: { name?: string; email?: string | null; phone?: string | null }) {
+    await this.requireAgencyRole(subject, workspaceId, ['OWNER', 'ADMIN']);
+    const data: { name?: string; email?: string | null; phone?: string | null } = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (name.length < 2 || name.length > 120) throw new BadRequestException('Client details are invalid');
+      data.name = name;
+    }
+    if (input.email !== undefined) {
+      const email = input.email?.trim() || null;
+      if (email !== null && (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new BadRequestException('Client details are invalid');
+      data.email = email;
+    }
+    if (input.phone !== undefined) {
+      const phone = input.phone?.trim() || null;
+      if (phone !== null && phone.length > 40) throw new BadRequestException('Client details are invalid');
+      data.phone = phone;
+    }
+    const updated = await this.prisma.agencyClient.updateMany({ where: { id: clientId, workspaceId }, data });
+    if (!updated.count) throw new NotFoundException('Agency client not found');
+    return this.prisma.agencyClient.findFirstOrThrow({ where: { id: clientId, workspaceId } });
   }
 
   async removeAgencyClient(subject: string, workspaceId: string, clientId: string) {
@@ -200,7 +249,7 @@ export class EventsService {
           const reservedCredits = Math.min(credits, remaining);
           if (reservedCredits === 0) return { id: null, subscriptionId: subscription.id, workspaceId, eventId, referenceKey, credits: 0, status: 'RELEASED', remaining, reservedCredits: 0 };
           const reservation = await tx.agencyQuotaReservation.create({ data: { subscriptionId: subscription.id, workspaceId, eventId, referenceKey, credits: reservedCredits, status: 'RESERVED' } });
-          await tx.outboxMessage.create({ data: { eventType: 'agencies.quota.reserved.v1', aggregateId: subscription.id, payload: { workspaceId, eventId, reservationId: reservation.id, referenceKey, credits: reservedCredits, remaining: remaining - reservedCredits, subject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+          await tx.outboxMessage.create({ data: { eventType: 'agencies.quota.reserved.v1', aggregateId: subscription.id, payload: { workspaceId, eventId, reservationId: reservation.id, referenceKey, credits: reservedCredits, remaining: remaining - reservedCredits, subject, ownerSubject: subject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
           return { ...reservation, remaining: remaining - reservedCredits, reservedCredits };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 });
     } catch (error) {
@@ -278,7 +327,7 @@ export class EventsService {
         if (latest?.status === actualStatus && (actualStatus !== 'CONSUMED' || latest.credits === finalCredits)) return latest;
         throw new ConflictException('Agency quota reservation changed concurrently');
       }
-      await tx.outboxMessage.create({ data: { eventType: actualStatus === 'CONSUMED' ? 'agencies.quota.consumed.v1' : 'agencies.quota.released.v1', aggregateId: current.subscriptionId ?? workspaceId, payload: { workspaceId, eventId: current.eventId, reservationId: current.id, referenceKey, credits: actualStatus === 'CONSUMED' ? finalCredits : current.credits, subject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+      await tx.outboxMessage.create({ data: { eventType: actualStatus === 'CONSUMED' ? 'agencies.quota.consumed.v1' : 'agencies.quota.released.v1', aggregateId: current.subscriptionId ?? workspaceId, payload: { workspaceId, eventId: current.eventId, reservationId: current.id, referenceKey, credits: actualStatus === 'CONSUMED' ? finalCredits : current.credits, subject, ownerSubject: subject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
       return tx.agencyQuotaReservation.findUniqueOrThrow({ where: { referenceKey } });
     });
   }
@@ -383,7 +432,7 @@ export class EventsService {
       if (!result.count) throw new ConflictException('Event status changed; reload before editing');
       await tx.outboxMessage.create({ data: {
         eventType: 'events.updated.v1', aggregateId: id,
-        payload: { id, ownerSubject, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 },
+        payload: { id, eventId: id, ownerSubject, name: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 },
       } });
     });
     return this.get(ownerSubject, id);
@@ -403,7 +452,7 @@ export class EventsService {
       const updated = await tx.event.findFirstOrThrow({ where: { id, ownerSubject }, select: eventSelect });
       await tx.outboxMessage.create({ data: {
         eventType: 'events.published.v1', aggregateId: id,
-        payload: { id, ownerSubject, name: updated.name, occurredAt: new Date().toISOString(), schemaVersion: 1 },
+        payload: { id, eventId: id, ownerSubject, name: updated.name, eventType: updated.eventType, agencyWorkspaceId: updated.agencyWorkspaceId, timezone: updated.timezone, startAt: updated.startAt?.toISOString() ?? null, endAt: updated.endAt?.toISOString() ?? null, occurredAt: new Date().toISOString(), schemaVersion: 1 },
       } });
       return tx.event.findFirstOrThrow({ where: { id, ownerSubject }, select: { ...eventSelect, ceremonies: { orderBy: { startAt: 'asc' }, include: { programItems: { orderBy: { position: 'asc' } } } } } });
     });
@@ -421,7 +470,7 @@ export class EventsService {
         await tx.ceremony.updateMany({ where: { eventId: id, status: CeremonyStatus.SCHEDULED }, data: { status: CeremonyStatus.CANCELLED } });
         await tx.outboxMessage.create({ data: {
           eventType: 'events.cancelled.v1', aggregateId: id,
-          payload: { id, ownerSubject, occurredAt: new Date().toISOString(), schemaVersion: 1 },
+          payload: { id, eventId: id, ownerSubject, name: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, startAt: event.startAt?.toISOString() ?? null, endAt: event.endAt?.toISOString() ?? null, occurredAt: new Date().toISOString(), schemaVersion: 1 },
         } });
       }
     });
@@ -439,7 +488,7 @@ export class EventsService {
       if (!changed.count) throw new ConflictException('Event status changed; reload before continuing');
       await tx.outboxMessage.create({ data: {
         eventType: `events.${action}d.v1`, aggregateId: id,
-        payload: { id, ownerSubject, from: event.status, to: target, action, occurredAt: new Date().toISOString(), schemaVersion: 1 },
+        payload: { id, eventId: id, ownerSubject, name: event.name, eventType: event.eventType, agencyWorkspaceId: event.agencyWorkspaceId, timezone: event.timezone, from: event.status, to: target, action, occurredAt: new Date().toISOString(), schemaVersion: 1 },
       } });
       return tx.event.findFirstOrThrow({ where: { id, ownerSubject }, select: { ...eventSelect, ceremonies: { orderBy: { startAt: 'asc' }, include: { programItems: { orderBy: { position: 'asc' } } } } } });
     });
@@ -471,7 +520,7 @@ export class EventsService {
       const ceremony = await tx.ceremony.create({ data: { ...data, eventId, ...(id ? { id } : {}) } });
       await tx.outboxMessage.create({ data: {
         eventType: 'events.ceremony.created.v1', aggregateId: eventId,
-        payload: { eventId, ceremonyId: ceremony.id, ownerSubject, ceremonyType: ceremony.ceremonyType, occurredAt: ceremony.createdAt.toISOString(), schemaVersion: 1 },
+        payload: { eventId, ceremonyId: ceremony.id, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, ceremonyName: ceremony.name, ceremonyType: ceremony.ceremonyType, ceremonyTimezone: ceremony.timezone, ceremonyStartAt: ceremony.startAt.toISOString(), ceremonyEndAt: ceremony.endAt?.toISOString() ?? null, location: ceremony.location, occurredAt: ceremony.createdAt.toISOString(), schemaVersion: 1 },
       } });
       return ceremony;
     });
@@ -483,7 +532,7 @@ export class EventsService {
       const event = await this.lockEvent(tx, ownerSubject, eventId);
       if (!event) throw new NotFoundException('Event not found');
       if (event.status !== EventStatus.DRAFT) throw new BadRequestException('Ceremonies can only be edited while the event is draft');
-      const current = await tx.ceremony.findFirst({ where: { id: ceremonyId, eventId }, select: { id: true, startAt: true, endAt: true, status: true } });
+      const current = await tx.ceremony.findFirst({ where: { id: ceremonyId, eventId }, select: { id: true, name: true, ceremonyType: true, timezone: true, location: true, startAt: true, endAt: true, status: true } });
       if (!current) throw new NotFoundException('Ceremony not found');
       const startAt = data.startAt instanceof Date ? data.startAt : current.startAt;
       const endAt = data.endAt === null ? null : data.endAt instanceof Date ? data.endAt : current.endAt;
@@ -491,11 +540,12 @@ export class EventsService {
       this.checkEventWindow(event, startAt, endAt);
       const result = await tx.ceremony.updateMany({ where: { id: ceremonyId, eventId }, data });
       if (!result.count) throw new NotFoundException('Ceremony not found');
+      const updated = await tx.ceremony.findFirstOrThrow({ where: { id: ceremonyId, eventId } });
       await tx.outboxMessage.create({ data: {
         eventType: 'events.ceremony.updated.v1', aggregateId: eventId,
-        payload: { eventId, ceremonyId, ownerSubject, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 },
+        payload: { eventId, ceremonyId, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, ceremonyName: updated.name, ceremonyType: updated.ceremonyType, ceremonyTimezone: updated.timezone, ceremonyStartAt: updated.startAt.toISOString(), ceremonyEndAt: updated.endAt?.toISOString() ?? null, location: updated.location, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 },
       } });
-      return tx.ceremony.findFirst({ where: { id: ceremonyId, eventId } });
+      return updated;
     });
   }
 
@@ -509,7 +559,7 @@ export class EventsService {
       if (!result.count) throw new NotFoundException('Ceremony not found');
       await tx.outboxMessage.create({ data: {
         eventType: 'events.ceremony.deleted.v1', aggregateId: eventId,
-        payload: { eventId, ceremonyId, ownerSubject, occurredAt: new Date().toISOString(), schemaVersion: 1 },
+        payload: { eventId, ceremonyId, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, occurredAt: new Date().toISOString(), schemaVersion: 1 },
       } });
       return { deleted: true };
     });
@@ -527,7 +577,7 @@ export class EventsService {
       if (existing.length >= 50) throw new BadRequestException('A ceremony program can contain at most 50 steps');
       const position = existing.reduce((maximum, item) => Math.max(maximum, item.position), -1) + 1;
       const item = await tx.ceremonyProgramItem.create({ data: { ceremonyId, position, ...data } });
-      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.created.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId: item.id, position, ownerSubject, occurredAt: item.createdAt.toISOString(), schemaVersion: 1 } } });
+      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.created.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId: item.id, position, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, title: item.title, startsAt: item.startsAt?.toISOString() ?? null, durationMinutes: item.durationMinutes, location: item.location, occurredAt: item.createdAt.toISOString(), schemaVersion: 1 } } });
       return item;
     });
   }
@@ -540,7 +590,7 @@ export class EventsService {
       if (event.status !== EventStatus.DRAFT) throw new BadRequestException('Program can only be edited while the event is draft');
       const result = await tx.ceremonyProgramItem.updateMany({ where: { id: itemId, ceremonyId, ceremony: { eventId } }, data });
       if (!result.count) throw new NotFoundException('Program item not found');
-      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.updated.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId, ownerSubject, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.updated.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, changedFields: Object.keys(data), occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
       return tx.ceremonyProgramItem.findFirstOrThrow({ where: { id: itemId, ceremonyId } });
     });
   }
@@ -558,7 +608,7 @@ export class EventsService {
         const changed = await tx.ceremonyProgramItem.updateMany({ where: { id, ceremonyId }, data: { position } });
         if (changed.count !== 1) throw new NotFoundException('Program item not found');
       }
-      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-reordered.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemIds, ownerSubject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-reordered.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemIds, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
       return { items: await tx.ceremonyProgramItem.findMany({ where: { ceremonyId }, orderBy: { position: 'asc' } }) };
     });
   }
@@ -572,7 +622,7 @@ export class EventsService {
       const item = await tx.ceremonyProgramItem.findFirst({ where: { id: itemId, ceremonyId, ceremony: { eventId } }, select: { id: true } });
       if (!item) throw new NotFoundException('Program item not found');
       await tx.ceremonyProgramItem.delete({ where: { id: itemId } });
-      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.deleted.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId, ownerSubject, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
+      await tx.outboxMessage.create({ data: { eventType: 'events.ceremony.program-item.deleted.v1', aggregateId: eventId, payload: { eventId, ceremonyId, itemId, ownerSubject, eventName: event.name, agencyWorkspaceId: event.agencyWorkspaceId, occurredAt: new Date().toISOString(), schemaVersion: 1 } } });
       return { deleted: true };
     });
   }
@@ -583,8 +633,8 @@ export class EventsService {
   }
 
   private async lockEvent(tx: Prisma.TransactionClient, ownerSubject: string, id: string) {
-    const rows = await tx.$queryRaw<Array<{ id: string; status: EventStatus; event_type: string; start_at: Date | null; end_at: Date | null }>>`
-      SELECT e."id", e."status", e."event_type", e."start_at", e."end_at"
+    const rows = await tx.$queryRaw<Array<{ id: string; status: EventStatus; event_type: string; name: string; agency_workspace_id: string | null; timezone: string; start_at: Date | null; end_at: Date | null }>>`
+      SELECT e."id", e."status", e."event_type", e."name", e."agency_workspace_id", e."timezone", e."start_at", e."end_at"
       FROM "events" e
       WHERE e."id" = ${id}::uuid AND (
         (e."agency_workspace_id" IS NULL AND e."owner_subject" = ${ownerSubject}) OR EXISTS (
@@ -597,7 +647,7 @@ export class EventsService {
       ) FOR UPDATE
     `;
     const event = rows[0];
-    return event ? { id: event.id, status: event.status, eventType: event.event_type, startAt: event.start_at, endAt: event.end_at } : null;
+    return event ? { id: event.id, status: event.status, eventType: event.event_type, name: event.name, agencyWorkspaceId: event.agency_workspace_id, timezone: event.timezone, startAt: event.start_at, endAt: event.end_at } : null;
   }
 
   private assertUuid(id: string) {

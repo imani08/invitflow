@@ -47,14 +47,17 @@ export class AccessService {
   async removeCeremonyGrant(owner: string, eventId: string, agentSubject: string, ceremonyId: string, authorization: string) {
     this.assertIds(eventId, ceremonyId);
     if (!subjectPattern.test(agentSubject) || ['null', 'undefined'].includes(agentSubject.toLowerCase())) throw new BadRequestException('Identifiant d’agent invalide.');
-    await this.events.assertManageableCeremonies(eventId, [ceremonyId], authorization);
+    const event = await this.events.assertManageableCeremonies(eventId, [ceremonyId], authorization);
     return this.prisma.$transaction(async (tx) => {
       const agent = await tx.checkInAgent.findFirst({ where: { ownerSubject: owner, eventId, agentSubject } });
       if (!agent) throw new NotFoundException('Agent introuvable.');
       await tx.agentCeremonyGrant.deleteMany({ where: { agentId: agent.id, ceremonyId } });
       const remaining = await tx.agentCeremonyGrant.count({ where: { agentId: agent.id } });
       if (remaining === 0) await tx.checkInAgent.update({ where: { id: agent.id }, data: { status: AgentStatus.REVOKED } });
-      await tx.outboxMessage.create({ data: { eventType: 'access.agent.ceremony-revoked.v1', aggregateId: agent.id, payload: { eventId, agentSubject, ceremonyId, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
+      const ceremonyNameValue = (event['ceremonies'] as Record<string, unknown>[]).find((ceremony) => ceremony['id'] === ceremonyId)?.['name'];
+      const ceremonyName = typeof ceremonyNameValue === 'string' ? ceremonyNameValue : '';
+      const eventName = typeof event['name'] === 'string' ? event['name'] : '';
+      await tx.outboxMessage.create({ data: { eventType: 'access.agent.ceremony-revoked.v1', aggregateId: agent.id, payload: { eventId, agentSubject, ceremonyId, ceremonyName, eventName, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
       return { id: agent.id, agentSubject, ceremonyId, status: remaining === 0 ? AgentStatus.REVOKED : AgentStatus.ACTIVE };
     });
   }
@@ -95,7 +98,8 @@ export class AccessService {
       });
       await tx.agentCeremonyGrant.deleteMany({ where: { agentId: agent.id } });
       await tx.agentCeremonyGrant.createMany({ data: (ceremonyIds as string[]).map((ceremonyId) => ({ agentId: agent.id, ownerSubject: owner, eventId, ceremonyId })) });
-      await tx.outboxMessage.create({ data: { eventType: 'access.agent.assigned.v1', aggregateId: agent.id, payload: { eventId, agentSubject, ceremonyIds, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
+      const eventName = typeof event['name'] === 'string' ? event['name'] : '';
+      await tx.outboxMessage.create({ data: { eventType: 'access.agent.assigned.v1', aggregateId: agent.id, payload: { eventId, agentSubject, ceremonyIds, eventName, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
       const names = new Map((event['ceremonies'] as Record<string, unknown>[]).map((ceremony) => [ceremony['id'], ceremony['name']]));
       return { id: agent.id, agentSubject: agent.agentSubject, status: agent.status, ceremonies: (ceremonyIds as string[]).map((id) => ({ id, name: names.get(id) })) };
     });
@@ -104,13 +108,14 @@ export class AccessService {
   async revokeAgent(owner: string, eventId: string, agentSubject: string, authorization: string) {
     this.assertIds(eventId);
     if (!subjectPattern.test(agentSubject) || ['null', 'undefined'].includes(agentSubject.toLowerCase())) throw new BadRequestException('Identifiant d’agent invalide.');
-    await this.events.assertManageableCeremonies(eventId, [], authorization);
+    const event = await this.events.assertManageableCeremonies(eventId, [], authorization);
     return this.prisma.$transaction(async (tx) => {
       const agent = await tx.checkInAgent.findFirst({ where: { ownerSubject: owner, eventId, agentSubject } });
       if (!agent) throw new NotFoundException('Agent introuvable.');
       await tx.checkInAgent.update({ where: { id: agent.id }, data: { status: AgentStatus.REVOKED } });
       await tx.agentCeremonyGrant.deleteMany({ where: { agentId: agent.id } });
-      await tx.outboxMessage.create({ data: { eventType: 'access.agent.revoked.v1', aggregateId: agent.id, payload: { eventId, agentSubject, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
+      const eventName = typeof event['name'] === 'string' ? event['name'] : '';
+      await tx.outboxMessage.create({ data: { eventType: 'access.agent.revoked.v1', aggregateId: agent.id, payload: { eventId, agentSubject, eventName, ownerSubject: owner, correlationId: randomUUID(), schemaVersion: 1 } } });
       return { id: agent.id, agentSubject, status: AgentStatus.REVOKED };
     });
   }

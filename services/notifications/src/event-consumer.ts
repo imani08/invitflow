@@ -40,7 +40,21 @@ export class EventConsumer implements OnModuleInit, OnModuleDestroy {
       const parsed = JSON.parse(message.payload) as unknown;
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
       const record = parsed as Record<string, unknown>;
-      envelope = typeof record['eventType'] === 'string' ? record as EventEnvelope : { eventType: message.properties?.type, payload: record };
+      // Outbox messages are published as the raw payload. Some payloads also
+      // contain a business-level `eventType` (for example `WEDDING`), so the
+      // presence of that field alone must not make us treat the message as an
+      // EventEnvelope. An envelope is identified by its nested payload and by
+      // either matching RabbitMQ's type or using the versioned event naming
+      // convention.
+      const declaredType = typeof record['eventType'] === 'string' ? record['eventType'] : '';
+      const nestedPayload = record['payload'];
+      const hasNestedPayload = Boolean(nestedPayload && typeof nestedPayload === 'object' && !Array.isArray(nestedPayload));
+      const propertyType = message.properties?.type;
+      const isEnvelope = hasNestedPayload && Boolean(declaredType) &&
+        (propertyType === declaredType || /^[a-z0-9_.-]+\.v\d+$/i.test(declaredType));
+      envelope = isEnvelope
+        ? record as EventEnvelope
+        : { eventType: propertyType, payload: record };
     } catch { return; }
     const rawId = typeof envelope.eventId === 'string' ? envelope.eventId : message.properties?.message_id;
     const sourceEventId = typeof rawId === 'string' && /^[A-Za-z0-9._:-]{1,64}$/.test(rawId) ? rawId : this.notifications.sourceFallback(message.payload);

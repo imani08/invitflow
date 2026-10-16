@@ -53,3 +53,10 @@ test('post-login destination defaults to dashboard and keeps only safe local ret
   assert.equal(getDefaultPostLoginDestination('/account/wallet'), '/account/wallet');
   assert.equal(getDefaultPostLoginDestination('/events?view=upcoming'), '/events?view=upcoming');
 });
+
+test('post-login destination opens the administration area for administrators', () => {
+  assert.equal(getDefaultPostLoginDestination(undefined, ['SUPER_ADMIN']), '/admin');
+  assert.equal(getDefaultPostLoginDestination('/dashboard', ['SUPPORT_ADMIN']), '/admin');
+  assert.equal(getDefaultPostLoginDestination(undefined, ['FINANCE_ADMIN']), '/admin/finance');
+  assert.equal(getDefaultPostLoginDestination('/account/wallet', ['SUPER_ADMIN']), '/account/wallet');
+});

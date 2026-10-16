@@ -85,8 +85,8 @@ export class AiDesignService {
         sourceDocument: source as Prisma.InputJsonValue,
         deliveryAfter: new Date(Date.now() + 30_000),
       } });
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId } } });
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-queued.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId, baseVersion: design.version } } });
+      await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId, ownerSubject } } });
+      await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-queued.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId, ownerSubject, baseVersion: design.version } } });
       return created;
     });
     return this.publicJob(job);
@@ -121,13 +121,13 @@ export class AiDesignService {
       const proposals = await tx.aiDesignJob.count({ where: { ownerSubject, eventId, designId, baseVersion: context.sourceVersion, sourceDocument: { path: ['workflow'], equals: String(input['workflow']) } } });
       if (proposals >= 3) throw new HttpException('Limite de trois propositions pour cette version. Modifiez le texte ou la composition.', 429);
       const created = await tx.aiDesignJob.create({ data: { ownerSubject, eventId, designId, baseVersion: context.sourceVersion, prompt: String(input['workflow']), sourceDocument: source as Prisma.InputJsonValue, deliveryAfter: new Date(Date.now() + 30000) } });
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId } } });
+       await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: created.id, payload: { jobId: created.id, eventId, designId, ownerSubject } } });
       return created;
     });
     return this.publicJob(job);
   }
 
-  private async processEditorial(job: { id: string; baseVersion: number; sourceDocument: Prisma.JsonValue; proposal: Prisma.JsonValue | null }, startedAt: Date) {
+  private async processEditorial(job: { id: string; ownerSubject: string; eventId: string; designId: string; baseVersion: number; sourceDocument: Prisma.JsonValue; proposal: Prisma.JsonValue | null }, startedAt: Date) {
     const source = job.sourceDocument as unknown as { workflow: string; action?: string; sourceText: string; protectedTerms: string[]; language: string; tone: string; compressionLevel: string; target: { maxCharacters: number; maxEstimatedLines: number; targetReductionRatio: number }; layer: Record<string, unknown>; elementId: string };
     const started = Date.now();
     try {
@@ -152,14 +152,14 @@ export class AiDesignService {
       const fit = editorialTarget(source['layer'], text);
       await this.prisma.$transaction(async tx => {
         const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt }, data: { status: AiDesignJobStatus.PROPOSED, provider: selectedProvider(), proposal: { workflow: source.workflow, elementId: source['elementId'], sourceText: source['sourceText'], proposedText: text, fits: !fit.overflow, usage: result.usage, elapsedMs: Date.now() - started }, completedAt: new Date(), errorCode: null } });
-        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.editorial.proposed.v1', aggregateId: job.id, payload: { jobId: job.id, elapsedMs: Date.now() - started, usage: result.usage, fits: !fit.overflow } } });
+        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.editorial.proposed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject, elapsedMs: Date.now() - started, usage: result.usage, fits: !fit.overflow } } });
       });
     } catch (error) {
       const allowed = ['submission_uncertain', 'provider_unavailable', 'provider_timeout', 'provider_rate_limit', 'unsupported_language', 'wrong_language', 'language_unverified', 'empty_response', 'not_shorter', 'target_exceeded', 'REJECTED_PROPOSAL'];
       const code = error instanceof Error && allowed.includes(error.message) ? error.message : 'invalid_proposal';
       await this.prisma.$transaction(async tx => {
         const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt }, data: { status: AiDesignJobStatus.FAILED, errorCode: code, completedAt: new Date() } });
-        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.editorial.failed.v1', aggregateId: job.id, payload: { jobId: job.id, errorCode: code, elapsedMs: Date.now() - started } } });
+        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.editorial.failed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject, errorCode: code, elapsedMs: Date.now() - started } } });
       });
     }
   }
@@ -222,7 +222,7 @@ export class AiDesignService {
       if (!cancellable.includes(current.status)) throw new ConflictException('Cette demande ne peut plus être annulée.');
       const cancelled = await tx.aiDesignJob.updateMany({ where: { id: jobId, eventId, designId, ownerSubject, status: { in: cancellable } }, data: { status: AiDesignJobStatus.CANCELLED, completedAt: new Date() } });
       if (!cancelled.count) throw new ConflictException('La demande a déjà commencé.');
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-cancelled.v1', aggregateId: jobId, payload: { jobId, eventId, designId } } });
+       await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-cancelled.v1', aggregateId: jobId, payload: { jobId, eventId, designId, ownerSubject } } });
       return tx.aiDesignJob.findFirstOrThrow({ where: { id: jobId, ownerSubject } });
     });
     return this.publicJob(job);
@@ -244,8 +244,8 @@ export class AiDesignService {
       await this.assertActiveCapacity(tx, ownerSubject);
       const updated = await tx.aiDesignJob.updateMany({ where: { id: jobId, ownerSubject, status: AiDesignJobStatus.FAILED }, data: { status: AiDesignJobStatus.QUEUED, deliveryAfter: new Date(Date.now() + 30_000), startedAt: null, completedAt: null, errorCode: null, summary: null } });
       if (!updated.count) throw new ConflictException('La demande a déjà changé d’état.');
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: jobId, payload: { jobId, eventId, designId } } });
-      await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-retried.v1', aggregateId: jobId, payload: { jobId, eventId, designId, attempt: current.attempt } } });
+       await tx.outboxMessage.create({ data: { eventType: 'ai.design.requested.v1', aggregateId: jobId, payload: { jobId, eventId, designId, ownerSubject } } });
+       await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-retried.v1', aggregateId: jobId, payload: { jobId, eventId, designId, ownerSubject, attempt: current.attempt } } });
       return tx.aiDesignJob.findFirstOrThrow({ where: { id: jobId, ownerSubject } });
     });
     return this.publicJob(job);
@@ -302,7 +302,7 @@ export class AiDesignService {
           previewObjectKey,
           completedAt: new Date(), errorCode: null,
         } });
-        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.proposal-ready.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, baseVersion: job.baseVersion, provider: providerMode } } });
+        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.proposal-ready.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject, baseVersion: job.baseVersion, provider: providerMode } } });
       });
       const latest = await this.prisma.aiDesignJob.findUnique({ where: { id: job.id }, select: { status: true } });
       if (latest?.status !== AiDesignJobStatus.PROPOSED && previewObjectKey) await this.previews.delete(previewObjectKey);
@@ -311,7 +311,7 @@ export class AiDesignService {
       const errorCode = shortModelError(error);
       await this.prisma.$transaction(async (tx) => {
         const updated = await tx.aiDesignJob.updateMany({ where: { id: job.id, status: AiDesignJobStatus.PROCESSING, startedAt: now }, data: { status: AiDesignJobStatus.FAILED, errorCode, completedAt: new Date() } });
-        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-failed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, errorCode } } });
+        if (updated.count) await tx.outboxMessage.create({ data: { eventType: 'ai.design.job-failed.v1', aggregateId: job.id, payload: { jobId: job.id, eventId: job.eventId, designId: job.designId, ownerSubject: job.ownerSubject, errorCode } } });
       });
       console.warn(JSON.stringify({ level: 'warn', event: 'ai_design_job_failed', jobId: job.id, errorCode }));
     }

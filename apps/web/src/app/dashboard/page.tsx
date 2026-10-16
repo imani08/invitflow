@@ -30,8 +30,26 @@ export default async function DashboardPage() {
     unavailable = true;
   }
 
+  // The profile service is the canonical source for the user-facing "Nom affiché".
+  // Keep the session claims as a resilient fallback when the profile service is temporarily unavailable.
+  let displayName: string | null = null;
+  try {
+    const profileResponse = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/profile/me`, {
+      headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(5_000),
+    });
+    if (profileResponse.status === 401) redirect('/api/auth/login?returnTo=%2Fdashboard');
+    if (profileResponse.ok) {
+      const payload: unknown = await profileResponse.json();
+      if (payload && typeof payload === 'object' && typeof (payload as { displayName?: unknown }).displayName === 'string') {
+        displayName = (payload as { displayName: string }).displayName.trim() || null;
+      }
+    }
+  } catch (error) {
+    if (error && typeof error === 'object' && 'digest' in error && typeof error.digest === 'string' && error.digest.startsWith('NEXT_')) throw error;
+  }
+
   const upcoming = events.find((event) => event.status !== 'CANCELLED' && event.status !== 'COMPLETED');
-  const greeting = session.user?.name?.trim().split(/\s+/)[0];
+  const greeting = displayName || session.user?.name?.trim() || session.user?.email?.split('@')[0]?.trim();
   return <main className="events-shell dashboard-shell">
     <AppNavbar />
     <header className="dashboard-welcome"><p className="eyebrow">VOTRE ESPACE</p><h1>Bonjour{greeting ? `, ${greeting}` : ''}<br /><em>que célébrons-nous ?</em></h1><p>Retrouvez vos événements et continuez leur préparation.</p><Link className="dashboard-primary" href="/events#create-event">Créer un événement <span>→</span></Link></header>

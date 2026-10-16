@@ -10,8 +10,9 @@ import './journey.css';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EventsPage({ searchParams }: { searchParams: Promise<{ event?: string }> }) {
-  const { event: expandedEventId } = await searchParams;
+export default async function EventsPage({ searchParams }: { searchParams: Promise<{ event?: string; scope?: string }> }) {
+  const { event: expandedEventId, scope: requestedScope } = await searchParams;
+  const scope = requestedScope === 'agency' ? 'agency' : 'personal';
   const cookieStore = await cookies();
   const session = await getSession(cookieStore.get(sessionCookieName())?.value);
   if (!session) redirect('/api/auth/login?returnTo=%2Fevents');
@@ -19,7 +20,7 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
   let unavailable = false;
   let unauthorized = false;
   try {
-    const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/events?limit=50&scope=personal`, {
+    const response = await fetch(`${process.env['GATEWAY_INTERNAL_URL'] ?? 'http://gateway:3002'}/v1/events?limit=50&scope=${scope}`, {
       headers: { authorization: `Bearer ${session.accessToken}` }, cache: 'no-store', signal: AbortSignal.timeout(5_000),
     });
     if (response.status === 401) unauthorized = true;
@@ -33,8 +34,8 @@ export default async function EventsPage({ searchParams }: { searchParams: Promi
   if (unauthorized) redirect('/api/auth/login?returnTo=%2Fevents');
 
   return <main className="events-shell">
-    <AppNavbar />
-    <header className="events-heading"><p className="eyebrow">ESPACE PARTICULIER</p><h1>Vos événements,<br /><em>vos moments.</em></h1><p>Organisez vos événements personnels ici. Les événements clients et leurs quotas restent dans l’espace Agence.</p></header>
-    {unavailable ? <section className="events-notice"><h2>Les événements sont momentanément indisponibles</h2><p>La plateforme n’a pas pu joindre son service. Vérifiez que les dépendances et la base sont démarrées, puis réessayez.</p><Link href="/events">Réessayer</Link></section> : <EventsWorkspace initialEvents={initialEvents} expandedEventId={expandedEventId} />}
+    <AppNavbar scope={scope} />
+    <header className="events-heading"><p className="eyebrow">{scope === 'agency' ? 'ESPACE AGENCE' : 'ESPACE PARTICULIER'}</p><h1>{scope === 'agency' ? <>Les événements<br /><em>de vos clients.</em></> : <>Vos événements,<br /><em>vos moments.</em></>}</h1><p>{scope === 'agency' ? 'Configurez les événements clients de votre agence. Le quota Agence est utilisé exclusivement.' : 'Organisez vos événements personnels ici. Les événements clients et leurs quotas restent dans l’espace Agence.'}</p></header>
+    {unavailable ? <section className="events-notice"><h2>Les événements sont momentanément indisponibles</h2><p>La plateforme n’a pas pu joindre son service. Vérifiez que les dépendances et la base sont démarrées, puis réessayez.</p><Link href={`/events?scope=${scope}`}>Réessayer</Link></section> : <EventsWorkspace initialEvents={initialEvents} expandedEventId={expandedEventId} scope={scope} />}
   </main>;
 }

@@ -14,8 +14,12 @@ export function uniqueNavigationItems(items) {
   });
 }
 
-export function getDefaultPostLoginDestination(returnTo) {
-  return isSafeReturnTo(returnTo) ? returnTo : '/dashboard';
+export function getDefaultPostLoginDestination(returnTo, roles = []) {
+  if (isSafeReturnTo(returnTo) && returnTo !== '/dashboard') return returnTo;
+  const granted = new Set(Array.isArray(roles) ? roles.filter((role) => typeof role === 'string') : []);
+  if (granted.has('SUPER_ADMIN') || granted.has('SUPPORT_ADMIN')) return '/admin';
+  if (granted.has('FINANCE_ADMIN')) return '/admin/finance';
+  return '/dashboard';
 }
 
 export function isSafeReturnTo(value) {

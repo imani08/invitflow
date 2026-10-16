@@ -27,7 +27,7 @@ export default async function NotificationsPage() {
   const preferences = await preferencesResponse.json() as { enabled: boolean };
   if (!Array.isArray(inbox.items) || !Number.isSafeInteger(inbox.unreadCount) || typeof preferences.enabled !== 'boolean') return <Unavailable />;
   return <main className="notifications-page"><AppNavbar />
-    <header className="notifications-heading"><span className="eyebrow">VOTRE ESPACE</span><h1>Notifications</h1><p>Les confirmations et mises à jour importantes de vos événements apparaissent ici.</p></header>
+    <header className="notifications-heading"><span className="eyebrow">VOTRE ESPACE</span><h1>Notifications</h1><p>Retrouvez ici les informations importantes de votre espace : agences, événements, étapes, invités, paiements et générations.</p></header>
     <NotificationInbox initial={inbox} initialEnabled={preferences.enabled} />
   </main>;
 }

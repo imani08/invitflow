@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { agencyPeriod, agencyCreditUsage, belongsToAgencyClient } from './agency-period.mjs';
+import { localTimeInZone } from '@/lib/local-time-in-zone.mjs';
 
 export type AgencyPlan = { id: string; key: string; name: string; credits: number; checkInEvents: number; checkInGuestCapacity: number; periodDays?: number | null; priceMinor: number; currency: string; segment: string };
 export type Agency = { id: string; name: string; status: string; role: 'OWNER' | 'ADMIN' | 'MEMBER'; plan: null | { planName: string; quotaCredits: number; checkInEventLimit: number; checkInGuestCapacity: number; priceMinor: number; currency: string; status: string; billingPeriodStart?: string | null; billingPeriodEnd?: string | null }; usage: { consumed: number; reserved: number }; clients: number; events: number };
@@ -22,25 +23,6 @@ const memberStatusLabels: Record<string, string> = { ACTIVE: 'Actif', SUSPENDED:
 const subscriptionLabels: Record<string, string> = { PENDING: 'En attente du paiement', ACTIVE: 'Actif', PAST_DUE: 'Période échue', SUSPENDED: 'Suspendu', CANCELLED: 'Annulé' };
 const eventTypeLabels: Record<string, string> = { WEDDING: 'Mariage', BIRTHDAY: 'Anniversaire', CONFERENCE: 'Conférence', OTHER: 'Autre' };
 const eventStatusLabels: Record<string, string> = { DRAFT: 'Brouillon', PUBLISHED: 'Publié', CANCELLED: 'Annulé', COMPLETED: 'Terminé' };
-
-function localDateTimeInZone(value: string, timeZone: string) {
-  const match = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d)$/.exec(value);
-  if (!match) throw new Error('Saisissez une date et une heure valides.');
-  const target = match.slice(1).map(Number);
-  const targetUtc = Date.UTC(target[0]!, target[1]! - 1, target[2]!, target[3]!, target[4]!);
-  let candidate = targetUtc;
-  const formatter = new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const parts = Object.fromEntries(formatter.formatToParts(new Date(candidate)).map((part) => [part.type, part.value]));
-    const represented = Date.UTC(Number(parts['year']), Number(parts['month']) - 1, Number(parts['day']), Number(parts['hour']), Number(parts['minute']));
-    const adjustment = targetUtc - represented;
-    candidate += adjustment;
-    if (!adjustment) break;
-  }
-  const actual = Object.fromEntries(formatter.formatToParts(new Date(candidate)).map((part) => [part.type, part.value]));
-  if (Number(actual['year']) !== target[0] || Number(actual['month']) !== target[1] || Number(actual['day']) !== target[2] || Number(actual['hour']) !== target[3] || Number(actual['minute']) !== target[4]) throw new Error('Cette heure ne peut pas être représentée dans le fuseau de l’événement.');
-  return new Date(candidate).toISOString();
-}
 
 export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: Agency[]; plans: AgencyPlan[] }) {
   const [agencies, setAgencies] = useState(initialAgencies);
@@ -97,6 +79,12 @@ export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: A
     event.preventDefault(); const form = event.currentTarget; const data = new FormData(form);
     await act(async () => { await api(`/${selectedId}/clients`, 'POST', { name: data.get('name'), email: data.get('email') || null, phone: data.get('phone') || null }); form.reset(); await refresh(); setMessage('Client ajouté.'); });
   }
+  async function updateClient(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedClient) return;
+    const data = new FormData(event.currentTarget);
+    await act(async () => { await api(`/${selectedId}/clients/${selectedClient.id}`, 'PATCH', { name: data.get('name'), email: data.get('email') || null, phone: data.get('phone') || null }); await refresh(); setMessage('Profil client mis à jour.'); });
+  }
   async function createMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = event.currentTarget; const data = new FormData(form);
     await act(async () => { await api(`/${selectedId}/members`, 'POST', { subject: data.get('subject'), role: data.get('role') }); form.reset(); await refresh(); setMessage('Compte ajouté à l’équipe.'); });
@@ -107,7 +95,7 @@ export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: A
   async function createEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = event.currentTarget; const data = new FormData(form); const clientId = String(data.get('clientId') ?? '');
     await act(async () => {
-      const created = await api<Event>(`/${selectedId}/events`, 'POST', { clientId, name: data.get('name'), eventType: data.get('eventType'), timezone: 'Africa/Kinshasa', ...(data.get('startAt') ? { startAt: localDateTimeInZone(String(data.get('startAt')), 'Africa/Kinshasa') } : {}) });
+      const created = await api<Event>(`/${selectedId}/events`, 'POST', { clientId, name: data.get('name'), eventType: data.get('eventType'), timezone: 'Africa/Kinshasa', ...(data.get('startAt') ? { startAt: localTimeInZone(String(data.get('startAt')), 'Africa/Kinshasa') } : {}) });
       setCreatedEvent({ event: created, clientId }); setSelectedClientId(clientId); form.reset(); await refresh(); setMessage('Événement créé. Ouvrez son espace pour configurer cérémonies, invités et invitations.');
     });
   }
@@ -124,6 +112,7 @@ export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: A
   ] : events;
   const creditUsage = agencyCreditUsage(current?.plan ? { status: current.plan.status, quotaCredits: current.plan.quotaCredits } : null, current?.usage ?? { consumed: 0, reserved: 0 });
   const canManageTeam = current?.role === 'OWNER' || current?.role === 'ADMIN';
+  const canManageClients = current?.role === 'OWNER' || current?.role === 'ADMIN';
 
   return <section className="agency-content" aria-busy={loading}>
     {message && <p role="status" className="agency-feedback">{message}</p>}
@@ -139,14 +128,14 @@ export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: A
 
       <section className="agency-section" id="clients"><div className="agency-section-heading"><div><small>RELATIONS CLIENTS</small><h2>Clients</h2></div><span>{current.clients.toLocaleString('fr-FR')}</span></div>
         <label className="agency-search">Rechercher un client<input type="search" value={clientSearch} onChange={(event) => setClientSearch(event.target.value)} placeholder="Nom, e-mail ou téléphone"/></label>
-        {loading && !loaded ? <p className="agency-empty-inline">Chargement des clients…</p> : filteredClients.length ? <div className="agency-client-layout"><div className="agency-client-list" aria-label="Liste des clients">{filteredClients.map((client) => <button type="button" className={`agency-client-card${client.id === selectedClientId ? ' is-selected' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}><strong>{client.name}</strong><span>{client.email ?? client.phone ?? 'Coordonnées non renseignées'}</span></button>)}</div>{selectedClient && <aside className="agency-client-detail" aria-label={`Détail client ${selectedClient.name}`}><small>DÉTAIL DU CLIENT</small><h3>{selectedClient.name}</h3><p>{selectedClient.email ?? 'E-mail non renseigné'}</p><p>{selectedClient.phone ?? 'Téléphone non renseigné'}</p><button type="button" onClick={() => { setSelectedClientId(selectedClient.id); document.getElementById('create-event')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }); }}>Créer un événement pour ce client</button><p className="agency-note">La modification du profil client n’est pas fournie par l’API.</p></aside>}</div> : <div className="agency-empty-inline">{loaded ? 'Aucun client correspondant. Ajoutez un client pour démarrer.' : 'Les clients seront affichés après chargement.'}</div>}
+        {loading && !loaded ? <p className="agency-empty-inline">Chargement des clients…</p> : filteredClients.length ? <div className="agency-client-layout"><div className="agency-client-list" aria-label="Liste des clients">{filteredClients.map((client) => <button type="button" className={`agency-client-card${client.id === selectedClientId ? ' is-selected' : ''}`} key={client.id} onClick={() => setSelectedClientId(client.id)}><strong>{client.name}</strong><span>{client.email ?? client.phone ?? 'Coordonnées non renseignées'}</span></button>)}</div>{selectedClient && <aside className="agency-client-detail" aria-label={`Détail client ${selectedClient.name}`}><small>DÉTAIL DU CLIENT</small><h3>{selectedClient.name}</h3><p>{selectedClient.email ?? 'E-mail non renseigné'}</p><p>{selectedClient.phone ?? 'Téléphone non renseigné'}</p><button type="button" onClick={() => { setSelectedClientId(selectedClient.id); document.getElementById('create-event')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' }); }}>Créer un événement pour ce client</button>{canManageClients ? <form className="agency-form" onSubmit={updateClient}><h4>Modifier le profil</h4><input name="name" required minLength={2} maxLength={120} defaultValue={selectedClient.name} aria-label="Nom du client"/><input name="email" type="email" maxLength={320} defaultValue={selectedClient.email ?? ''} aria-label="E-mail du client"/><input name="phone" maxLength={40} defaultValue={selectedClient.phone ?? ''} aria-label="Téléphone du client"/><button disabled={busy || current.status !== 'ACTIVE'}>{busy ? 'Enregistrement…' : 'Enregistrer le profil'}</button></form> : <p className="agency-note">Seuls le propriétaire et les administrateurs peuvent modifier ce profil.</p>}</aside>}</div> : <div className="agency-empty-inline">{loaded ? 'Aucun client correspondant. Ajoutez un client pour démarrer.' : 'Les clients seront affichés après chargement.'}</div>}
         <form className="agency-form" onSubmit={createClient}><h3>Ajouter un client</h3><input name="name" required minLength={2} maxLength={120} placeholder="Nom du client" aria-label="Nom du client"/><input name="email" type="email" maxLength={320} placeholder="E-mail (facultatif)" aria-label="E-mail du client"/><input name="phone" maxLength={40} placeholder="Téléphone (facultatif)" aria-label="Téléphone du client"/><button disabled={busy || current.status !== 'ACTIVE'}>{busy ? 'Enregistrement…' : 'Ajouter le client'}</button></form>
       </section>
 
       <section className="agency-section" id="events"><div className="agency-section-heading"><div><small>PRODUCTION</small><h2>{selectedClient ? `Événements · ${selectedClient.name}` : 'Événements'}</h2></div><span>{visibleEvents.length.toLocaleString('fr-FR')}</span></div>
-        {loaded && visibleEvents.length === 0 ? <p className="agency-empty-inline">{selectedClient ? 'Aucun événement associé à ce client n’est renvoyé par l’API actuelle.' : 'Aucun événement dans cette agence.'}</p> : visibleEvents.map((item) => <article className="agency-row" key={item.id}><div><strong><Link href={`/events/${encodeURIComponent(item.id)}`}>{item.name}</Link></strong><small>{eventTypeLabels[item.eventType] ?? item.eventType}{item.startAt ? ` · ${new Date(item.startAt).toLocaleDateString('fr-FR')}` : ''}</small></div><span>{eventStatusLabels[item.status] ?? item.status}</span></article>)}
+        {loaded && visibleEvents.length === 0 ? <p className="agency-empty-inline">{selectedClient ? 'Aucun événement associé à ce client.' : 'Aucun événement dans cette agence.'}</p> : visibleEvents.map((item) => <article className="agency-row" key={item.id}><div><strong><Link href={`/events?scope=agency&event=${encodeURIComponent(item.id)}#ceremony-${encodeURIComponent(item.id)}`}>{item.name}</Link></strong><small>{eventTypeLabels[item.eventType] ?? item.eventType}{item.startAt ? ` · ${new Date(item.startAt).toLocaleDateString('fr-FR')}` : ''}</small></div><span>{eventStatusLabels[item.status] ?? item.status}</span></article>)}
         {clients.length > 0 && <form className="agency-form agency-event-form" id="create-event" onSubmit={createEvent}><h3>Créer un événement client</h3><input name="name" required minLength={2} maxLength={120} placeholder="Nom de l’événement" aria-label="Nom de l’événement"/><select name="clientId" required value={selectedClientId} onChange={(event) => setSelectedClientId(event.target.value)}><option value="">Choisir le client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select><select name="eventType" defaultValue="WEDDING" aria-label="Type d’événement"><option value="WEDDING">Mariage</option><option value="BIRTHDAY">Anniversaire</option><option value="CONFERENCE">Conférence</option><option value="OTHER">Autre</option></select><input name="startAt" type="datetime-local" aria-label="Date et heure facultatives"/><small>La suite utilise le même espace Événements : cérémonies, invités, placement et invitations.</small><button disabled={busy || current.status !== 'ACTIVE'}>{busy ? 'Création…' : 'Créer l’événement'}</button></form>}
-        {createdEvent && <p className="agency-feedback">Dernier événement créé : <Link href={`/events/${encodeURIComponent(createdEvent.event.id)}`}>{createdEvent.event.name} · Ouvrir son espace</Link></p>}
+        {createdEvent && <p className="agency-feedback">Dernier événement créé : <Link href={`/events?scope=agency&event=${encodeURIComponent(createdEvent.event.id)}#ceremony-${encodeURIComponent(createdEvent.event.id)}`}>{createdEvent.event.name} · Ouvrir son espace</Link></p>}
         {clients.length === 0 && <p className="agency-empty-inline">Ajoutez d’abord un client depuis la section <a href="#clients">Clients</a> pour pouvoir créer un événement associé.</p>}
       </section>
 
@@ -158,7 +147,7 @@ export function AgencyWorkspace({ initialAgencies, plans }: { initialAgencies: A
       <section className="agency-section" id="subscription"><div className="agency-section-heading"><div><small>ABONNEMENT & FACTURATION</small><h2>Plans agence</h2></div><span>Tarifs publiés par Billing</span></div><p className="agency-note">Le plan ne devient actif qu’après confirmation serveur du paiement. Les montants ci-dessous sont des prix d’achat; ce ne sont pas des crédits Wallet.</p>
         {plans.length ? <div className="agency-plans">{plans.map((plan) => <article className={selectedPlanKey === plan.key ? 'agency-plan-selected' : ''} key={plan.id}><h3>{plan.name}</h3><strong>{formatMoney(plan.priceMinor, plan.currency)}{plan.periodDays ? ` / ${plan.periodDays} jours` : ''}</strong><p>{plan.credits.toLocaleString('fr-FR')} crédits inclus{plan.periodDays ? ` · ${plan.periodDays} jours` : ''}</p>{plan.checkInEvents > 0 && <p>{plan.checkInEvents} événement(s) avec pointage · {plan.checkInGuestCapacity.toLocaleString('fr-FR')} invités distincts par événement</p>}{current.plan?.planName === plan.name && <small>Plan renvoyé par l’abonnement : {subscriptionLabels[current.plan.status] ?? current.plan.status}</small>}<button disabled={busy || current.role !== 'OWNER' || current.status !== 'ACTIVE'} onClick={() => { setLegalAccepted(false); setSelectedPlanKey(plan.key); }}>{selectedPlanKey === plan.key ? 'Plan sélectionné' : 'Examiner le plan'}</button></article>)}</div> : <p className="agency-empty-inline">Aucun plan agence publié par Billing.</p>}
         {selectedPlanKey && (() => { const plan = plans.find((item) => item.key === selectedPlanKey); if (!plan) return null; return <div className="agency-checkout-explainer"><h3>Récapitulatif · {plan.name}</h3><dl><div><dt>Crédits inclus</dt><dd>{plan.credits.toLocaleString('fr-FR')} crédits</dd></div>{plan.checkInEvents > 0 && <><div><dt>Événements avec pointage</dt><dd>{plan.checkInEvents}</dd></div><div><dt>Capacité par événement</dt><dd>{plan.checkInGuestCapacity.toLocaleString('fr-FR')} invités distincts</dd></div></>}<div><dt>Prix publié</dt><dd>{formatMoney(plan.priceMinor, plan.currency)}</dd></div>{plan.periodDays ? <div><dt>Période</dt><dd>{plan.periodDays} jours</dd></div> : null}</dl><p>La souscription restera en attente tant que le serveur Payments n’aura pas confirmé la transaction.</p><p className="agency-legal-consent"><label><input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} />J’accepte les <Link href="/legal/cgv" target="_blank" rel="noreferrer">Conditions Générales de Vente</Link> et la <Link href="/legal/remboursements" target="_blank" rel="noreferrer">Politique de remboursement</Link>.</label></p><button disabled={busy || !legalAccepted} onClick={() => void startCheckout()}>{busy ? 'Préparation…' : 'Continuer vers le paiement'}</button><button className="agency-cancel-selection" type="button" disabled={busy} onClick={() => { setSelectedPlanKey(''); setLegalAccepted(false); }}>Retour aux plans</button></div>; })()}
-        <p className="agency-note">L’historique des factures/paiements et les paramètres agence ne sont pas exposés par les endpoints disponibles.</p>
+        <p className="agency-note">Le plan, la période, les quotas et les réservations affichés ci-dessus proviennent du catalogue Billing et de l’abonnement actif. Ils sont séparés du Wallet personnel.</p>
       </section>
     </>}
   </section>;

@@ -175,7 +175,7 @@ export class SeatingService {
     return this.writeEvent(
       'seating.plan.updated.v1',
       ceremonyId,
-      { eventId, ceremonyId, mode },
+      { eventId, ceremonyId, ownerSubject, mode },
       (tx) =>
         tx.seatingPlan.upsert({
           where: { ceremonyId },
@@ -248,6 +248,7 @@ export class SeatingService {
         (table) => ({
           eventId,
           ceremonyId,
+          ownerSubject,
           tableId: table.id,
           number: table.number,
           capacity: table.capacity,
@@ -292,7 +293,7 @@ export class SeatingService {
       return await this.writeEvent(
         'seating.table.updated.v1',
         ceremonyId,
-        { eventId, ceremonyId, tableId, changedFields: Object.keys(data) },
+        { eventId, ceremonyId, ownerSubject, tableId, changedFields: Object.keys(data) },
         async (tx) => {
           const locked = await tx.$queryRaw<
             Array<{ capacity: number }>
@@ -328,7 +329,7 @@ export class SeatingService {
     await this.writeEvent(
       'seating.table.deleted.v1',
       ceremonyId,
-      { eventId, ceremonyId, tableId },
+      { eventId, ceremonyId, ownerSubject, tableId },
       (tx) => tx.seatingTable.delete({ where: { id: tableId } }),
     );
     return { deleted: true };
@@ -398,7 +399,7 @@ export class SeatingService {
       return await this.writeEvent(
         'seating.zone.updated.v1',
         ceremonyId,
-        { eventId, ceremonyId, zoneId, changedFields: Object.keys(data) },
+        { eventId, ceremonyId, ownerSubject, zoneId, changedFields: Object.keys(data) },
         async (tx) => {
           const locked = await tx.$queryRaw<
             Array<{ capacity: number | null }>
@@ -435,7 +436,7 @@ export class SeatingService {
     await this.writeEvent(
       'seating.zone.deleted.v1',
       ceremonyId,
-      { eventId, ceremonyId, zoneId },
+      { eventId, ceremonyId, ownerSubject, zoneId },
       (tx) => tx.seatingZone.delete({ where: { id: zoneId } }),
     );
     return { deleted: true };
@@ -669,7 +670,7 @@ export class SeatingService {
             data: {
               eventType: 'seating.tables.imported.v1',
               aggregateId: ceremonyId,
-              payload: { eventId, ceremonyId, importId: jobId, importedCount: rows.length },
+              payload: { eventId, ceremonyId, ownerSubject, importId: jobId, importedCount: rows.length },
             },
           });
           return summary;
@@ -781,6 +782,7 @@ export class SeatingService {
             payload: {
               eventId,
               ceremonyId,
+              ownerSubject,
               guestId,
               tableId: tableId ?? null,
               zoneId: zoneId ?? null,
@@ -816,7 +818,7 @@ export class SeatingService {
     await this.writeEvent(
       'seating.assignment.removed.v1',
       guestId,
-      { eventId, ceremonyId, guestId },
+      { eventId, ceremonyId, ownerSubject, guestId },
       (tx) => tx.seatingAssignment.delete({ where: { id: existing.id } }),
     );
     return { deleted: true };
