@@ -174,16 +174,24 @@ export function DesignsWorkspace({ event, scope = 'personal' }: { event: Event; 
   const [backgroundJobs, setBackgroundJobs] = useState<Record<string, { status: 'NONE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; derivedAssetId?: string }>>({});
   const [imageUploading, setImageUploading] = useState(false);
   const [showSafeMargins, setShowSafeMargins] = useState(false);
+  const [versionConflict, setVersionConflict] = useState(false);
   const draft = useJourneyDraft('design-editor', { selected, savedDocument, savedName, personalizing, aiPrompt, previewCeremonyId, previewTableName, creationMode, generateImage, aiScope, aiJob }, saved => {
     setAiPrompt(typeof saved.aiPrompt === 'string' ? saved.aiPrompt : '');
     setCreationMode(saved.creationMode === 'AI' ? 'AI' : 'MANUAL');
     setGenerateImage(saved.generateImage === true); setAiScope(saved.aiScope === 'selection' ? 'selection' : 'all');
     const document = saved.selected?.document;
-    if (saved.selected && designs.some(design => design.id === saved.selected?.id) && document && Array.isArray(document.elements) && Array.isArray(document.variables) && Array.isArray(document.assets) && Array.isArray(document.layouts)) {
+    const currentDesign = saved.selected ? designs.find(design => design.id === saved.selected?.id) : undefined;
+    if (saved.selected && currentDesign?.version === saved.selected.version && document && Array.isArray(document.elements) && Array.isArray(document.variables) && Array.isArray(document.assets) && Array.isArray(document.layouts)) {
       setSelected(saved.selected); setSavedDocument(saved.savedDocument); setSavedName(saved.savedName);
       if (saved.aiJob && typeof saved.aiJob.id === 'string') setAiJob(saved.aiJob);
       setPersonalizing(saved.personalizing === true); setAiPrompt(typeof saved.aiPrompt === 'string' ? saved.aiPrompt : '');
       setPreviewCeremonyId(saved.previewCeremonyId); setPreviewTableName(saved.previewTableName);
+    } else if (saved.selected && currentDesign) {
+      // A draft is useful for navigation, but never authoritative for a
+      // versioned design. Restoring an older editor state would otherwise
+      // make the next save fail with a false "modified elsewhere" conflict.
+      setSelected(null); setSavedDocument(null); setSavedName(''); setAiJob(null);
+      setMessage('Une version plus récente de ce design existe. Rouvrez-le depuis vos créations pour continuer avec la dernière version.');
     }
   }, !loading && !busy);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -363,7 +371,7 @@ export function DesignsWorkspace({ event, scope = 'personal' }: { event: Event; 
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  const selectDesign = useCallback(async (design: Design) => {
+  const selectDesign = useCallback(async (design: Design): Promise<boolean> => {
     setBusy(true); setMessage('');
     try {
       const [full, versionResponse] = await Promise.all([
@@ -374,10 +382,12 @@ export function DesignsWorkspace({ event, scope = 'personal' }: { event: Event; 
       full.document = editableDocument(full.document) as Document;
       setPersonalizing(false); setAdvancedTools(false);
       setSelected(full); setSavedDocument(clone(full.document)); setSavedName(full.name); setVersions(versionResponse.items); setValidation(null);
+      setVersionConflict(false);
       setAiJob(null); setAiPrompt('');
       setActiveLayerId(full.document.elements.find((layer) => layer.type === 'TEXT' && layer.editable && !layer.locked)?.id ?? null);
       setHistory([]); setFuture([]); setMobileEditorPanel('canvas');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Ouverture impossible.'); }
+      return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Ouverture impossible.'); return false; }
     finally { setBusy(false); }
   }, [event.id]);
 
@@ -456,9 +466,20 @@ export function DesignsWorkspace({ event, scope = 'personal' }: { event: Event; 
       const result = await api<Design>(event.id, encodeURIComponent(selected.id), 'PUT', { name: selected.name, document: selected.document, expectedVersion: selected.version });
       setSelected(result); setSavedDocument(clone(result.document)); setSavedName(result.name); setDesigns((items) => [result, ...items.filter((item) => item.id !== result.id)]);
       setVersions((items) => [{ version: result.version, name: result.name, createdAt: result.updatedAt }, ...items.filter((item) => item.version !== result.version)]);
+      setVersionConflict(false);
       setMessage('Design enregistré, version ' + result.version + '.');
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Enregistrement impossible.'); }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'Enregistrement impossible.';
+      setVersionConflict(detail.includes('modifié ailleurs'));
+      setMessage(detail);
+    }
     finally { setBusy(false); }
+  }
+
+  async function reloadSelectedVersion() {
+    if (!selected || busy) return;
+    const reloaded = await selectDesign(selected);
+    if (reloaded) setMessage('La dernière version du design a été chargée. Vos modifications locales non enregistrées ont été écartées.');
   }
 
   async function continueToGuests() {
@@ -726,13 +747,13 @@ export function DesignsWorkspace({ event, scope = 'personal' }: { event: Event; 
     <header className="design-heading"><div><p className="eyebrow">ATELIER DE CRÉATION · {event.name}</p><h1>Composez votre<br /><em>invitation.</em></h1><p>Choisissez un modèle puis passez aux invités. Vous pouvez personnaliser les textes et les photos, maintenant ou plus tard.</p></div><Link className="design-back" href={`/events${scope === 'agency' ? '?scope=agency' : ''}`}>← {scope === 'agency' ? 'Événements clients' : 'Tous les événements'}</Link></header>
     {previewTemplate && <dialog className="template-preview-dialog" open aria-labelledby="template-preview-title" aria-modal="true" onCancel={() => setPreviewTemplate(null)}><div className="template-preview-card"><button type="button" className="template-preview-close" onClick={() => setPreviewTemplate(null)} aria-label="Fermer l’aperçu">×</button><span className="design-kicker">APERÇU DU STYLE · VERSION {previewTemplate.version}</span>{previewTemplate.tags.includes('PROFESSIONAL') && <ProfessionalTemplatePreview eventId={event.id} templateId={previewTemplate.id} snapshot={{ ...invitationDisplayFields(event), guest: { name: 'Invité — DEMO' }, qr: { available: false } }} />}<div className="template-preview-art" style={{ background: previewTemplate.preview.background, display: previewTemplate.tags.includes('PROFESSIONAL') ? 'none' : undefined }}><span className="poster-frame" style={{ borderColor: previewTemplate.preview.accent }}><span className="poster-ornament" style={{ color: previewTemplate.preview.accent }}>✳</span><span className="poster-rule" style={{ background: previewTemplate.preview.accent }} /><strong style={{ color: previewTemplate.preview.style === 'MIDNIGHT_BLUE' ? '#F7F0E4' : '#302D2A' }}>{previewTemplate.name}</strong><span className="poster-rule short" style={{ background: previewTemplate.preview.accent }} /><small style={{ color: previewTemplate.preview.accent }}>{previewTemplate.category === 'WEDDING' ? 'CÉLÉBRATION' : previewTemplate.category}</small></span></div><h2 id="template-preview-title">{previewTemplate.name}</h2><p>{previewTemplate.description}</p><p className="template-preview-meta">Illustration de style fondée sur les métadonnées du catalogue · {previewTemplate.style} · {previewTemplate.ceremonyTypes.join(', ')}</p><div className="template-tags">{previewTemplate.tags.map((tag) => <span key={tag}>{tag}</span>)}</div><div className="template-preview-actions"><button type="button" className="template-preview-action" onClick={() => setPreviewTemplate(null)}>Continuer à parcourir</button><button type="button" className="template-choose" disabled={busy} onClick={() => void createFromTemplate(previewTemplate)}>Choisir ce modèle <span>→</span></button></div></div></dialog>}
     {selected && <div id="design-continue" className="design-continuation"><button className="template-choose" disabled={busy || aiBusy || imageUploading} onClick={() => void continueToGuests()}>{busy ? 'Vérification…' : 'Utiliser ce design et ajouter mes invités →'}</button><button type="button" onClick={() => setPersonalizing(value => !value)}>{personalizing ? 'Voir l’aperçu simple' : 'Personnaliser (facultatif)'}</button><p>Votre choix et sa version sont enregistrés avant de continuer. Aucun crédit d’invitation n’est consommé.</p></div>}
-    {message && <p className="design-status" role="status">{message}</p>}
+    {message && <p className="design-status" role="status">{message}{versionConflict && selected && <> <button type="button" disabled={busy} onClick={() => void reloadSelectedVersion()}>Recharger la dernière version</button></>}</p>}
     {resolvedPreview && (resolvedPreview.errors.length > 0 || resolvedPreview.warnings.length > 0) && <div className="design-status" role="status"><strong>Vérification du format d’impression</strong>{resolvedPreview.errors.map((issue, index) => <p key={`error-${index}`}>Erreur · {issue.elementId} : {issue.message}</p>)}{resolvedPreview.warnings.map((issue, index) => <p key={`warning-${index}`}>Attention · {issue.elementId} : {issue.message}</p>)}</div>}
     {selected && personalizing && Boolean(selected.document.metadata['referenceId']) && <section className="design-reference-fields"><h2>Vos textes</h2><p>Les noms, dates et lieux viennent de l’événement et des invités. <Link href={`/events/${event.id}${scope === 'agency' ? '?scope=agency' : ''}`}>Modifier les informations de l’événement</Link></p>{selected.document.variables.filter(variable => ['closingText', 'referenceContact'].includes(variable.key)).map(variable => <label key={variable.key}>{variable.label}<textarea value={variable.defaultValue} maxLength={500} onChange={change => editDocument(document => { document.variables.find(item => item.key === variable.key)!.defaultValue = change.target.value; })} /></label>)}</section>}
     {selected && personalizing && ((selected.document.metadata['editorialFields'] ?? []) as { elementId: string }[]).map(field => {
       const layer = resolvedPreview?.elements.find(entry => entry['id'] === field.elementId);
       const override = (selected.document.metadata['editorialOverrides'] as Record<string, { selectedText?: string }> | undefined)?.[field.elementId];
-      return <EditorialAssist key={selected.id + ':' + selected.version + ':' + field.elementId} eventId={event.id} designId={selected.id} sourceVersion={selected.version} elementId={field.elementId} sourceText={String(layer?.['resolvedText'] ?? override?.selectedText ?? event.invitationText ?? '')} dirty={dirty} onAccepted={() => selectDesign(selected)} onTemplate={() => { if (dirty && !window.confirm('Quitter sans enregistrer ?')) return; setSelected(null); setSavedDocument(null); }} />;
+      return <EditorialAssist key={selected.id + ':' + selected.version + ':' + field.elementId} eventId={event.id} designId={selected.id} sourceVersion={selected.version} elementId={field.elementId} sourceText={String(layer?.['resolvedText'] ?? override?.selectedText ?? event.invitationText ?? '')} dirty={dirty} onAccepted={async () => { await selectDesign(selected); }} onTemplate={() => { if (dirty && !window.confirm('Quitter sans enregistrer ?')) return; setSelected(null); setSavedDocument(null); }} />;
     })}
     {loading ? <section className="design-state"><p>Chargement de la bibliothèque enregistrée…</p></section> : <>
       {!selected ? <div className="design-catalog-layout"><section className="design-catalog" id="design-catalog" data-creation-mode={creationMode}>
